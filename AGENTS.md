@@ -32,9 +32,9 @@ Prefer open-source components; the current stack is:
 
 Do not build a custom VRML/X3D renderer under any circumstances — X_ITE is the approved engine for that.
 
-### Future direction: embedded preview
+### Embedded preview status
 
-An embedded X_ITE preview is **approved for a future scoped phase** (see roadmap Phase 5) — this is no longer a permanent prohibition. When that phase happens: integrate X_ITE as the rendering engine (it is already maintained and used via the VSCodium extension), do not build a custom VRML/X3D renderer, and keep VSCodium available as an advanced "Open in Editor" action rather than removing it. Do not begin that work without a dedicated planning/approval pass — it is not in scope for incremental lanes unless explicitly requested.
+An embedded X_ITE preview now ships for the **Mall Item** lane (Phase 2B1): `x_ite` (MIT, v15.1.10) is a root dependency loaded locally (never a CDN), integrated per the isolation discipline below. VSCodium remains the editor ("Open in VSCodium" is still available, and the item still auto-opens there on load) — the embedded preview did not replace it. The broader **Phase 5** embedded preview (World Project + Generic VRML97 contexts) is still a separate future phase and still requires its own dedicated planning/approval pass; the Mall Item integration does not license opportunistic X_ITE integration into other lanes. Do not build a custom VRML/X3D renderer under any circumstances — X_ITE is the approved engine.
 
 A narrowly-scoped **technical spike** at `spikes/xite-mall-fit/` (Phase 2A) is a deliberate exception to "don't begin that work without approval" — it was explicitly commissioned to de-risk Phase 5/2B by proving out X_ITE's bounding-box behavior and a preview-only fit calculation, in complete isolation from the production app (its own Electron main process, no shared IPC surface, no production code path touches it). It does **not** constitute the "dedicated planning/approval pass" Phase 5 itself still requires, and does not license further opportunistic X_ITE integration into `main.js`/`renderer/` outside of an explicitly approved lane.
 
@@ -85,8 +85,10 @@ Do not copy Mall Item validation rules into World Project or Generic VRML97 code
   - `mall:repack` — backup the existing mall file (`<name>.wrl.bak-<timestamp>`), then write the edited text back, gzip by default.
   - `loadWindowState()` / `saveWindowState()` — window position/size persistence, with a fallback that reads the pre-rename `vrmlpad` userData directory if the new `wrl-forge` one has no saved state yet (see "Rename note" below).
   - The `mall:*` IPC channel names and the `window.vrmlpad` bridge object name are retained from the pre-rename codebase. They are internal symbols, not user-facing branding — do not rename them purely for cosmetic consistency; only rename when a real World Project / Generic VRML97 IPC surface is added alongside them.
-- `preload.js` — contextBridge, exposes `window.vrmlpad.{openMall, openMallPath, check, repack, revealInFolder}` to the renderer. Keep `contextIsolation: true` / `nodeIntegration: false`; add new capabilities as new IPC handlers, not by relaxing this. This constraint applies to any future embedded X_ITE preview too — isolate it from privileged Electron APIs.
-- `renderer/` — plain HTML/CSS/JS status panel (no framework, no bundler), currently the Mall Item lane's UI. Additional profiles (World Project, Generic VRML97) should get their own clearly-labeled views/panels rather than overloading this one, when that work begins.
+- `preload.js` — contextBridge, exposes `window.vrmlpad.{openMall, openMallPath, check, repack, revealInFolder, loadPreview, openInEditor}` to the renderer. Keep `contextIsolation: true` / `nodeIntegration: false`; add new capabilities as new IPC handlers, not by relaxing this. This constraint applies to the embedded X_ITE preview too — it is isolated from privileged Electron APIs.
+- `src/preview/` — shared preview/fit modules (Phase 2B1), single source of truth reused by both the production app and the isolated spike (no duplicate implementations): `fit-math.js`, `extrusion-bounds.js`, `bbox-traversal.js` (browser-only), `guides.js`, `texture-base.js`, `wrl-source.js` (main-process), `url-policy.js`. Pure/browser modules keep no Electron/fs dependency so they are `node:test`-able; only `wrl-source.js` touches the filesystem and runs in the main process. See `docs/PREVIEW_ARCHITECTURE.md`.
+- `main.js` preview surface (Phase 2B1) — a **read-only** `preview:load` IPC (role `'source'`/`'edit'`, never a renderer-supplied path; gzip decompressed in main so X_ITE only sees plain text), an `mall:openInEditor` re-launch action, and a `session.webRequest` network guard that cancels every remote request (`url-policy.isBlockedPreviewUrl`). There is **no** write-capable preview channel.
+- `renderer/` — plain HTML/CSS/JS (no framework, no bundler), currently the Mall Item lane's UI. `renderer.js` owns the file/validation panel; `renderer/preview.js` owns the embedded X_ITE preview (Original/Cybertown Fit modes, guide toggles, refresh) and the fit report. `index.html` carries a strict CSP (no remote origin). The Fit mode transform and guides are **preview-only** — never written to any file. Additional profiles (World Project, Generic VRML97) should get their own clearly-labeled views/panels rather than overloading this one, when that work begins.
 - `validator.js` — pure function `validate(text) -> { results, ok, gzipBytes, rawBytes }`. No filesystem access. Mirrors the Mall Item rules in `../new-items/CLAUDE.md` and `../new-items/README.md`, generically rather than the hardcoded per-item logic in files like `../new-items/vette-blue/corvette-study/validate.py`. If the mall rules change, update both this file and the new-items docs together — they must not drift. **This file is Mall Item-specific**; a future World Project validator is a separate module, not an extension of this one.
 
 ### Rename note (vrmlpad → WRL Forge)
@@ -106,10 +108,10 @@ Do not copy Mall Item validation rules into World Project or Generic VRML97 code
 ## Workflow (Mall Item lane)
 
 1. `npm start` (== `electron .`) launches the panel.
-2. "Open mall .wrl…" → picks a file, writes `.edit.wrl`, launches VSCodium.
-3. Edit in VSCodium; use `Ctrl+Shift+P` → `X3D: Preview 3D Model` for a live view.
-4. WRL Forge re-validates automatically every few seconds; check the panel before repacking.
-5. "Repack & Save to mall .wrl" backs up and writes the gzip mall file.
+2. "Open mall .wrl…" → picks a file, writes `.edit.wrl`, launches VSCodium, and loads the item into the embedded preview.
+3. Edit in VSCodium (or click "Open in VSCodium"); the embedded preview shows **Original** and **Cybertown Fit** modes with transform-aware bounds and placement guides. Click "Refresh Preview" after external edits.
+4. WRL Forge re-validates automatically every few seconds; check the panel and fit report before repacking. The Fit preview is **display-only** — it never rewrites your file (Apply/Bake is not implemented).
+5. "Repack & Save to mall .wrl" backs up and writes the gzip mall file — the actual `.edit.wrl` text, never a preview-fitted transform.
 
 ## Known gotchas (found during build/verification)
 

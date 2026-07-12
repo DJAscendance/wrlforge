@@ -40,6 +40,8 @@ Derived from `app.getPath('userData')`, which Electron bases on `package.json`'s
 
 `validator.js`'s "no external URLs / nested paths" check (rule 5) already rejects any `url` field value containing `http://`, `https://`, `/`, or `\` — meaning a Windows-style backslash path in a texture URL is already caught as non-compliant by the existing rule, without any platform-specific change needed. Verified compatible as-is.
 
+**Embedded preview (Phase 2B1):** the X_ITE preview's remote-URL blocking uses `session.webRequest.onBeforeRequest` (`url-policy.isBlockedPreviewUrl`) plus a strict CSP — both are Electron-level, platform-independent controls. Local texture resolution uses the source directory as a `file://` `baseURL` built with `path`/percent-encoding (portable). The one platform-observable behavior is texture-filename **case** matching (see "Case sensitivity" above): case-mismatched textures fail on Linux (case-sensitive) and would load silently on a case-insensitive Windows/macOS dev machine — an argument for authoring/testing on Linux. Screenshots are captured via Electron's `webContents.capturePage()` (no external screenshot tool), which is portable.
+
 ## File-dialog behavior
 
 The GTK file-open dialog's `Ctrl+L` + typed-path unreliability documented in `AGENTS.md` "Known gotchas" is Linux/GTK-specific — Windows' native common file dialog doesn't share this quirk. Documented as a known gotcha, explicitly not in scope to fix in this lane.
@@ -53,7 +55,8 @@ Not implemented in this lane. A future Windows packaging pass will need `electro
 | Coverage | Linux | Windows |
 |---|---|---|
 | `npm test` (`node:test` suite: validator, vrml-file, backups, window-state) | ✅ verified this lane | Not yet run — pure `path`-based logic, expected to be portable, not independently confirmed |
-| Electron smoke test | ✅ verified this lane (real Electron launch, title/bridge/security-flag assertions) | Not yet run |
+| Electron smoke test | ✅ verified (real Electron launch; title/bridge/security-flags + preview-canvas/X_ITE/mode-controls/CSP assertions) | Not yet run |
+| Embedded preview (Phase 2B1: `src/preview/*`, `renderer/preview.js`) | ✅ verified on Linux (78-test suite incl. 5 Electron preview tests: DEF/USE, Extrusion, gzip, remote-URL block, missing texture; 16 real-app screenshots) | Not yet run; `x_ite` ships no native binaries and the security controls (`webRequest`, CSP) are Electron-level, so no structural blocker is known. VSCodium `codium` launch gap still applies |
 | X_ITE spike (`spikes/xite-mall-fit/`) | ✅ verified this lane against 4 real fixtures | Not yet run; `x_ite` itself ships no native/platform-specific binaries, so no structural blocker is known |
 | X_ITE spike Phase 2B0 (extrusion sweep, gzip loading, relative textures) | ✅ verified on Linux (26 spike node:tests; extrusion bounds EXACT vs X_ITE mesh oracle; gzip + texture base-URL end-to-end; case-mismatch surfaced) | Not yet run; logic is `path`-portable and `zlib`/`isGzip` are cross-platform. Case-*mismatch* detection is platform-observable (see Case sensitivity) |
 | VSCodium launch (`spawn('codium', ...)`) | ✅ working | Known gap — executable name differs, not yet handled |

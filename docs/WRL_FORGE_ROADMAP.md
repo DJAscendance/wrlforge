@@ -81,25 +81,46 @@ isolated spike — no production app code changed.
 accuracy, local texture resolution, gzip-to-X_ITE), so **Phase 2B is now
 unblocked** pending its own approved lane.
 
-## Phase 2B — Mall Item Fit Production UI ⏳
+## Phase 2B — Mall Item Fit Production UI ✅
 
-- Embedded X_ITE preview *inside the production app* — this is the first point X_ITE enters `main.js`/`renderer/`, gated on Phase 2A's findings (see also Phase 5, which this phase is a scoped subset of for the Mall Item profile specifically)
-- Original vs. fitted display (toggle or side-by-side)
-- Cybertown guide overlays (ground plane, center axis, Z-limit plane, 10m cage), reusing Phase 2A's guide-layer approach
-- Live bounds report using Phase 2A's fit-math module
-- Preview-only transform display — proposing a fit is not the same as applying one
-- **No silent mutation** — any future "apply" action is a separate, explicitly designed and approved feature, not implied by this phase
+Delivered as **Phase 2B1** (the production integration lane; Phase 2B0 above was
+the preceding remediation). The proven spike modules were promoted to
+`src/preview/` (single source of truth — the spike now references them, no
+duplicate implementations), `x_ite` (MIT, v15.1.10) was added to the root
+dependencies, and an embedded X_ITE preview was wired into the Mall Item
+workspace. This is the first point X_ITE enters `main.js`/`renderer/`.
 
-**Prerequisites:** Phase 2A complete and reviewed; Phase 2A's open items addressed — Extrusion accuracy, local texture resolution, and gzip-to-X_ITE loading are all resolved in **Phase 2B0** (above). DEF/USE fixture coverage remains a lower-priority open item (correct by construction; QA verified it in their clone, no fixture landed in this repo).
+- Embedded X_ITE preview *inside the production app*, loaded via a read-only
+  main-process channel (`preview:load`, role-based, gzip decompressed in main;
+  X_ITE only ever receives plain text).
+- **Original** vs. **Cybertown Fit** modes. Fit mode applies a **preview-only**
+  parent `Transform` (scale+offset from the authoritative bounds) plus the
+  non-exported guide overlay — never written to any file.
+- Cybertown guide overlays (ground plane, center axis, Z-limit plane, 10m cage,
+  optional item box) with per-guide toggles, reusing the Phase 2A guide layer.
+- Live bounds/scale/offset/rule report from the shared `fit-math` module, driven
+  by the transform-aware X_ITE bounds (`bbox-traversal`); honest confidence
+  (exact | conservative | unavailable).
+- The validator's advisory untransformed placement line is **suppressed** when
+  authoritative bounds are present, so placement verdicts never conflict.
+- Layered texture/URL security: read-only path-free IPC, `safeResolve`
+  confinement, `session.webRequest` remote-request cancellation, strict CSP,
+  `contextIsolation`/`nodeIntegration` unchanged. Remote URLs are blocked and
+  tested; path traversal is blocked and tested.
+- A permanent in-repository DEF/USE fixture (`test/fixtures/preview/def-use.wrl`)
+  plus an Electron preview test that verifies both occurrences are counted.
 
-**Risks:**
-- This is the first production integration of X_ITE — carries the same privilege-isolation risk called out in Phase 5 below, scoped narrowly to the Mall Item profile.
-- Placement math must account for `Transform` translation/scale chains, which the current advisory check in `validator.js` explicitly does not do — Phase 2A's fit-math module addresses this, but the production UI must actually use it rather than falling back to the old advisory check.
+**Prerequisites:** met — Phase 2A reviewed; Phase 2B0 resolved Extrusion
+accuracy, local texture resolution, and gzip-to-X_ITE loading.
 
-**Completion criteria:**
-- Placement report shows both raw local bounds and the transform-aware mall-space bounds estimate
-- No geometry is ever mutated without an explicit, separate user action
-- Security review confirms the embedded preview surface has no more Electron privilege than it needs (same discipline as Phase 5)
+**Completion criteria:** met. Evidence:
+`qa/phase-2b1-production-fit/RESULTS.md`, `docs/PREVIEW_ARCHITECTURE.md`, and the
+78-test suite (incl. Electron smoke + preview tests). No geometry is mutated;
+the fit is preview-only. Apply/Bake Transform remains **not** implemented
+(deferred; requires a separate approved lane).
+
+**Explicitly not implemented in this lane:** Apply Transform, Bake Transform,
+coordinate rewriting, wrapper insertion, automatic fitted-file saving.
 
 ## Phase 3 — World Project Recon ⏳
 
