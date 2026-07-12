@@ -1,0 +1,81 @@
+{
+  "when": null,
+  "platform": "win32",
+  "node": "24.15.0",
+  "electron": "41.7.1",
+  "discovered": {
+    "found": true,
+    "source": "install-location",
+    "command": "C:\\Users\\ryan\\AppData\\Local\\Programs\\VSCodium\\VSCodium.exe",
+    "shell": false
+  },
+  "passed": 13,
+  "total": 13,
+  "results": [
+    {
+      "name": "discovery: VSCodium found automatically",
+      "pass": true,
+      "detail": "found=true source=install-location command=C:\\Users\\ryan\\AppData\\Local\\Programs\\VSCodium\\VSCodium.exe shell=false"
+    },
+    {
+      "name": "plain: .edit.wrl produced (plain text)",
+      "pass": true,
+      "detail": "editFile=C:\\Users\\ryan\\AppData\\Local\\Temp\\wrl6b1-sb6ICf\\a b — wörld dir\\plain item.edit.wrl"
+    },
+    {
+      "name": "gzip: decompressed .edit.wrl produced (plain text, not gzip)",
+      "pass": true,
+      "detail": "editFile=C:\\Users\\ryan\\AppData\\Local\\Temp\\wrl6b1-sb6ICf\\a b — wörld dir\\gzip ítem.edit.wrl wasGzipped=true"
+    },
+    {
+      "name": "path: contains a space",
+      "pass": true,
+      "detail": "C:\\Users\\ryan\\AppData\\Local\\Temp\\wrl6b1-sb6ICf\\a b — wörld dir\\plain item.edit.wrl"
+    },
+    {
+      "name": "path: contains a non-ASCII character",
+      "pass": true,
+      "detail": "C:\\Users\\ryan\\AppData\\Local\\Temp\\wrl6b1-sb6ICf\\a b — wörld dir\\gzip ítem.edit.wrl"
+    },
+    {
+      "name": "override: settings.json editorCommand honored",
+      "pass": true,
+      "detail": "loaded=C:\\Users\\ryan\\AppData\\Local\\Programs\\VSCodium\\VSCodium.exe source=override command=C:\\Users\\ryan\\AppData\\Local\\Programs\\VSCodium\\VSCodium.exe"
+    },
+    {
+      "name": "override: WRL_FORGE_EDITOR env honored",
+      "pass": true,
+      "detail": "source=override command=C:\\Users\\ryan\\AppData\\Local\\Programs\\VSCodium\\VSCodium.exe"
+    },
+    {
+      "name": "override: invalid override falls back (not honored as-is)",
+      "pass": true,
+      "detail": "found=true source=install-location command=C:\\Users\\ryan\\AppData\\Local\\Programs\\VSCodium\\VSCodium.exe hint=no"
+    },
+    {
+      "name": "spawn: Open-in-Editor launched VSCodium (real process)",
+      "pass": true,
+      "detail": "spec.shell=false spawnErr=none newPids=6296"
+    },
+    {
+      "name": "spawn: no duplicate-launch loop (single editor instance)",
+      "pass": true,
+      "detail": "newProcessCount=1"
+    },
+    {
+      "name": "lifecycle: launched editor closed cleanly (no survivors)",
+      "pass": true,
+      "detail": "launchedPids=6296 survivors=none remainingEditorProcs=0"
+    },
+    {
+      "name": "non-mutation: repo source fixtures unchanged",
+      "pass": true,
+      "detail": "plain ok, gzip ok"
+    },
+    {
+      "name": "non-mutation: opened source copies unchanged (only .edit.wrl added)",
+      "pass": true,
+      "detail": "plainCopy ok, gzipCopy ok"
+    }
+  ]
+}

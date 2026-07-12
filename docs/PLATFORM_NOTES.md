@@ -154,10 +154,16 @@ No product code changed (hardening + validation only). Evidence:
   timestamping, CI, secrets) is documented in `docs/SIGNING_READINESS.md`; **no
   certificate is used**, and **SmartScreen warnings are not claimed to be
   eliminated**.
-- **Not driven live this lane (documented limitation):** a real **VSCodium**
-  "Open in Editor" launch — VSCodium was not installed in the VM, so only the clear
-  **not-found** message was exercised in the GUI (a live launch is covered by the
-  cross-platform unit tests + the 37/37 self-test, not a live Windows run).
+- **VSCodium live launch — verified (Phase 6B1 closeout):** VSCodium
+  **1.126.04524 (x64)** was installed in the VM and the real editor path was driven
+  end-to-end, **13/13** (`qa/phase-6b1-vscodium/RESULTS.md`): automatic
+  install-location discovery, plain **and** gzip `.wrl` → `.edit.wrl`, a genuine
+  `buildLaunch`+`spawn` of VSCodium on an `.edit.wrl` whose path contains a **space
+  and a non-ASCII character**, `editorCommand` **and** `WRL_FORGE_EDITOR` overrides
+  honored, an invalid override falling back to discovery, a **single** editor
+  instance (no launch loop), a clean exit (no survivors), and unmutated source
+  fixtures. A live VSCodium window open on the `.edit.wrl` is captured in
+  `qa/phase-6b1-vscodium/screenshots/`.
 
 ### Editor override behavior (an explicit, documented choice)
 
@@ -179,7 +185,7 @@ Windows column verified on Windows 11 (x64) under WinBoat/dockur-KVM, Electron
 |---|---|---|
 | `npm test` (`node:test` suite: validator, vrml-file, backups, window-state) | ✅ verified this lane | ✅ core logic verified on Windows via the packaged-runtime self-test (31/31): paths, gzip, scan, case, bundle, window-state |
 | Electron smoke test | ✅ verified (real Electron launch; title/bridge/security-flags + preview-canvas/X_ITE/mode-controls/CSP assertions) | ✅ app launches (Mall + World lanes, correct branding, clean exit) — screenshots in `qa/phase-6a-windows/` |
-| Cross-platform editor discovery (`src/editor/editor-locator.js`) | ✅ Linux `codium`/`code` on PATH | ✅ Windows install-location search + not-found message (VSCodium absent in VM → hint path exercised); unit-tested for both platforms via injected env |
+| Cross-platform editor discovery (`src/editor/editor-locator.js`) | ✅ Linux `codium`/`code` on PATH | ✅ **Phase 6B1: real VSCodium 1.126.04524 auto-discovered at install-location** (+ not-found path from 6B); unit-tested for both platforms via injected env |
 | Case-mismatch on case-INSENSITIVE fs (`asset-graph.js`) | ✅ (case-sensitive, real) | ✅ flagged on real NTFS despite `existsSync` returning true; explicit code-based test `test/world-project/case-cross-platform.test.js` |
 | Review Bundle ZIP creation + integrity | ✅ (unzip -t + hash match) | ✅ written on Windows; hashes match manifest; in-project/overwrite refusals |
 | Windows portable/NSIS build (electron-builder) | build host | ✅ portable + installer produced (unsigned); portable launches |
@@ -187,7 +193,7 @@ Windows column verified on Windows 11 (x64) under WinBoat/dockur-KVM, Electron
 | World preview (Phase 4B: `src/world-project/preview-source.js`, `renderer/world-preview.js`, `wrlworld://` handler) | ✅ verified on Linux (21 preview-source unit tests; opt-in Electron world-preview test; one `VisualQaRunner` run of all 10 states — one launch, graceful exit, no leak) | ✅ **Phase 6B: X_ITE World preview renders on real Windows 11** (nested + gzip deps resolved via `wrlworld://`, 3 local assets loaded, viewpoints + navigation) — `qa/phase-6b-windows/screenshots/05` |
 | X_ITE spike (`spikes/xite-mall-fit/`) | ✅ verified this lane against 4 real fixtures | Not yet run; `x_ite` itself ships no native/platform-specific binaries, so no structural blocker is known |
 | X_ITE spike Phase 2B0 (extrusion sweep, gzip loading, relative textures) | ✅ verified on Linux (26 spike node:tests; extrusion bounds EXACT vs X_ITE mesh oracle; gzip + texture base-URL end-to-end; case-mismatch surfaced) | Not yet run; logic is `path`-portable and `zlib`/`isGzip` are cross-platform. Case-*mismatch* detection is platform-observable (see Case sensitivity) |
-| Editor launch (`editor-locator` + `launchEditor`) | ✅ `codium`/`code` on PATH | ✅ discovery + clear not-found message verified (VSCodium not installed in the test VM, so a successful *launch* is unverified) |
+| Editor launch (`editor-locator` + `launchEditor`) | ✅ `codium`/`code` on PATH | ✅ **Phase 6B1: real VSCodium launch verified on Windows 11 (13/13)** — production `buildLaunch`+`spawn` opens a space/non-ASCII `.edit.wrl`, both overrides honored, invalid-override fallback, single instance, clean exit, sources unmutated — `qa/phase-6b1-vscodium/RESULTS.md` |
 | Desktop launcher / installer shortcut | ✅ `.desktop` working | ✅ NSIS installer creates Start-menu/desktop shortcuts |
 
 ## Known Windows limitations (current, as of Phase 6B beta)
@@ -195,10 +201,6 @@ Windows column verified on Windows 11 (x64) under WinBoat/dockur-KVM, Electron
 - **Unsigned**: SmartScreen unknown-publisher warning on first run (expected;
   **not** eliminated — see `docs/SIGNING_READINESS.md`). Artifacts labelled
   **Private Beta — Unsigned**.
-- **Live VSCodium launch not verified on Windows**: VSCodium was not installed in
-  the test VM, so only the clear **not-found** path ran in the GUI (a real launch
-  is covered by the cross-platform unit tests + the 37/37 self-test, not a live
-  Windows run). This is the one remaining CONDITIONAL-GO item.
 - **x64 only**: no **Windows ARM64** build; no macOS build.
 - **Review Bundle is not upload-ready**: labelled "Not Confirmed for Direct
   Cybertown Upload"; **CTR upload compatibility is unconfirmed**
@@ -211,3 +213,10 @@ flows and the live **X_ITE Mall + World preview render** are now verified on rea
 Windows 11 via the focused GUI pass (`qa/phase-6b-windows/`), and NSIS
 install/Start-menu-launch/uninstall + window-state persistence were driven
 end-to-end.
+
+**Resolved in Phase 6B1** (was the one remaining 6B CONDITIONAL-GO item): the
+**live VSCodium "Open in Editor" launch** is now verified on real Windows 11 —
+VSCodium 1.126.04524 installed, auto-discovered, and launched via the production
+spawn path on a space/non-ASCII `.edit.wrl`, with both overrides, invalid-override
+fallback, single-instance, clean-exit, and non-mutation all confirmed (13/13,
+`qa/phase-6b1-vscodium/RESULTS.md`).

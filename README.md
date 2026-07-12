@@ -40,8 +40,12 @@ real GUI workflows were driven end-to-end on Windows 11: native file/folder
 dialogs, the **X_ITE Mall + World preview render**, `.edit.wrl` generation, Package
 Audit + Review Bundle (ZIP hashes verified), NSIS install → Start-menu launch →
 uninstall, and window-state persistence — plus a committed **37/37** packaged-
-runtime self-test. See `docs/PLATFORM_NOTES.md` for the platform-sensitive behavior
-and test matrix, `qa/phase-6b-windows/RESULTS.md` for the beta evidence, and
+runtime self-test. The **VSCodium "Open in Editor" launch is verified on Windows 11**
+(Phase 6B1): real VSCodium auto-discovered and launched on a space/non-ASCII
+`.edit.wrl`, both overrides + invalid-override fallback, single instance, clean
+exit, sources unmutated (13/13, `qa/phase-6b1-vscodium/RESULTS.md`). See
+`docs/PLATFORM_NOTES.md` for the platform-sensitive behavior and test matrix,
+`qa/phase-6b-windows/RESULTS.md` for the beta evidence, and
 `docs/BETA_RELEASE_NOTES.md` for install/testing instructions.
 
 ### Windows beta build (private, unsigned)

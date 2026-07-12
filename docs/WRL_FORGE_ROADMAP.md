@@ -361,11 +361,34 @@ Windows 11. **No new product features** — hardening + validation only. See
   preview/World-packaging visual regressions (20 pass) run **serially through the
   sanctioned harness**, no leaks (launch-storm guardrail preserved).
 
-**Verdict:** **CONDITIONAL GO** for a limited private Windows beta. Conditions: a
-live VSCodium "Open in Editor" run (VSCodium was not installed in the VM — the
-clear not-found path was verified instead); artifacts stay **Unsigned** (no
-SmartScreen-elimination claim); the Review Bundle is **not** confirmed for direct
-Cybertown upload.
+**Verdict (Phase 6B):** **CONDITIONAL GO** for a limited private Windows beta,
+gated on one live check — a live VSCodium "Open in Editor" run (VSCodium was not
+installed in the VM at 6B; the clear not-found path was verified instead) — plus
+the standing scope facts that artifacts stay **Unsigned** (no SmartScreen-
+elimination claim) and the Review Bundle is **not** confirmed for direct Cybertown
+upload.
+
+### Phase 6B1 — VSCodium live-launch closeout ✅
+
+Closed the one remaining Phase 6B condition. VSCodium **1.126.04524 (x64)** was
+installed in the WinBoat Windows 11 VM via its official user-setup installer and
+the **production editor path was driven end-to-end, 13/13**
+(`qa/phase-6b1-vscodium/RESULTS.md` + `win-editor-verify.js` under the packaged
+Electron-as-node): automatic install-location **discovery**; plain **and** gzip
+`.wrl` → `.edit.wrl`; a genuine `buildLaunch`+`spawn` of VSCodium on an `.edit.wrl`
+whose path has a **space and a non-ASCII character**; `editorCommand` **and**
+`WRL_FORGE_EDITOR` overrides honored; **invalid override falls back** to discovery;
+**single** editor instance (no launch loop); **clean exit** (no survivors); and
+**source fixtures unmutated**. A live VSCodium window open on the `.edit.wrl` is
+captured in `qa/phase-6b1-vscodium/screenshots/`. No product code changed — this is
+verification + docs only. Linux stayed green (`npm test` / `npm run check`).
+
+**Verdict (Phase 6B1):** **GO** for limited private Windows beta distribution. The
+last live condition is closed; the only remaining items are the deliberate,
+documented scope constraints of a private beta — artifacts remain **Unsigned**
+(SmartScreen warning expected, **not** eliminated), **x64 only** (no Windows
+ARM64), and the Review Bundle is **not** confirmed for direct Cybertown (CTR)
+upload. Public release, signing, direct upload, and auto-update remain out of scope.
 
 **Explicitly not implemented** (unchanged exclusions): direct upload, auth,
 upload-ready CTR packaging, auto-update, code signing (only readiness documented),
