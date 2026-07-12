@@ -147,6 +147,7 @@ function applyScan(payload) {
   renderFilters();
   renderTable();
   renderTree(payload);
+  if (window.wrlWorldPackaging) window.wrlWorldPackaging.setEnabled(!!payload.primary);
   setStatus(`Scanned ${payload.summary.totalWrlFiles} WRL file(s), ${payload.summary.totalReferences} reference(s).`);
 }
 
@@ -324,6 +325,7 @@ function resetWorld() {
   els.refreshBtn.disabled = true;
   els.revealBtn.disabled = true;
   els.editorBtn.disabled = true;
+  if (window.wrlWorldPackaging) window.wrlWorldPackaging.setEnabled(false);
   setStatus('No project open.');
 }
 

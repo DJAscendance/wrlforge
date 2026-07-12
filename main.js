@@ -19,6 +19,8 @@ const {
   buildPreviewPayload,
   resolveWorldRequest,
 } = require('./src/world-project/preview-source');
+const { buildPackagePlan, buildManifest } = require('./src/world-project/package-plan');
+const { writeReviewBundle } = require('./src/world-project/bundle-builder');
 
 // The World Project preview scheme (Phase 4B) is a privileged, standard, LOCAL
 // scheme. This MUST run before app 'ready'. It does NOT bypass CSP -- world.html
@@ -282,6 +284,43 @@ function createWindow() {
               `(async () => JSON.stringify(await window.__wrlForgeWorldPreview(${opts})))()`
             );
             payload.preview = JSON.parse(dbg);
+          }
+          // Drive the read-only PACKAGE AUDIT display (Phase 5A).
+          if (job.packageAudit || job.buildBundle) {
+            const plan = buildPackagePlan(scan);
+            const audit = {
+              ok: plan.ok, status: plan.status, projectName: plan.projectName,
+              primaryRel: plan.primaryRel, totals: plan.totals, blocking: plan.blocking,
+              findings: plan.findings, unusedFiles: plan.unusedFiles, files: plan.files,
+              manifest: buildManifest(plan), label: plan.label, disclaimer: plan.disclaimer,
+            };
+            await win.webContents.executeJavaScript(
+              `window.__wrlForgeApplyPackageAudit(${JSON.stringify(audit)});` +
+              `(document.getElementById('pkgStatusBadge')||{}).scrollIntoView&&document.getElementById('pkgStatusBadge').scrollIntoView({block:'start'});`
+            );
+            payload.packageAudit = { status: plan.status, totals: plan.totals,
+              blocking: plan.blocking.map((b) => b.code), unused: plan.unusedFiles.length };
+            // QA-only bundle build: writes ONLY under the OS temp dir (never a
+            // real destination, never inside the project), mirroring writePrimary's
+            // confinement. Reachable only under WRL_FORGE_CAPTURE_SERVER.
+            if (job.buildBundle && plan.status !== 'blocked') {
+              const os = require('os');
+              const dest = path.resolve(String(job.buildBundle));
+              if (!dest.startsWith(path.resolve(os.tmpdir()))) {
+                throw new Error('buildBundle refused outside the OS temp dir');
+              }
+              try {
+                payload.bundle = writeReviewBundle(scan, dest, { plan });
+                await win.webContents.executeJavaScript(
+                  `window.__wrlForgeApplyBundleResult(${JSON.stringify({ ok: true, outPath: payload.bundle.outPath, bytes: payload.bundle.bytes, entryCount: payload.bundle.entryCount })})`
+                );
+              } catch (err) {
+                payload.bundleError = String(err.message || err);
+                await win.webContents.executeJavaScript(
+                  `window.__wrlForgeApplyBundleResult(${JSON.stringify({ ok: false, error: payload.bundleError })})`
+                );
+              }
+            }
           }
         } else {
           worldSession.open({ root: null, primary: null, candidates: [], empty: true });
@@ -661,6 +700,71 @@ ipcMain.handle('world:openPrimaryInEditor', async () => {
   if (!worldSession.primary) throw new Error('No primary world is selected.');
   launchEditor(worldSession.primary);
   return { primary: worldSession.primary };
+});
+
+// Read-only PACKAGE AUDIT (Phase 5A). Ensures a scan exists, derives the
+// deterministic package plan from the production asset graph, and returns the
+// renderer-facing audit: status (ready/blocked/needs-review), totals, blocking
+// findings, unused files, findings, and a manifest preview. It NEVER writes and
+// takes no renderer-supplied path (main owns every project path via worldSession).
+ipcMain.handle('world:packageAudit', async () => {
+  if (!worldSession.primary) throw new Error('No primary world is selected.');
+  let scan = worldSession.last;
+  if (!scan) scan = await worldSession.scan();
+  const plan = buildPackagePlan(scan);
+  return {
+    ok: plan.ok,
+    status: plan.status,
+    projectName: plan.projectName,
+    primaryRel: plan.primaryRel,
+    totals: plan.totals,
+    blocking: plan.blocking,
+    findings: plan.findings,
+    unusedFiles: plan.unusedFiles,
+    files: plan.files,
+    manifest: buildManifest(plan),
+    label: plan.label,
+    disclaimer: plan.disclaimer,
+  };
+});
+
+// Explicit-user-action BUILD REVIEW BUNDLE (Phase 5A). Requires an explicit
+// destination (a Save dialog owned by the main process — the renderer never
+// supplies a path). Writes a deterministic ZIP ONLY to a new location OUTSIDE the
+// project (bundle-builder refuses in-project writes, overwrites, and blocked
+// projects). The source project is never mutated. NOT an upload: nothing is sent
+// anywhere and no server compatibility is claimed.
+ipcMain.handle('world:buildReviewBundle', async () => {
+  if (!worldSession.primary) throw new Error('No primary world is selected.');
+  let scan = worldSession.last;
+  if (!scan) scan = await worldSession.scan();
+
+  // Pre-flight the plan so we can refuse a blocked project BEFORE prompting.
+  const plan = buildPackagePlan(scan);
+  if (plan.status === 'blocked' || plan.blocking.length) {
+    return { ok: false, code: 'EBLOCKED', status: 'blocked', blocking: plan.blocking,
+      error: 'Packaging is blocked — resolve the blocking findings first.' };
+  }
+
+  // Default the bundle name + a location OUTSIDE the project (its parent folder),
+  // so the default never lands inside the source project.
+  const defaultName = `${plan.projectName || 'world'}-review-bundle.zip`;
+  const defaultDir = path.dirname(path.resolve(scan.root));
+  const res = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save Review Bundle (Not Confirmed for Direct Cybertown Upload)',
+    defaultPath: path.join(defaultDir, defaultName),
+    filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
+    properties: ['createDirectory', 'showOverwriteConfirmation'],
+  });
+  if (res.canceled || !res.filePath) return null;
+
+  try {
+    const summary = writeReviewBundle(scan, res.filePath, { plan });
+    return { ok: true, ...summary };
+  } catch (err) {
+    return { ok: false, code: err.code || 'EBUNDLE', error: String(err.message || err),
+      blocking: (err.plan && err.plan.blocking) || undefined };
+  }
 });
 
 function safeSize(p) {

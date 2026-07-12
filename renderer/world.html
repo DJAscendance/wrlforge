@@ -106,6 +106,23 @@
   .warn { background: #3a2f10; color: #ffce6a; border-radius: 4px; padding: 6px 10px; margin: 6px 0; font-size: 12.5px; word-break: break-word; }
   .warn.err { background: #401414; color: #ff9b9b; }
 
+  /* Packaging (Phase 5A) */
+  .pkg { margin: 4px 0 8px; }
+  .pkg-note { background: #10233a; color: #9cc4ff; border-radius: 6px; padding: 8px 12px; font-size: 12.5px; margin-bottom: 10px; }
+  .pkg-note em { color: #ffce6a; font-style: normal; }
+  .pkg h3.pkg-h3 { font-size: 12px; color: #aaa; margin: 10px 0 6px; text-transform: none; letter-spacing: 0; }
+  .pkg-cols { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+  .pkg-col { flex: 1 1 320px; min-width: 260px; }
+  .pkg-list { background: #111; border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 12px; max-height: 220px; overflow: auto; }
+  .pkg-list div { margin: 1px 0; word-break: break-all; color: #cbb; }
+  .pkg-list .none { color: #6a6; font-family: inherit; }
+  .pkg-manifest { background: #0e0e10; border: 1px solid #333; border-radius: 6px; padding: 10px 12px; font-size: 11.5px; max-height: 260px; overflow: auto; white-space: pre; color: #cdd; }
+  .pkg-output { background: #10331a; color: #9fe6b0; border-radius: 6px; padding: 8px 12px; font-size: 12.5px; margin: 8px 0; word-break: break-all; }
+  .pkg-output.err { background: #401414; color: #ff9b9b; }
+  .badge-pill.ready { background: #10331a; color: #6fe08a; }
+  .badge-pill.blocked { background: #401414; color: #ff9b9b; }
+  .badge-pill.needsreview { background: #3a2f10; color: #ffce6a; }
+
   /* Dependency tree */
   .tree { font-size: 12.5px; }
   .tree .wrl { margin: 8px 0 2px; color: #9cc4ff; font-family: monospace; }
@@ -199,9 +216,44 @@
 
     <h2>Dependency view</h2>
     <div class="tree" id="tree"></div>
+
+    <!-- Packaging (Phase 5A): read-only audit + explicit Build Review Bundle. -->
+    <h2>Packaging
+      <span id="pkgStatusBadge" class="badge-pill" style="display:none"></span>
+    </h2>
+    <div class="pkg">
+      <div class="pkg-note">
+        Read-only <strong>package audit</strong> — what a portable review bundle would contain.
+        <em>Not an upload validator, not current-server-format-confirmed.</em>
+        The bundle is labelled <strong>“Review Bundle — Not Confirmed for Direct Cybertown Upload”</strong>.
+      </div>
+      <div class="row">
+        <button id="pkgAuditBtn" class="secondary" disabled>Package Audit</button>
+        <button id="pkgBuildBtn" disabled>Build Review Bundle…</button>
+      </div>
+      <div class="status-line" id="pkgStatus" role="status" aria-live="polite">No audit run.</div>
+
+      <div id="pkgBody" style="display:none">
+        <div class="summary" id="pkgTotals"></div>
+        <div id="pkgBlocking"></div>
+        <div id="pkgOutput" class="pkg-output" style="display:none"></div>
+
+        <div class="pkg-cols">
+          <div class="pkg-col">
+            <h3 class="pkg-h3">Unused files under the project root <span class="hint">(reported; never auto-included)</span></h3>
+            <div id="pkgUnused" class="pkg-list"></div>
+          </div>
+          <div class="pkg-col">
+            <h3 class="pkg-h3">Manifest preview</h3>
+            <pre id="pkgManifest" class="pkg-manifest" aria-label="Machine-readable manifest preview"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
 <script defer src="world-preview.js"></script>
+<script defer src="world-packaging.js"></script>
 <script defer src="world.js"></script>
 </body>
 </html>

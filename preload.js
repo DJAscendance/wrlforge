@@ -33,5 +33,11 @@ contextBridge.exposeInMainWorld('vrmlpad', {
     reveal: (targetPath) => ipcRenderer.invoke('world:reveal', targetPath),
     revealRoot: () => ipcRenderer.invoke('world:revealRoot'),
     openPrimaryInEditor: () => ipcRenderer.invoke('world:openPrimaryInEditor'),
+    // Read-only packaging AUDIT (Phase 5A): what a portable review bundle would
+    // contain (status/totals/blocking/unused/manifest). Analysis only — no write.
+    packageAudit: () => ipcRenderer.invoke('world:packageAudit'),
+    // Explicit BUILD REVIEW BUNDLE action (Phase 5A): the main process prompts for
+    // a destination outside the project and writes a deterministic ZIP. Not upload.
+    buildReviewBundle: () => ipcRenderer.invoke('world:buildReviewBundle'),
   },
 });
