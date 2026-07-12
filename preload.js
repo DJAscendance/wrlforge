@@ -40,4 +40,23 @@ contextBridge.exposeInMainWorld('vrmlpad', {
     // a destination outside the project and writes a deterministic ZIP. Not upload.
     buildReviewBundle: () => ipcRenderer.invoke('world:buildReviewBundle'),
   },
+  // Native editor lane (Phase 7B). The main process owns the open document and
+  // every path: these methods carry text + intent + an opaque sessionId, never a
+  // renderer-chosen write path. openWorldReference names a file to READ, which
+  // main authorizes against the World scan graph. Save writes only to the held
+  // source; saveAs writes only to a path main obtains from its own dialog.
+  editor: {
+    openMall: () => ipcRenderer.invoke('editor:openMall'),
+    openWorldPrimary: () => ipcRenderer.invoke('editor:openWorldPrimary'),
+    openWorldReference: (ref) => ipcRenderer.invoke('editor:openWorldReference', ref),
+    describe: (opts) => ipcRenderer.invoke('editor:describe', opts),
+    setText: (sessionId, text) => ipcRenderer.invoke('editor:setText', { sessionId, text }),
+    save: (sessionId, text, allowOverwrite) => ipcRenderer.invoke('editor:save', { sessionId, text, allowOverwrite }),
+    saveAs: (sessionId, text, format) => ipcRenderer.invoke('editor:saveAs', { sessionId, text, format }),
+    reload: (sessionId) => ipcRenderer.invoke('editor:reload', { sessionId }),
+    checkConflict: (sessionId) => ipcRenderer.invoke('editor:checkConflict', { sessionId }),
+    openInExternal: (sessionId) => ipcRenderer.invoke('editor:openInExternal', { sessionId }),
+    close: (sessionId) => ipcRenderer.invoke('editor:close', { sessionId }),
+    restore: () => ipcRenderer.invoke('editor:restore'),
+  },
 });

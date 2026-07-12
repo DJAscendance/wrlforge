@@ -23,6 +23,7 @@ const { buildPackagePlan, buildManifest } = require('./src/world-project/package
 const { writeReviewBundle } = require('./src/world-project/bundle-builder');
 const { resolveEditor, buildLaunch } = require('./src/editor/editor-locator');
 const { loadSettings } = require('./src/settings/app-settings');
+const { EditorController } = require('./src/editor/editor-controller');
 
 // The World Project preview scheme (Phase 4B) is a privileged, standard, LOCAL
 // scheme. This MUST run before app 'ready'. It does NOT bypass CSP -- world.html
@@ -56,6 +57,12 @@ const worldSession = new ProjectSession();
 // The main window, used for Mall<->World page navigation (main keeps control of
 // which local page loads; the renderer cannot navigate to an arbitrary URL).
 let mainWindow = null;
+
+// The native editor controller (Phase 7B). Instantiated in whenReady (it needs
+// app.getPath('userData') for session restore). It owns the one open editor
+// document and every path decision; the renderer supplies only text + intent (and
+// a World reference to OPEN, which is authorized against the scan graph below).
+let editorController = null;
 
 // Renderer pages the app may navigate between (whitelist -- never a path from
 // the renderer). Both share the one BrowserWindow, preload, and security config.
@@ -463,9 +470,51 @@ function createWindow() {
   }
 }
 
+// The set of absolute WRL-node paths the current world scan discovered (readable
+// only). This is the editor's open allow-list for "Open a referenced WRL": only a
+// real dependency node may be opened, never an arbitrary in-root file.
+function worldWrlSet() {
+  const set = new Set();
+  const scan = worldSession.last;
+  if (scan && scan.graph) {
+    for (const n of scan.graph.wrlNodes || []) {
+      if (!n.unreadable) set.add(path.resolve(n.path));
+    }
+  }
+  return set;
+}
+
+// Build the native editor controller, injecting the live context providers and
+// the main-owned dialog/launcher. Keeps EditorController free of Electron so its
+// authorization/stale/conflict/restore logic stays unit-tested.
+function createEditorController() {
+  return new EditorController({
+    userDataPath: app.getPath('userData'),
+    getMallSource: () => (currentSession ? currentSession.mallPath : null),
+    getWorldContext: () => {
+      if (!worldSession.primary) return null;
+      return { root: worldSession.root, primary: worldSession.primary, allowedWrl: worldWrlSet() };
+    },
+    launchExternal: (filePath) => launchEditor(filePath),
+    promptSaveAs: async ({ defaultPath }) => {
+      const res = await dialog.showSaveDialog(mainWindow, {
+        title: 'Save WRL As',
+        defaultPath: defaultPath || undefined,
+        filters: [
+          { name: 'VRML files', extensions: ['wrl', 'wrz'] },
+          { name: 'All files', extensions: ['*'] },
+        ],
+        properties: ['createDirectory', 'showOverwriteConfirmation'],
+      });
+      return (res.canceled || !res.filePath) ? null : res.filePath;
+    },
+  });
+}
+
 app.whenReady().then(() => {
   installPreviewNetworkGuard();
   installWorldPreviewProtocol();
+  editorController = createEditorController();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -796,6 +845,44 @@ ipcMain.handle('world:buildReviewBundle', async () => {
       blocking: (err.plan && err.plan.blocking) || undefined };
   }
 });
+
+// ---------------------------------------------------------------------------
+// Native editor lane (Phase 7B). The main process (editorController) owns the one
+// open document and every path decision. The renderer supplies text + intent and,
+// for a World "open referenced WRL", a reference that is authorized against the
+// scan graph. There is NO channel by which the renderer names a write path: save
+// writes only to the held source; saveAs writes only to a path from main's own
+// Save dialog. Conflict (external change) is returned structured so the renderer
+// can raise its Reload / Save As / Cancel choice.
+// ---------------------------------------------------------------------------
+ipcMain.handle('editor:openMall', async () => editorController.openMall());
+ipcMain.handle('editor:openWorldPrimary', async () => editorController.openWorldPrimary());
+ipcMain.handle('editor:openWorldReference', async (_evt, ref) => editorController.openWorldReference(ref));
+ipcMain.handle('editor:describe', async (_evt, opts) => editorController.describe(opts));
+ipcMain.handle('editor:setText', async (_evt, { sessionId, text } = {}) => editorController.setText(sessionId, text));
+
+ipcMain.handle('editor:save', async (_evt, { sessionId, text, allowOverwrite } = {}) => {
+  try {
+    return editorController.save(sessionId, text, { allowOverwrite });
+  } catch (err) {
+    // A conflict or failed verification is an expected, user-actionable outcome:
+    // return it structured (source untouched, buffer stays dirty) so the renderer
+    // can offer Reload / Save As / Cancel. Programming/renderer-state errors
+    // (stale id, bad arg, nothing open) reject as usual.
+    if (err.code === 'EEXTERNAL' || err.code === 'EVERIFY') {
+      return { ok: false, code: err.code, error: String(err.message || err), current: err.current || null };
+    }
+    throw err;
+  }
+});
+
+ipcMain.handle('editor:saveAs', async (_evt, { sessionId, text, format } = {}) =>
+  editorController.saveAs(sessionId, text, { format }));
+ipcMain.handle('editor:reload', async (_evt, { sessionId } = {}) => editorController.reload(sessionId));
+ipcMain.handle('editor:checkConflict', async (_evt, { sessionId } = {}) => editorController.checkConflict(sessionId));
+ipcMain.handle('editor:openInExternal', async (_evt, { sessionId } = {}) => editorController.openInExternal(sessionId));
+ipcMain.handle('editor:close', async (_evt, { sessionId } = {}) => editorController.close(sessionId));
+ipcMain.handle('editor:restore', async () => editorController.restore());
 
 function safeSize(p) {
   try { return fs.statSync(p).size; } catch { return null; }
