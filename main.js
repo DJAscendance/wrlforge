@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, screen, session } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, screen, session, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const zlib = require('zlib');
@@ -13,6 +13,28 @@ const { isBlockedPreviewUrl, scanRemoteUrls } = require('./src/preview/url-polic
 const { detectPrimaries } = require('./src/world-project/project-loader');
 const { summarize } = require('./src/world-project/project-stats');
 const { ProjectSession } = require('./src/world-project/session');
+const {
+  WORLD_PREVIEW_SCHEME,
+  buildAuthorizedSet,
+  buildPreviewPayload,
+  resolveWorldRequest,
+} = require('./src/world-project/preview-source');
+
+// The World Project preview scheme (Phase 4B) is a privileged, standard, LOCAL
+// scheme. This MUST run before app 'ready'. It does NOT bypass CSP -- world.html
+// still lists the scheme explicitly. Its handler (installed in whenReady) serves
+// ONLY asset-graph-authorized files confined to the open project's root.
+protocol.registerSchemesAsPrivileged([{
+  scheme: WORLD_PREVIEW_SCHEME,
+  privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true },
+}]);
+
+// The currently-authorized World Project preview: { projectRoot, authorized:Map }
+// or null when no world preview is active. Set only by world:previewLoad (which
+// derives the allow-list from the production asset graph). The scheme handler
+// reads this; when null it refuses every request. READ-ONLY -- serving reads
+// files, never writes.
+let worldPreview = null;
 
 // Which file the embedded preview is allowed to read. Set only by openMallFile
 // (which itself is reached only via the user's Open dialog or an explicit path),
@@ -84,6 +106,21 @@ function serializeScan(scan) {
 function installPreviewNetworkGuard() {
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
     callback({ cancel: isBlockedPreviewUrl(details.url) });
+  });
+}
+
+// Install the World Project preview scheme handler (Phase 4B). X_ITE resolves the
+// world's nested Inline / textures against wrlworld:// URLs, so every dependency
+// read comes back through here -- authorized against the production asset graph
+// and confined to the project root. WRL nodes are served gzip-decompressed (X_ITE
+// only ever sees plain text); assets are served as raw bytes. Nothing is written.
+function installWorldPreviewProtocol() {
+  protocol.handle(WORLD_PREVIEW_SCHEME, async (request) => {
+    const res = resolveWorldRequest(worldPreview, request.url);
+    if (res.status !== 200) {
+      return new Response(res.error || 'unavailable', { status: res.status });
+    }
+    return new Response(res.body, { headers: { 'content-type': res.mimeType } });
   });
 }
 const {
@@ -218,13 +255,37 @@ function createWindow() {
       if ('world' in job) {
         await gotoPage('world');
         if (job.world) {
+          // QA-only: swap the SCRATCH primary's bytes before scanning, so the
+          // parse-fail->recover sequence can be driven inside ONE reused process
+          // without mid-run file edits from the orchestrator. Confined to the OS
+          // temp dir -- this never touches a real project file, and is reachable
+          // only under WRL_FORGE_CAPTURE_SERVER (never in normal use).
+          if (typeof job.world.writePrimary === 'string') {
+            const os = require('os');
+            const scratch = path.resolve(job.world.primary);
+            if (scratch.startsWith(path.resolve(os.tmpdir()))) {
+              fs.writeFileSync(scratch, job.world.writePrimary, 'utf8');
+            } else {
+              throw new Error('writePrimary refused outside the OS temp dir');
+            }
+          }
           worldSession.open({ root: job.world.root, primary: job.world.primary, candidates: [{ path: job.world.primary }] });
           const scan = await worldSession.scan();
           const ser = serializeScan(scan);
           await win.webContents.executeJavaScript(`window.__wrlForgeApplyWorld(${JSON.stringify(ser)})`);
           payload.summary = ser.summary;
+          // Drive the embedded X_ITE world preview through the real read-only
+          // world:previewLoad path + confined wrlworld:// handler.
+          if (job.preview) {
+            const opts = JSON.stringify({ viewpoint: job.viewpoint, reset: !!job.reset });
+            const dbg = await win.webContents.executeJavaScript(
+              `(async () => JSON.stringify(await window.__wrlForgeWorldPreview(${opts})))()`
+            );
+            payload.preview = JSON.parse(dbg);
+          }
         } else {
           worldSession.open({ root: null, primary: null, candidates: [], empty: true });
+          worldPreview = null;
           await win.webContents.executeJavaScript('window.__wrlForgeResetWorld && window.__wrlForgeResetWorld()');
         }
         await new Promise((r) => setTimeout(r, SETTLE_MS));
@@ -363,6 +424,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   installPreviewNetworkGuard();
+  installWorldPreviewProtocol();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -551,6 +613,24 @@ ipcMain.handle('world:refresh', async () => {
   } catch (err) {
     return { ok: false, status: err.code === 'EBUSY' ? 'busy' : 'error', error: String(err.message || err) };
   }
+});
+
+// Read-only World Project PREVIEW loader (Phase 4B). Ensures a scan exists,
+// installs the asset-graph-derived read-authorization set into the scheme
+// handler, and returns ONLY controlled content + metadata to the renderer: the
+// decompressed primary text, the wrlworld base URL, advisory counts, and the
+// warning lists. It takes NO renderer-supplied path and never writes -- the main
+// process owns every project path (held in worldSession). X_ITE then resolves the
+// world's nested deps through the confined wrlworld:// handler.
+ipcMain.handle('world:previewLoad', async () => {
+  if (!worldSession.primary) throw new Error('No primary world is selected.');
+  let scan = worldSession.last;
+  if (!scan) scan = await worldSession.scan();
+  worldPreview = {
+    projectRoot: path.resolve(scan.root),
+    authorized: buildAuthorizedSet(scan.graph),
+  };
+  return buildPreviewPayload(scan);
 });
 
 ipcMain.handle('world:describe', async () => worldSession.describe());

@@ -25,6 +25,10 @@ contextBridge.exposeInMainWorld('vrmlpad', {
     choosePrimary: (primaryPath) => ipcRenderer.invoke('world:choosePrimary', primaryPath),
     scanProject: () => ipcRenderer.invoke('world:scan'),
     refreshProject: () => ipcRenderer.invoke('world:refresh'),
+    // Read-only embedded X_ITE preview loader (Phase 4B): returns decompressed
+    // primary text + the wrlworld base URL + advisory counts/warnings. Takes no
+    // path; the main process authorizes nested reads from the asset graph.
+    loadPreview: () => ipcRenderer.invoke('world:previewLoad'),
     describe: () => ipcRenderer.invoke('world:describe'),
     reveal: (targetPath) => ipcRenderer.invoke('world:reveal', targetPath),
     revealRoot: () => ipcRenderer.invoke('world:revealRoot'),

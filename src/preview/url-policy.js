@@ -16,8 +16,15 @@
 //
 // The renderer only ever resolves LOCAL assets, so the allow-list is exactly the
 // local schemes X_ITE needs for the app bundle and the item's own directory.
+// 'wrlworld' is the World Project preview scheme (Phase 4B): a privileged,
+// standard, LOCAL-only scheme whose handler serves ONLY asset-graph-authorized
+// files confined to the project root (see src/world-project/preview-source.js).
+// It is allow-listed here so the network guard does not cancel it; the real
+// access control is the handler's allow-list, not this predicate. Kept in sync
+// with preview-source.WORLD_PREVIEW_SCHEME (asserted by a unit test).
 const ALLOWED_SCHEMES = new Set([
   'file', 'data', 'blob', 'devtools', 'chrome', 'chrome-extension', 'about',
+  'wrlworld',
 ]);
 
 // Leading scheme of a URL string, lower-cased, or null for a scheme-less

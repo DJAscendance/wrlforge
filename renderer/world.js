@@ -97,7 +97,7 @@ async function handleDetection(desc) {
   if (desc.primary) {
     setStatus('Scanning…');
     const payload = await W.scanProject();
-    applyScan(payload);
+    applyScanAndPreview(payload);
   }
 }
 
@@ -109,7 +109,7 @@ function renderCandidates(candidates) {
     b.addEventListener('click', async () => {
       await W.choosePrimary(c.path);
       setStatus('Scanning…');
-      applyScan(await W.scanProject());
+      applyScanAndPreview(await W.scanProject());
     });
     els.candidates.appendChild(b);
     els.candidates.appendChild(document.createTextNode(' '));
@@ -148,6 +148,16 @@ function applyScan(payload) {
   renderTable();
   renderTree(payload);
   setStatus(`Scanned ${payload.summary.totalWrlFiles} WRL file(s), ${payload.summary.totalReferences} reference(s).`);
+}
+
+// Interactive render + embedded preview load. The raw applyScan (above) stays
+// render-only so the visual-QA capture harness can drive the preview separately
+// (via window.__wrlForgeWorldPreview) without a double load.
+function applyScanAndPreview(payload) {
+  applyScan(payload);
+  if (payload && payload.primary && window.wrlWorldPreview) {
+    window.wrlWorldPreview.load().catch(() => {});
+  }
 }
 
 function stat(label, value, cls) {
@@ -333,7 +343,7 @@ document.getElementById('openFileBtn').addEventListener('click', async () => {
 });
 els.refreshBtn.addEventListener('click', async () => {
   setStatus('Refreshing…');
-  applyScan(await W.refreshProject());
+  applyScanAndPreview(await W.refreshProject());
 });
 els.revealBtn.addEventListener('click', () => { W.revealRoot().catch(() => {}); });
 els.editorBtn.addEventListener('click', () => { W.openPrimaryInEditor().catch(() => {}); });
@@ -345,7 +355,7 @@ document.getElementById('mallBtn').addEventListener('click', () => window.vrmlpa
   try {
     const desc = await W.describe();
     if (desc && desc.primary) {
-      applyScan(await W.scanProject());
+      applyScanAndPreview(await W.scanProject());
     } else if (desc && desc.ambiguous) {
       renderCandidates(desc.candidates);
       showState('ambiguous');
