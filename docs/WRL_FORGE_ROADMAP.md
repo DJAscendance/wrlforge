@@ -519,6 +519,14 @@ Preview refresh from the unsaved editor buffer, debounced parsing, last-valid-sc
 behavior, Mall Item and World Project contexts, reload/conflict handling, and the
 safe save + backup workflow end-to-end.
 
+**Architecture proposals (plan only — Phase 7C is not started):**
+`docs/PHASE_7C_PROPOSAL.md` (unsaved-buffer X_ITE preview: buffer-overlay model,
+generation/stale model, last-valid state machine, parser/X_ITE policy, security +
+threat model, collapsible editor split-view) and `docs/WINDOWS_NATIVE_QA_PLAN.md`
+(Windows-native agent QA workflow for Claude Code CLI inside the WinBoat VM: reused
+cross-platform `VisualQaRunner`, packaged-app automation, evidence format, and the
+shared 7C0–7C5 implementation slices).
+
 ### Phase 7D — Beta Polish
 Keyboard accessibility, performance on large worlds, crash recovery, session
 restoration, Windows + Linux verification (through the sanctioned VisualQaRunner —
