@@ -113,13 +113,34 @@ function buildAssetGraph(rootWrlPath, opts = {}) {
 
   const relToRoot = (abs) => path.relative(projectRoot, abs).split(path.sep).join('/');
 
-  // Does `abs` exist, and if not, is there a case-only sibling that does?
+  // Per-directory listing cache (many textures share a folder; avoids re-listing).
+  const dirCache = new Map();
+  function listDirCached(dir) {
+    if (!dirCache.has(dir)) dirCache.set(dir, listDir(dir));
+    return dirCache.get(dir);
+  }
+
+  // Does `abs` exist AT ITS EXACT CASE, and if not, is there a case-only sibling?
+  //
+  // Cross-platform note (Phase 6A): we must NOT trust `exists(abs)` alone to mean
+  // "present". On a case-INSENSITIVE filesystem (Windows/macOS) `exists('Stone.PNG')`
+  // returns true even when the file on disk is `stone.png` -- which would mask a
+  // case mismatch that BREAKS on a case-sensitive server. So the authoritative
+  // check is the real directory listing (case-preserved on every platform): a
+  // reference is `present` only when the directory literally contains that exact
+  // basename. A case-only sibling => `case-mismatch`; otherwise `missing`. We only
+  // fall back to `exists()` when the directory can't be enumerated.
   function resolveExistence(abs) {
-    if (exists(abs)) return { exists: true };
     const dir = path.dirname(abs);
     const base = path.basename(abs);
-    const hit = listDir(dir).find((name) => name !== base && name.toLowerCase() === base.toLowerCase());
-    return hit ? { exists: false, caseActual: path.join(dir, hit) } : { exists: false };
+    const listing = listDirCached(dir);
+    if (listing.includes(base)) return { exists: true };
+    const ci = listing.find((name) => name.toLowerCase() === base.toLowerCase());
+    if (ci) return { exists: false, caseActual: path.join(dir, ci) };
+    // Directory unreadable/empty in the listing but the file may still be there
+    // (e.g. a permission quirk): defer to exists() so we don't false-flag missing.
+    if (listing.length === 0 && exists(abs)) return { exists: true };
+    return { exists: false };
   }
 
   function textureDims(abs, kind) {
