@@ -21,6 +21,8 @@ const {
 } = require('./src/world-project/preview-source');
 const { buildPackagePlan, buildManifest } = require('./src/world-project/package-plan');
 const { writeReviewBundle } = require('./src/world-project/bundle-builder');
+const { resolveEditor, buildLaunch } = require('./src/editor/editor-locator');
+const { loadSettings } = require('./src/settings/app-settings');
 
 // The World Project preview scheme (Phase 4B) is a privileged, standard, LOCAL
 // scheme. This MUST run before app 'ready'. It does NOT bypass CSP -- world.html
@@ -501,33 +503,61 @@ function openMallFile(mallPath) {
 
   currentSession = { mallPath, editFile };
 
-  launchEditor(editFile);
+  const editorStatus = launchEditor(editFile);
 
   return {
     mallPath,
     editFile,
     wasGzipped,
     rawBytes: raw.length,
+    editorStatus,
     ...validate(text),
   };
 }
 
+// Resolve the external editor per platform (VSCodium → VS Code), honouring a
+// user override from settings.json (`editorCommand`) or the WRL_FORGE_EDITOR env
+// var. Cross-platform: Linux `codium` on PATH; Windows install locations + PATH
+// shims (see src/editor/editor-locator.js).
+function resolveConfiguredEditor() {
+  let override = null;
+  try {
+    override = loadSettings(app.getPath('userData')).editorCommand;
+  } catch { /* settings are best-effort */ }
+  return resolveEditor({ override });
+}
+
+// Launch the editor on editFile. Returns { launched:true } or a structured
+// { launched:false, reason } so callers can surface a clear "editor not found"
+// message instead of failing silently. Never throws.
 function launchEditor(editFile) {
   // WRL_FORGE_NO_EDITOR lets the non-interactive QA/screenshot harness drive the
   // real open flow without spawning a VSCodium window per run.
-  if (process.env.WRL_FORGE_NO_EDITOR) return;
-  // codium is resolvable on PATH on Linux; a future Windows pass resolves the
-  // per-platform executable name (see docs/PLATFORM_NOTES.md).
-  const child = spawn('codium', [editFile], { detached: true, stdio: 'ignore' });
-  child.unref();
+  if (process.env.WRL_FORGE_NO_EDITOR) return { launched: false, reason: 'disabled' };
+  const resolution = resolveConfiguredEditor();
+  if (!resolution.found) {
+    console.warn('[wrl-forge] editor not found:', resolution.hint);
+    return { launched: false, reason: 'not-found', hint: resolution.hint, tried: resolution.tried };
+  }
+  try {
+    const spec = buildLaunch(resolution, editFile);
+    const child = spawn(spec.command, spec.args, spec.options);
+    // A spawn error (e.g. a stale path) arrives asynchronously; surface it in the
+    // log rather than crashing the app. The user can still edit via the OS.
+    child.on('error', (err) => console.warn('[wrl-forge] editor launch failed:', String(err && err.message || err)));
+    child.unref();
+    return { launched: true, command: resolution.command, source: resolution.source };
+  } catch (err) {
+    return { launched: false, reason: 'spawn-failed', error: String((err && err.message) || err) };
+  }
 }
 
 // Explicit "Open in VSCodium" action for the currently-open edit file (the file
 // is also launched automatically on open; this re-launches on demand).
 ipcMain.handle('mall:openInEditor', async () => {
   if (!currentSession) throw new Error('No file is open.');
-  launchEditor(currentSession.editFile);
-  return { editFile: currentSession.editFile };
+  const editorStatus = launchEditor(currentSession.editFile);
+  return { editFile: currentSession.editFile, editorStatus };
 });
 
 // Read-only preview source loader. `role` selects the currently-open item
@@ -698,8 +728,8 @@ ipcMain.handle('world:revealRoot', async () => {
 // Project never auto-launches the editor.
 ipcMain.handle('world:openPrimaryInEditor', async () => {
   if (!worldSession.primary) throw new Error('No primary world is selected.');
-  launchEditor(worldSession.primary);
-  return { primary: worldSession.primary };
+  const editorStatus = launchEditor(worldSession.primary);
+  return { primary: worldSession.primary, editorStatus };
 });
 
 // Read-only PACKAGE AUDIT (Phase 5A). Ensures a scan exists, derives the

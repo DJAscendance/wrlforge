@@ -47,10 +47,24 @@ function renderResults(data) {
   }
 }
 
+// Show / clear the "editor not found" message from a launchEditor result.
+function showEditorStatus(status) {
+  const el = document.getElementById('editorMsg');
+  if (!el) return;
+  if (status && status.launched === false && status.reason === 'not-found') {
+    el.textContent = '⚠ ' + (status.hint || 'External editor not found.') +
+      ' Set WRL_FORGE_EDITOR or editorCommand in settings.json to your editor path.';
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
 function applyState(data) {
   state = { mallPath: data.mallPath, editFile: data.editFile };
   els.empty.style.display = 'none';
   els.loaded.style.display = 'block';
+  showEditorStatus(data.editorStatus);
   els.mallPath.textContent = data.mallPath;
   els.editFile.textContent = data.editFile;
   els.checkBtn.disabled = false;
@@ -102,7 +116,10 @@ els.repackBtn.addEventListener('click', async () => {
 });
 
 els.vscodiumBtn.addEventListener('click', async () => {
-  try { await window.vrmlpad.openInEditor(); } catch (e) { /* no file open */ }
+  try {
+    const res = await window.vrmlpad.openInEditor();
+    if (res) showEditorStatus(res.editorStatus);
+  } catch (e) { /* no file open */ }
 });
 
 els.revealMall.addEventListener('click', (e) => {

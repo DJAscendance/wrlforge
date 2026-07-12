@@ -348,7 +348,14 @@ els.refreshBtn.addEventListener('click', async () => {
   applyScanAndPreview(await W.refreshProject());
 });
 els.revealBtn.addEventListener('click', () => { W.revealRoot().catch(() => {}); });
-els.editorBtn.addEventListener('click', () => { W.openPrimaryInEditor().catch(() => {}); });
+els.editorBtn.addEventListener('click', async () => {
+  try {
+    const res = await W.openPrimaryInEditor();
+    if (res && res.editorStatus && res.editorStatus.launched === false && res.editorStatus.reason === 'not-found') {
+      setStatus('⚠ ' + (res.editorStatus.hint || 'External editor not found.'));
+    }
+  } catch { /* nothing open */ }
+});
 document.getElementById('mallBtn').addEventListener('click', () => window.vrmlpad.goto('mall'));
 
 // On load, restore any already-open project (e.g. after returning from Mall).
