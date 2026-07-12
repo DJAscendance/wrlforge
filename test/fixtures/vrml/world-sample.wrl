@@ -1,0 +1,20 @@
+#VRML V2.0 utf8
+# Original, permission-safe World-shaped sample (not a real Cybertown world).
+WorldInfo { title "Sample Plaza" }
+Viewpoint { description "Entry" position 0 1.6 10 }
+NavigationInfo { type [ "WALK" "ANY" ] }
+Background { skyColor [ 0.2 0.3 0.6 ] }
+Shape {
+  appearance Appearance { texture ImageTexture { url "img/floor.png" } }
+  geometry Box { size 20 0.1 20 }
+}
+Inline { url "props/bench.wrl" }
+Transform {
+  translation 3 0 -4
+  children [
+    Shape {
+      appearance Appearance { texture ImageTexture { url [ "img/wall.png" ] } }
+      geometry Box { size 4 3 0.2 }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+#VRML V2.0 utf8
+WorldInfo { title "Numbers" }
+DEF N Transform {
+  translation -1.5 0.0 2.5e2
+  scale .5 1.0E-3 3
+  center 0x1F 0xff -0x10
+  rotation 0 1 0 3.14159
+  children [
+    Shape { geometry Box { size 1e1 2. .25 } }
+  ]
+}
+Group { children [ NULL ] }

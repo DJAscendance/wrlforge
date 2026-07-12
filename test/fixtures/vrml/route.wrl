@@ -1,0 +1,14 @@
+#VRML V2.0 utf8
+WorldInfo { title "Route" }
+DEF Clock TimeSensor { cycleInterval 2 loop TRUE }
+DEF Spin OrientationInterpolator {
+  key [ 0 0.5 1 ]
+  keyValue [ 0 1 0 0, 0 1 0 3.14, 0 1 0 6.28 ]
+}
+DEF Turner Transform {
+  children [
+    Shape { geometry Box {} }
+  ]
+}
+ROUTE Clock.fraction_changed TO Spin.set_fraction
+ROUTE Spin.value_changed TO Turner.set_rotation

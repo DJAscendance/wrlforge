@@ -1,0 +1,20 @@
+#VRML V2.0 utf8
+WorldInfo { title "MFString URLs" }
+Background {
+  frontUrl "sky/front.png"
+  backUrl "sky/back.png"
+  leftUrl [ "sky/left.png" ]
+  rightUrl [ "sky/right.png" "sky/right_alt.png" ]
+}
+Shape {
+  appearance Appearance {
+    texture ImageTexture {
+      url [
+        "tex/a.jpg"
+        "tex/b.jpg"
+        "http://example.invalid/remote.jpg"
+      ]
+    }
+  }
+  geometry Box {}
+}

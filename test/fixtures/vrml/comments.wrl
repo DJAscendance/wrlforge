@@ -1,0 +1,11 @@
+#VRML V2.0 utf8
+# A leading comment.
+WorldInfo { title "Comments" } # trailing comment
+# The next comment mentions url "ghost.png" -- the AST-based extractor must NOT
+# treat this as a dependency (the production regex scanner would).
+Shape {
+  appearance Appearance {
+    texture ImageTexture { url "real.png" } # inline note
+  }
+  geometry Box {}
+}

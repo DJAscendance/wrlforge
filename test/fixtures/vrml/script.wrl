@@ -1,0 +1,11 @@
+#VRML V2.0 utf8
+WorldInfo { title "Script" }
+DEF Logic Script {
+  eventIn SFBool set_active
+  eventOut SFFloat value_changed
+  field SFInt32 counter 0
+  url "vrmlscript: function set_active(v) { counter = counter + 1; }"
+}
+DEF External Script {
+  url [ "helper.js" "ecmascript: function fallback() {}" ]
+}

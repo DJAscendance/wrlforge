@@ -1,0 +1,16 @@
+#VRML V2.0 utf8
+WorldInfo { title "Proto" }
+PROTO ColoredBox [
+  field SFColor boxColor 0.5 0.5 0.5
+  field SFVec3f boxSize 1 1 1
+  eventIn SFFloat setScale
+  exposedField SFBool visible TRUE
+] {
+  Shape {
+    appearance Appearance {
+      material Material { diffuseColor IS boxColor }
+    }
+    geometry Box { size IS boxSize }
+  }
+}
+DEF Red ColoredBox { boxColor 1 0 0 boxSize 2 2 2 }
