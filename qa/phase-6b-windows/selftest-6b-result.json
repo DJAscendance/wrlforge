@@ -1,0 +1,198 @@
+{
+  "phase": "6B",
+  "platform": "win32",
+  "arch": "x64",
+  "node": "24.15.0",
+  "electron": "41.7.1",
+  "chrome": "146.0.7680.216",
+  "total": 37,
+  "passed": 37,
+  "failed": 0,
+  "results": [
+    {
+      "name": "platform reported",
+      "pass": true,
+      "detail": "win32 x64"
+    },
+    {
+      "name": "path.sep matches platform",
+      "pass": true,
+      "detail": "\"\\\\\""
+    },
+    {
+      "name": "win32 path.join drive-letter + spaces",
+      "pass": true,
+      "detail": "C:\\Users\\ryan\\Projects\\a b\\world.wrl"
+    },
+    {
+      "name": "win32 isAbsolute drive letter",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detects gzip magic",
+      "pass": true,
+      "detail": "gzip[0]=0x1f"
+    },
+    {
+      "name": "gunzip round-trips to plain text",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "scan nested world ok",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "scan nested wrl node count",
+      "pass": true,
+      "detail": "wrlNodes=3"
+    },
+    {
+      "name": "scan nested unique textures",
+      "pass": true,
+      "detail": "tex=3"
+    },
+    {
+      "name": "scan nested clean (no missing/case/unsafe)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "scan nested viewpoints discovered",
+      "pass": true,
+      "detail": "vp=3"
+    },
+    {
+      "name": "scan 70-texture world (>=70 unique, not truncated)",
+      "pass": true,
+      "detail": "tex=71"
+    },
+    {
+      "name": "scan >20-texture world (mini)",
+      "pass": true,
+      "detail": "tex=25"
+    },
+    {
+      "name": "broken world: missing detected",
+      "pass": true,
+      "detail": "missing=1"
+    },
+    {
+      "name": "broken world: remote surfaced",
+      "pass": true,
+      "detail": "remote=2"
+    },
+    {
+      "name": "broken world: unsafe detected",
+      "pass": true,
+      "detail": "unsafe=2"
+    },
+    {
+      "name": "broken world: case mismatch flagged",
+      "pass": true,
+      "detail": "case=1"
+    },
+    {
+      "name": "case-insensitivity precondition (host-observed)",
+      "pass": true,
+      "detail": "NTFS existsSync(upper)=true (case detected in code regardless)"
+    },
+    {
+      "name": "package audit READY (nested)",
+      "pass": true,
+      "detail": "status=ready files=6"
+    },
+    {
+      "name": "review bundle: written outside project + integrity",
+      "pass": true,
+      "detail": "bytes=4023 files=6 entries=9"
+    },
+    {
+      "name": "review bundle: refuses in-project destination",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "review bundle: refuses overwrite of existing file",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "scans a path with spaces + non-ASCII",
+      "pass": true,
+      "detail": "C:\\Users\\ryan\\AppData\\Local\\Temp\\wrlbeta-957GLy\\a b — wörld"
+    },
+    {
+      "name": "editor: clear not-found message (VSCodium absent)",
+      "pass": true,
+      "detail": "tried=16"
+    },
+    {
+      "name": "editor override: valid absolute .exe honoured (no shell)",
+      "pass": true,
+      "detail": "override"
+    },
+    {
+      "name": "editor override: valid absolute .cmd → shell launch",
+      "pass": true,
+      "detail": "shell=true"
+    },
+    {
+      "name": "editor override: valid bare command resolved on PATH",
+      "pass": true,
+      "detail": "\\win\\tools\\codium.cmd"
+    },
+    {
+      "name": "editor override: INVALID absolute path is tried first then falls through to not-found",
+      "pass": true,
+      "detail": "not-found (bad override never launched)"
+    },
+    {
+      "name": "editor override: INVALID absolute path with VSCodium installed → falls back to install (documented)",
+      "pass": true,
+      "detail": "fell back to discovered install"
+    },
+    {
+      "name": "editor: linux codium/code discovery resolves to codium",
+      "pass": true,
+      "detail": "codium"
+    },
+    {
+      "name": "settings.json editorCommand loaded as override",
+      "pass": true,
+      "detail": "C:\\Tools\\VSCodium\\VSCodium.exe"
+    },
+    {
+      "name": "settings.json missing → defaults, no throw",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": ".edit.wrl sibling path generated",
+      "pass": true,
+      "detail": "C:\\Users\\ryan\\Projects\\a b\\ITEM.edit.wrl"
+    },
+    {
+      "name": "buildLaunch: .exe passes file as argv (no shell, spaces safe)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "buildLaunch: .cmd shim double-quotes command AND file for cmd.exe",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "window-state path under userData",
+      "pass": true,
+      "detail": "C:\\Users\\ryan\\AppData\\Roaming\\wrl-forge\\window-state.json"
+    },
+    {
+      "name": "legacy vrmlpad migration path resolves",
+      "pass": true,
+      "detail": "C:\\Users\\ryan\\AppData\\Local\\Temp\\vrmlpad\\window-state.json"
+    }
+  ]
+}
