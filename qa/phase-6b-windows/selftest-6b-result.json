@@ -1,12 +1,12 @@
 {
-  "phase": "6B",
+  "phase": "6B+7B",
   "platform": "win32",
   "arch": "x64",
   "node": "24.15.0",
   "electron": "41.7.1",
   "chrome": "146.0.7680.216",
-  "total": 37,
-  "passed": 37,
+  "total": 43,
+  "passed": 43,
   "failed": 0,
   "results": [
     {
@@ -107,7 +107,7 @@
     {
       "name": "review bundle: written outside project + integrity",
       "pass": true,
-      "detail": "bytes=4023 files=6 entries=9"
+      "detail": "bytes=4054 files=6 entries=9"
     },
     {
       "name": "review bundle: refuses in-project destination",
@@ -122,7 +122,7 @@
     {
       "name": "scans a path with spaces + non-ASCII",
       "pass": true,
-      "detail": "C:\\Users\\ryan\\AppData\\Local\\Temp\\wrlbeta-957GLy\\a b — wörld"
+      "detail": "C:\\users\\ryan\\Temp\\wrlbeta-Iie3fK\\a b — wörld"
     },
     {
       "name": "editor: clear not-found message (VSCodium absent)",
@@ -192,7 +192,37 @@
     {
       "name": "legacy vrmlpad migration path resolves",
       "pass": true,
-      "detail": "C:\\Users\\ryan\\AppData\\Local\\Temp\\vrmlpad\\window-state.json"
+      "detail": "C:\\users\\ryan\\Temp\\vrmlpad\\window-state.json"
+    },
+    {
+      "name": "editor safe-save (plain): atomic write + backup, on-disk matches buffer",
+      "pass": true,
+      "detail": "item.wrl.bak-2026-07-12T13-19-37-085Z"
+    },
+    {
+      "name": "editor safe-save (gzip): round-trips as gzip on disk",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "editor conflict: external change refuses save (EEXTERNAL), source intact",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "editor path authorization: in-graph ok, traversal + stray rejected",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "editor restore confinement: world doc outside recorded root is refused",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "editor controller: open + save + restore through a spaces/non-ASCII path",
+      "pass": true,
+      "detail": "my itém.wrl"
     }
   ]
 }

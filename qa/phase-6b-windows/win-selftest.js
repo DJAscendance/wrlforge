@@ -310,12 +310,92 @@ check('legacy vrmlpad migration path resolves', () => {
   return legacy;
 });
 
+// ---- Phase 7B: native editor safe-save / conflict / authorization / restore ----
+// Host-agnostic (pure Node + real fs), so these run on Linux for harness
+// verifiability AND exercise the real NTFS filesystem on the Windows VM: atomic
+// rename, gzip round-trip, timestamped backup, external-change detection, path
+// authorization, and restore confinement -- including spaces/non-ASCII paths.
+const { loadDocument, safeSave } = req('src/editor/file-io');
+const { authorizeWorldReference } = req('src/editor/path-authorizer');
+const editorStore = req('src/editor/session-store');
+const { EditorController } = req('src/editor/editor-controller');
+const EDWRL = '#VRML V2.0 utf8\nGroup { children [] }\n';
+
+function edScratch(name) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrlforge-7b-'));
+  return { dir, file: path.join(dir, name) };
+}
+
+check('editor safe-save (plain): atomic write + backup, on-disk matches buffer', () => {
+  const { file } = edScratch('item.wrl');
+  fs.writeFileSync(file, EDWRL);
+  const doc = loadDocument(file);
+  const res = safeSave({ filePath: file, text: EDWRL + '# saved\n', format: doc.format, expectedStat: doc.stat });
+  assert(res.ok && fs.readFileSync(file, 'utf8') === EDWRL + '# saved\n', 'content');
+  assert(res.backup && fs.existsSync(res.backup), 'backup');
+  return path.basename(res.backup);
+});
+
+check('editor safe-save (gzip): round-trips as gzip on disk', () => {
+  const { file } = edScratch('item.wrl');
+  fs.writeFileSync(file, zlib.gzipSync(Buffer.from(EDWRL)));
+  const doc = loadDocument(file);
+  assert(doc.format === 'gzip', doc.format);
+  safeSave({ filePath: file, text: EDWRL + '# gz\n', format: 'gzip', expectedStat: doc.stat });
+  const raw = fs.readFileSync(file);
+  assert(raw[0] === 0x1f && zlib.gunzipSync(raw).toString() === EDWRL + '# gz\n', 'gzip round-trip');
+});
+
+check('editor conflict: external change refuses save (EEXTERNAL), source intact', () => {
+  const { file } = edScratch('item.wrl');
+  fs.writeFileSync(file, EDWRL);
+  const doc = loadDocument(file);
+  fs.writeFileSync(file, EDWRL + '# theirs\n'); // external edit
+  let code = null;
+  try { safeSave({ filePath: file, text: 'mine', format: 'plain', expectedStat: doc.stat }); }
+  catch (e) { code = e.code; }
+  assert(code === 'EEXTERNAL', `code=${code}`);
+  assert(fs.readFileSync(file, 'utf8') === EDWRL + '# theirs\n', 'not clobbered');
+});
+
+check('editor path authorization: in-graph ok, traversal + stray rejected', () => {
+  const { dir, file } = edScratch('world.wrl');
+  fs.writeFileSync(file, EDWRL);
+  const allowed = new Set([path.resolve(file)]);
+  assert(authorizeWorldReference({ root: dir, allowedWrl: allowed, ref: file }).ok, 'in-graph');
+  assert(authorizeWorldReference({ root: dir, allowedWrl: allowed, ref: '../escape.wrl' }).reason === 'outside-root', 'traversal');
+  assert(authorizeWorldReference({ root: dir, allowedWrl: new Set(), ref: 'world.wrl' }).reason === 'not-in-project', 'stray');
+});
+
+check('editor restore confinement: world doc outside recorded root is refused', () => {
+  const a = edScratch('world.wrl'); fs.writeFileSync(a.file, EDWRL);
+  const b = edScratch('elsewhere.wrl'); fs.writeFileSync(b.file, EDWRL);
+  assert(editorStore.validateRestore({ sourcePath: a.file, context: 'world', root: a.dir }).ok, 'inside ok');
+  assert(editorStore.validateRestore({ sourcePath: b.file, context: 'world', root: a.dir }).reason === 'outside-context', 'outside');
+  assert(editorStore.validateRestore({ sourcePath: '/no/such-xyz.wrl', context: 'mall' }).reason === 'missing', 'missing');
+});
+
+check('editor controller: open + save + restore through a spaces/non-ASCII path', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrlforge 7b ünïcode '));
+  const file = path.join(dir, 'my itém.wrl');
+  fs.writeFileSync(file, EDWRL);
+  const ud = fs.mkdtempSync(path.join(os.tmpdir(), 'wrlforge-7b-ud-'));
+  const ctl = new EditorController({ getMallSource: () => file, userDataPath: ud });
+  const d = ctl.openMall();
+  ctl.setText(d.sessionId, EDWRL + '# edit\n');
+  const res = ctl.save(d.sessionId);
+  assert(res.ok && fs.readFileSync(file, 'utf8') === EDWRL + '# edit\n', 'saved');
+  const restored = new EditorController({ userDataPath: ud }).restore();
+  assert(restored.restored && restored.sourcePath === path.resolve(file), 'restored');
+  return path.basename(file);
+});
+
 // ---- summarize + write result ----
 const total = results.length;
 const passed = results.filter((r) => r.pass).length;
 const failed = total - passed;
 const out = {
-  phase: '6B',
+  phase: '6B+7B',
   platform: process.platform,
   arch: process.arch,
   node: process.versions.node,
