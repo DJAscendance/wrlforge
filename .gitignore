@@ -15,6 +15,10 @@ release/
 *.log
 npm-debug.log*
 
+# Machine-specific visual-QA run output (abs paths/PIDs); RESULTS.md is the
+# committed human-readable evidence.
+qa/phase-4b-world-preview/RESULTS.json
+
 # OS / editor junk
 .DS_Store
 Thumbs.db
