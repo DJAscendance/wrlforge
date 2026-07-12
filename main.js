@@ -130,9 +130,98 @@ function createWindow() {
     });
   }
 
+  // Persistent capture-server mode: ONE long-lived Electron process that drives
+  // many fixtures/screenshots through a single reused window, one command at a
+  // time, instead of relaunching the app per capture. This is the ONLY sanctioned
+  // path for visual QA batches (see qa/visual-qa/ and docs/VISUAL_QA_SAFETY.md) --
+  // it is what prevents an Electron launch storm from ever taking down the
+  // compositor again. Commands arrive as newline-delimited JSON on stdin:
+  //   { id, fixture, mode?:'fit'|'original', size?:'WxH', out?:pngPath, json?:bool }
+  //   { cmd:'shutdown' }
+  // and each produces exactly one response line (READY once, then OK/ERR per id).
+  // Security posture is unchanged: same window, same preload, same IPC surface.
+  if (process.env.WRL_FORGE_CAPTURE_SERVER) {
+    const SETTLE_MS = Number(process.env.WRL_FORGE_SETTLE_MS || 1200);
+    const emit = (line) => process.stdout.write(line + '\n');
+    // Process one job end-to-end against the reused window.
+    async function runJob(job) {
+      if (job.size) {
+        const [w, h] = String(job.size).split('x').map(Number);
+        if (w && h) win.setSize(w, h);
+      }
+      const payload = {};
+
+      // JSON-only job: authoritative bounds/fit debug via the READ-ONLY preview
+      // channel -- identical to the WRL_FORGE_PREVIEW_FIXTURE harness (points
+      // currentSession at the fixture, never writes a .edit.wrl sibling), just
+      // reused across many fixtures in one process instead of one spawn each.
+      if (job.json && !job.out) {
+        currentSession = { mallPath: job.fixture, editFile: job.fixture };
+        const dbg = await win.webContents.executeJavaScript(
+          '(async () => { await window.wrlPreview.load(); return JSON.stringify(window.wrlPreview._debug()); })()'
+        );
+        payload.debug = JSON.parse(dbg);
+        return payload;
+      }
+
+      // Screenshot job: the REAL open->validate->preview flow (as in the app),
+      // which produces a .edit.wrl -- callers point this at scratch copies.
+      if (job.fixture) {
+        await win.webContents.executeJavaScript(
+          `(async () => { const d = await window.vrmlpad.openMallPath(${JSON.stringify(job.fixture)}); window.__wrlForgeApplyOpen(d); })()`
+        );
+        await new Promise((r) => setTimeout(r, SETTLE_MS));
+        if (job.mode === 'fit') {
+          await win.webContents.executeJavaScript("document.getElementById('modeFit').click()");
+          await new Promise((r) => setTimeout(r, SETTLE_MS));
+        } else if (job.mode === 'original') {
+          await win.webContents.executeJavaScript("document.getElementById('modeOriginal').click()");
+          await new Promise((r) => setTimeout(r, SETTLE_MS));
+        }
+      }
+      if (job.out) {
+        const img = await win.webContents.capturePage();
+        fs.writeFileSync(job.out, img.toPNG());
+        payload.out = job.out;
+      }
+      return payload;
+    }
+    // Serialize commands: exactly one job runs at a time inside the process too,
+    // so a burst of stdin lines can never open overlapping renders.
+    let chain = Promise.resolve();
+    const enqueue = (job) => {
+      chain = chain.then(async () => {
+        if (job && job.cmd === 'shutdown') { app.quit(); return; }
+        try {
+          const payload = await runJob(job);
+          emit('WRL_FORGE_CAPTURE_OK ' + job.id + ' ' + JSON.stringify(payload));
+        } catch (err) {
+          emit('WRL_FORGE_CAPTURE_ERR ' + (job && job.id) + ' ' + String((err && err.message) || err));
+        }
+      });
+    };
+    win.webContents.once('did-finish-load', () => {
+      const rl = require('readline').createInterface({ input: process.stdin });
+      rl.on('line', (raw) => {
+        const line = raw.trim();
+        if (!line) return;
+        let job;
+        try { job = JSON.parse(line); } catch { emit('WRL_FORGE_CAPTURE_ERR - bad-json'); return; }
+        enqueue(job);
+      });
+      // If the orchestrator's stdin closes (it died/was killed), never linger as
+      // an orphan holding the GPU -- exit promptly.
+      rl.on('close', () => app.quit());
+      emit('WRL_FORGE_CAPTURE_READY');
+    });
+    return;
+  }
+
   // Non-interactive QA screenshot harness: drive the REAL open->validate->preview
   // path against a (scratch) fixture, optionally switch to Fit mode, capture the
   // page to a PNG, then quit. Takes precedence over the JSON harness below.
+  // NOTE: this single-shot path is retained for ad-hoc one-off captures only;
+  // batch/visual-QA runs MUST use the capture-server above via qa/visual-qa/.
   if (process.env.WRL_FORGE_PREVIEW_CAPTURE) {
     const fixture = process.env.WRL_FORGE_PREVIEW_FIXTURE;
     const outPath = process.env.WRL_FORGE_PREVIEW_CAPTURE;
