@@ -112,8 +112,9 @@ test('bounded: maxDepth stops descent', () => {
 
 test('records an unreadable .wrl node without aborting the walk', () => {
   const deps = world({ '/w/main.wrl': 'Inline{ url "broken.wrl" } ImageTexture{ url "img/ok.png" }' },
-    ['/w/img/ok.png']);
-  // broken.wrl is referenced but has no source entry -> readSource throws.
+    ['/w/img/ok.png', '/w/broken.wrl']);
+  // broken.wrl exists on disk but has no source entry -> readSource throws
+  // (models a corrupt/unreadable nested file, distinct from a missing one).
   const g = buildAssetGraph('/w/main.wrl', deps);
   const broken = g.wrlNodes.find((n) => n.path.endsWith('broken.wrl'));
   assert.ok(broken.unreadable, 'unreadable child is recorded');
