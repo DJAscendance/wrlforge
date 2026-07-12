@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <title>WRL Forge — X_ITE Mall Fit Spike</title>
 <script defer src="node_modules/x_ite/dist/x_ite.min.js"></script>
+<script defer src="extrusion-bounds.js"></script>
 <script defer src="bbox-traversal.js"></script>
 <script defer src="guides.js"></script>
 <script defer src="fit-math.js"></script>
@@ -23,15 +24,19 @@
   </div>
   <div id="report">loading…</div>
   <script>
-    // Fixture is inlined at load time (no filesystem IPC surface exists in
-    // this spike at all -- see NOTES.md "Security boundary"). Nothing here
-    // ever writes back to the loaded fixture -- there is no save/apply path.
+    // Fixture text + base URL come from the main process via a READ-ONLY IPC
+    // bridge (window.wrlForge.loadFixture -- see preload.js/main.js). The main
+    // process handles gzip decompression, so X_ITE only ever receives plain
+    // text, and it supplies the source directory as browser.baseURL so relative
+    // texture URLs resolve against the item's own folder. Nothing here ever
+    // writes back to the fixture -- there is no save/apply path.
     const params = new URLSearchParams(location.search);
     const fixtureName = params.get('fixture') || 'simple-box.wrl';
 
-    let browser, fixtureText, fit, guideScene;
+    let browser, fixtureText, fixtureMeta, fit, guideScene;
 
     async function loadOriginal() {
+      browser.baseURL = fixtureMeta.baseURL;
       const scene = await browser.createX3DFromString(fixtureText);
       await browser.replaceWorld(scene);
       return scene;
@@ -43,6 +48,7 @@
     // from fit-math.js is reported in the panel below, never applied to the
     // loaded geometry or written anywhere.
     async function loadFitPreview(rules) {
+      browser.baseURL = fixtureMeta.baseURL;
       const guidesVrml = window.buildGuidesVrml(rules);
       const combined = fixtureText + '\n' + guidesVrml.replace(/^#VRML V2\.0 utf8\n/, '');
       const scene = await browser.createX3DFromString(combined);
@@ -50,23 +56,47 @@
       return scene;
     }
 
+    // Capture X_ITE texture-load failures so a missing/relative texture surfaces
+    // as a clear warning in the report rather than a silent gap. Bounds
+    // extraction does not depend on textures, so it still succeeds regardless.
+    const textureWarnings = [];
+    const origError = console.error;
+    console.error = function (...a) {
+      const msg = a.join(' ');
+      if (/(texture|\.png|\.jpg|\.jpeg|\.gif|Failed to (load|fetch)|could not)/i.test(msg)) {
+        textureWarnings.push(msg.slice(0, 200));
+      }
+      origError.apply(console, a);
+    };
+
     async function main() {
       await X3D();
       const canvas = document.getElementById('canvas');
       browser = canvas.browser;
 
-      const res = await fetch('fixtures/' + fixtureName);
-      fixtureText = await res.text();
+      // Read-only main-process load: decompresses gzip, returns source base URL.
+      fixtureMeta = await window.wrlForge.loadFixture(fixtureName);
+      fixtureText = fixtureMeta.text;
 
       const originalScene = await loadOriginal();
+      // Let any relative textures attempt to load before we snapshot warnings.
+      await new Promise((r) => setTimeout(r, 400));
 
       let result;
       try {
         const bbox = window.computeSceneBBox(originalScene);
         fit = bbox ? window.computeFit(bbox) : null;
-        result = { fixture: fixtureName, bbox, fit, error: null };
+        result = {
+          fixture: fixtureName,
+          wasGzipped: fixtureMeta.wasGzipped,
+          baseURL: fixtureMeta.baseURL,
+          bbox,
+          fit,
+          textureWarnings,
+          error: null,
+        };
       } catch (err) {
-        result = { fixture: fixtureName, bbox: null, fit: null, error: String(err && err.stack || err) };
+        result = { fixture: fixtureName, bbox: null, fit: null, textureWarnings, error: String(err && err.stack || err) };
       }
 
       document.getElementById('report').textContent = JSON.stringify(result, null, 2);

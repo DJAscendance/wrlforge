@@ -1,0 +1,6 @@
+#VRML V2.0 utf8
+WorldInfo { title "Textured Nested" }
+Shape {
+  appearance Appearance { texture ImageTexture { url "tex/wood.png" } }
+  geometry Box { size 2 2 2 }
+}

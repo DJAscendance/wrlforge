@@ -1,5 +1,11 @@
 'use strict';
-// No API surface is exposed -- the spike loads its fixture via a same-origin
-// fetch('fixtures/<name>.wrl') from index.html, not via any privileged Node
-// or IPC channel. This file exists only so webPreferences.preload has a
-// concrete target; contextIsolation stays enabled with nodeIntegration off.
+// Minimal, READ-ONLY bridge. Exposes exactly one function -- load a fixture's
+// decompressed text + source base URL via the main process. No write path, no
+// arbitrary path access (main.js confines names to fixtures/), no Node/fs
+// handed to the renderer. contextIsolation stays on, nodeIntegration stays off.
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('wrlForge', {
+  // name -> { text, wasGzipped, rawBytes, baseURL, sourcePath }
+  loadFixture: (name) => ipcRenderer.invoke('wrl:load', name),
+});
