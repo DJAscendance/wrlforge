@@ -1,23 +1,23 @@
 {
   "phase": "6B+7B",
-  "platform": "win32",
+  "platform": "linux",
   "arch": "x64",
-  "node": "24.15.0",
-  "electron": "41.7.1",
-  "chrome": "146.0.7680.216",
-  "total": 43,
-  "passed": 43,
+  "node": "20.20.2",
+  "electron": null,
+  "chrome": null,
+  "total": 45,
+  "passed": 45,
   "failed": 0,
   "results": [
     {
       "name": "platform reported",
       "pass": true,
-      "detail": "win32 x64"
+      "detail": "linux x64"
     },
     {
       "name": "path.sep matches platform",
       "pass": true,
-      "detail": "\"\\\\\""
+      "detail": "\"/\""
     },
     {
       "name": "win32 path.join drive-letter + spaces",
@@ -97,7 +97,7 @@
     {
       "name": "case-insensitivity precondition (host-observed)",
       "pass": true,
-      "detail": "NTFS existsSync(upper)=true (case detected in code regardless)"
+      "detail": "ext4 existsSync(upper)=false (case-sensitive host)"
     },
     {
       "name": "package audit READY (nested)",
@@ -122,7 +122,7 @@
     {
       "name": "scans a path with spaces + non-ASCII",
       "pass": true,
-      "detail": "C:\\users\\ryan\\Temp\\wrlbeta-Iie3fK\\a b — wörld"
+      "detail": "/tmp/wrlbeta-GEG639/a b — wörld"
     },
     {
       "name": "editor: clear not-found message (VSCodium absent)",
@@ -142,7 +142,7 @@
     {
       "name": "editor override: valid bare command resolved on PATH",
       "pass": true,
-      "detail": "\\win\\tools\\codium.cmd"
+      "detail": "/win/tools/codium.cmd"
     },
     {
       "name": "editor override: INVALID absolute path is tried first then falls through to not-found",
@@ -157,7 +157,7 @@
     {
       "name": "editor: linux codium/code discovery resolves to codium",
       "pass": true,
-      "detail": "codium"
+      "detail": "/usr/bin/codium"
     },
     {
       "name": "settings.json editorCommand loaded as override",
@@ -187,17 +187,17 @@
     {
       "name": "window-state path under userData",
       "pass": true,
-      "detail": "C:\\Users\\ryan\\AppData\\Roaming\\wrl-forge\\window-state.json"
+      "detail": "C:\\Users\\ryan\\AppData\\Roaming\\wrl-forge/window-state.json"
     },
     {
       "name": "legacy vrmlpad migration path resolves",
       "pass": true,
-      "detail": "C:\\users\\ryan\\Temp\\vrmlpad\\window-state.json"
+      "detail": "/tmp/vrmlpad/window-state.json"
     },
     {
       "name": "editor safe-save (plain): atomic write + backup, on-disk matches buffer",
       "pass": true,
-      "detail": "item.wrl.bak-2026-07-12T13-19-37-085Z"
+      "detail": "item.wrl.bak-2026-07-12T14-00-05-231Z"
     },
     {
       "name": "editor safe-save (gzip): round-trips as gzip on disk",
@@ -223,6 +223,16 @@
       "name": "editor controller: open + save + restore through a spaces/non-ASCII path",
       "pass": true,
       "detail": "my itém.wrl"
+    },
+    {
+      "name": "mall open is passive: writes .edit.wrl working copy, never launches editor",
+      "pass": true,
+      "detail": "item.edit.wrl"
+    },
+    {
+      "name": "explicit external action launches on the working copy (recreates if missing)",
+      "pass": true,
+      "detail": ""
     }
   ]
 }

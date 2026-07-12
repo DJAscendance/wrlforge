@@ -390,6 +390,43 @@ check('editor controller: open + save + restore through a spaces/non-ASCII path'
   return path.basename(file);
 });
 
+// ---- Phase 7B1: passive-launch posture (opening never launches an editor) ----
+const { openMallItem, openExternalEditor } = req('src/editor/mall-edit-flow');
+
+check('mall open is passive: writes .edit.wrl working copy, never launches editor', () => {
+  const { file } = edScratch('item.wrl');
+  fs.writeFileSync(file, EDWRL);
+  const launched = [];
+  const deps = {
+    readSource: (p) => ({ text: fs.readFileSync(p, 'utf8'), wasGzipped: false, rawBytes: fs.statSync(p).size }),
+    editPathFor,
+    writeWorkingCopy: (ef, t) => fs.writeFileSync(ef, t, 'utf8'),
+    workingCopyExists: (ef) => fs.existsSync(ef),
+    launch: (ef) => { launched.push(ef); return { launched: true }; },
+  };
+  const info = openMallItem(file, deps);
+  assert(fs.existsSync(info.editFile) && /\.edit\.wrl$/i.test(info.editFile), 'working copy written');
+  assert(launched.length === 0, 'open must NOT launch an editor');
+  assert(!('editorStatus' in info), 'no editorStatus on passive open');
+  return path.basename(info.editFile);
+});
+
+check('explicit external action launches on the working copy (recreates if missing)', () => {
+  const { file } = edScratch('item.wrl');
+  fs.writeFileSync(file, EDWRL);
+  const editFile = editPathFor(file);
+  const launched = [];
+  const deps = {
+    readSource: (p) => ({ text: fs.readFileSync(p, 'utf8'), wasGzipped: false, rawBytes: 0 }),
+    writeWorkingCopy: (ef, t) => fs.writeFileSync(ef, t, 'utf8'),
+    workingCopyExists: (ef) => fs.existsSync(ef),
+    launch: (ef) => { launched.push(ef); return { launched: true }; },
+  };
+  const res = openExternalEditor({ mallPath: file, editFile }, deps);
+  assert(res.created && fs.existsSync(editFile), 'missing working copy recreated by explicit action');
+  assert(launched.length === 1 && launched[0] === editFile, 'launched exactly once, on the working copy');
+});
+
 // ---- summarize + write result ----
 const total = results.length;
 const passed = results.filter((r) => r.pass).length;

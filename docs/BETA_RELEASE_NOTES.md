@@ -1,3 +1,45 @@
+# WRL Forge 1.2.0-beta.2 — Private Windows Beta (Unsigned)
+
+**Status:** Private beta candidate. **Do not distribute publicly.**
+**Signing:** **Unsigned** — SmartScreen shows the unknown-publisher prompt on first
+run (**More info → Run anyway**); it is **not** removed (see `docs/SIGNING_READINESS.md`).
+
+## What's new in 1.2.0-beta.2 — native-editor closeout (Phase 7B1)
+
+Behavior-only closeout of the Phase 7B review. No new editor features.
+
+- **Passive external-editor launch removed.** Opening a Mall `.wrl` no longer
+  launches VSCodium and never shows an "editor not found" message. The external
+  editor starts **only** through the explicit **Open in External Editor** action.
+  The native editor is opened by the explicit **Open in Native Editor** action.
+- Native editing still edits the real `.wrl` (plain **and** gzip) and creates **no**
+  `.edit.wrl`; the explicit external-editor action ensures/refreshes the `.edit.wrl`
+  working copy it launches on.
+- Documentation corrected: the VRML97 parser is **wired into the native editor**
+  (highlighting, syntax diagnostics, advisories, outline) but has **not** replaced
+  the Mall validator, World scanner, preview resolver, or packaging; the
+  unsaved-buffer X_ITE preview remains **Phase 7C (not built)**.
+
+Verified by **387** non-visual tests (incl. new passive-launch regression tests),
+a focused serialized Linux visual pass (`qa/phase-7b1-native-closeout/`, 3/3, one
+Electron process, 0 survivors) plus the re-run Phase 7B editor matrix (15/15), and
+**8** editor cases in the Windows self-test (now 45/45 on Linux). Real Windows 11
+GUI verification: `qa/phase-7b1-windows-closeout/`.
+
+### Artifacts (x64, unsigned)
+
+| File | Size | SHA-256 |
+|---|---|---|
+| `WRL Forge-1.2.0-beta.2-x64-PrivateBeta-Unsigned-portable.exe` | 98,301,686 B (~94 MB) | `07284de5995101c8d1da4f7816a8c2eb49a4c6ac053b37397c1c390cb208b0f2` |
+| `WRL Forge-1.2.0-beta.2-x64-PrivateBeta-Unsigned-setup.exe` (NSIS installer) | 98,509,743 B (~94 MB) | `67c881711bddd7fb386425404a77031116d5604018b42e90afb09f643d23ede7` |
+
+Checksums also in `release/SHA256SUMS-1.2.0-beta.2.txt` (git-ignored, like the
+artifacts). Both are **unsigned** (PE certificate table empty — verified at build
+time) and **x64 only** (no ARM64). No auto-update, no store packaging, no public
+release.
+
+---
+
 # WRL Forge 1.2.0-beta.1 — Private Windows Beta (Unsigned)
 
 **Status:** Private beta candidate. **Do not distribute publicly.**
