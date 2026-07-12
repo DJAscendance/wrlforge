@@ -1,0 +1,11 @@
+#VRML V2.0 utf8
+WorldInfo { title "Broken World" }
+Shape { appearance Appearance { texture ImageTexture { url "img/present.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/missing.jpg" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/Present.PNG" } } geometry Box {} }
+Anchor { url "http://example.com/remote.png" children [] }
+Anchor { url "//cdn.example.com/proto.png" children [] }
+Shape { appearance Appearance { texture ImageTexture { url "/etc/hosts" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "../../escape.png" } } geometry Box {} }
+DEF S Script { url "javascript: function y(){}" }
+

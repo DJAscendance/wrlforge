@@ -1,0 +1,31 @@
+#VRML V2.0 utf8
+WorldInfo { title "Mini World" }
+Viewpoint { position 0 0 10 }
+Viewpoint { position 0 5 10 }
+Shape { appearance Appearance { texture ImageTexture { url "img/t00.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t01.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t02.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t03.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t04.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t05.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t06.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t07.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t08.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t09.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t10.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t11.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t12.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t13.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t14.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t15.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t16.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t17.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t18.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t19.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t20.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t21.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t22.png" } } geometry Box {} }
+Shape { appearance Appearance { texture ImageTexture { url "img/t23.png" } } geometry Box {} }
+Inline { url "sub/props.wrl" }
+DEF Spin Script { url "vrmlscript: function x() {}" }
+
