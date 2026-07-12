@@ -60,6 +60,25 @@ A JSON array; each job runs in order through the same process:
   bounds/fit without mutating anything.
 - `mode`: `fit` | `original` (optional). `size`: `WxH` (optional).
 
+**World Project jobs (Phase 4A).** A job with a `world` key drives the read-only
+**World** workspace instead of the Mall preview, in the *same* reused process
+(the capture server navigates the one window to `world.html`):
+
+```json
+[
+  { "id": "empty",   "world": null,                                          "size": "1100x760", "out": "/abs/out/w-empty.png" },
+  { "id": "valid",   "world": { "root": "/abs/scratch/mini",   "primary": "/abs/scratch/mini/world.wrl" },   "out": "/abs/out/w-valid.png" },
+  { "id": "broken",  "world": { "root": "/abs/scratch/broken", "primary": "/abs/scratch/broken/world.wrl" }, "out": "/abs/out/w-broken.png" },
+  { "id": "narrow",  "world": { "root": "/abs/scratch/mini",   "primary": "/abs/scratch/mini/world.wrl" },   "size": "680x900", "out": "/abs/out/w-narrow.png" }
+]
+```
+
+- `world: null` → the empty-project state. `world: { root, primary }` → the main
+  process (trusted) points the confined scan at that project and screenshots the
+  result. World scanning is **read-only** (it never writes a `.edit.wrl` or
+  anything else), so world `root/primary` may point at any readable project; use
+  scratch copies anyway to keep runs hermetic.
+
 ## Lifecycle logging
 
 `cli.js` emits one JSON line per event: `run:start`, `launch` (with count + PID),

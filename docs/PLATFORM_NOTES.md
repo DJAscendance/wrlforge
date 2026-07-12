@@ -22,6 +22,18 @@ Linux (ext4) is case-sensitive; Windows (NTFS) is case-insensitive-but-case-pres
 
 **Empirically confirmed (Phase 2B0):** in the X_ITE spike, a texture referenced as `Stone.PNG` when the file on disk is `stone.png` fails to load on Linux and surfaces a clear `Couldn't load URL '…/Stone.PNG'` warning — i.e. the case mismatch is caught here because the filesystem is case-sensitive. On a case-insensitive Windows/macOS dev machine the same reference would load silently, masking a bug that breaks on a case-sensitive server. This is exactly why Phase 4 must detect case mismatches in code rather than leaning on the local fs, and it's an argument for authoring/testing on the case-sensitive (Linux) platform. The texture base-URL resolution itself (`spikes/xite-mall-fit/texture-base.js`) is written with `path` arithmetic and percent-encoding, so it is portable as-is; only the *observed* case behavior differs by platform.
 
+**Implemented in code (Phase 4A):** the World Project resolver
+(`src/world-project/asset-graph.js`) now detects case mismatches **in code** —
+for a reference that doesn't exist at its exact path, it lists the directory and
+reports a `case-mismatch` when a case-only sibling exists — rather than relying
+on the filesystem's behavior. This is the cross-platform-aware detection the note
+above called for: it flags a `Wall.JPG`→`wall.jpg` hazard on the author's Linux
+box (where it fails) *and* would flag it on a case-insensitive dev machine (where
+it would otherwise load silently and only break on a case-sensitive server). All
+world-project path handling uses `path` arithmetic (POSIX-normalized authored
+urls), so it is portable; only which files "exist" at a given case differs by
+platform, and the detection does not depend on that.
+
 ## Desktop launcher vs. Windows shortcut
 
 `wrl-forge.desktop` is a Linux/XDG desktop-entry file (`Exec=`/`Path=` pointing at `launch.sh`), installed both in-repo and to `~/.local/share/applications/`. This mechanism doesn't exist on Windows — the equivalent would be a Start Menu shortcut (`.lnk`) or an installer-created entry, not implemented in this lane.

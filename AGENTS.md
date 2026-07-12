@@ -55,15 +55,26 @@ A narrowly-scoped **technical spike** at `spikes/xite-mall-fit/` (Phase 2A) is a
 - Backup and repack
 - Prepare final item packages and reports (future: roadmap Phase 6)
 
-### World Project (planned, not yet implemented)
+### World Project (read-only resolver + workspace shipped — Phase 4A)
 
-- Open a primary world `.wrl` or project folder
-- Discover referenced textures and local VRML assets
-- Support many local textures — no arbitrary 20-file UI limit
-- Detect missing files, filename-case mismatches, external paths, and unused assets
-- Preview the complete world
-- Validate using a **world-specific** rules profile, separate from mall-item rules
-- Prepare a deterministic submission package and report
+A read-only asset resolver and workspace now ships (`src/world-project/`,
+`renderer/world.html`, confined `world:*` IPC). It can:
+
+- Open a primary world `.wrl`/`.wrz` **or** a project folder (with primary-file
+  detection; ambiguity is surfaced, never guessed)
+- Discover referenced textures and local VRML assets across nested `Inline` WRL
+  (gzip and plain, bounded + cycle-safe), with **no arbitrary texture limit**
+- Detect missing files, filename-case mismatches, absolute/traversal (unsafe)
+  paths, remote references (surfaced, never fetched), duplicates, and cycles
+- Report via a world-specific profile (`src/world-project/profile.js`) that is
+  **structurally separate** from `validator.js` — none of the Mall Item rules
+  apply, and historical figures (the ~20-texture web-form limit) are never
+  presented as current server rules (confidence-tagged findings)
+
+Still **not** implemented (each its own future approved lane): world **preview**
+(embedded X_ITE — proposed Phase 4B), deterministic **packaging**, and any
+**upload**. The lane is strictly read-only: no path repair, copy, rename,
+delete, or file mutation. See `docs/WORLD_PROJECT_ARCHITECTURE.md`.
 
 ### Generic VRML97 (planned, not yet implemented)
 
@@ -88,7 +99,9 @@ Do not copy Mall Item validation rules into World Project or Generic VRML97 code
 - `preload.js` — contextBridge, exposes `window.vrmlpad.{openMall, openMallPath, check, repack, revealInFolder, loadPreview, openInEditor}` to the renderer. Keep `contextIsolation: true` / `nodeIntegration: false`; add new capabilities as new IPC handlers, not by relaxing this. This constraint applies to the embedded X_ITE preview too — it is isolated from privileged Electron APIs.
 - `src/preview/` — shared preview/fit modules (Phase 2B1), single source of truth reused by both the production app and the isolated spike (no duplicate implementations): `fit-math.js`, `extrusion-bounds.js`, `bbox-traversal.js` (browser-only), `guides.js`, `texture-base.js`, `wrl-source.js` (main-process), `url-policy.js`. Pure/browser modules keep no Electron/fs dependency so they are `node:test`-able; only `wrl-source.js` touches the filesystem and runs in the main process. See `docs/PREVIEW_ARCHITECTURE.md`.
 - `main.js` preview surface (Phase 2B1) — a **read-only** `preview:load` IPC (role `'source'`/`'edit'`, never a renderer-supplied path; gzip decompressed in main so X_ITE only sees plain text), an `mall:openInEditor` re-launch action, and a `session.webRequest` network guard that cancels every remote request (`url-policy.isBlockedPreviewUrl`). There is **no** write-capable preview channel.
-- `renderer/` — plain HTML/CSS/JS (no framework, no bundler), currently the Mall Item lane's UI. `renderer.js` owns the file/validation panel; `renderer/preview.js` owns the embedded X_ITE preview (Original/Cybertown Fit modes, guide toggles, refresh) and the fit report. `index.html` carries a strict CSP (no remote origin). The Fit mode transform and guides are **preview-only** — never written to any file. Additional profiles (World Project, Generic VRML97) should get their own clearly-labeled views/panels rather than overloading this one, when that work begins.
+- `renderer/` — plain HTML/CSS/JS (no framework, no bundler). `index.html` + `renderer.js` are the Mall Item lane's UI; `renderer/preview.js` owns the embedded X_ITE preview (Original/Cybertown Fit modes, guide toggles, refresh) and the fit report. `index.html` carries a strict CSP (no remote origin). The Fit mode transform and guides are **preview-only** — never written to any file. `world.html` + `world.js` are the **World Project** lane's separate workspace (Phase 4A): a read-only asset table / dependency view over the resolved graph, sharing the one BrowserWindow + preload (so it gets the same `window.vrmlpad` bridge, plus `window.vrmlpad.world.*`). It loads **no** X_ITE (no world preview yet) and its CSP has no wasm/remote origin. Navigation between the two pages is main-controlled (`app:goto`, whitelisted). Each new profile gets its own clearly-labeled page rather than overloading another.
+- `src/world-project/` — the **World Project** profile (Phase 4A): the promoted, production home of the Phase 3A recon logic. Pure/injectable modules (`url-fields`, `path-policy`, `image-size`, `asset-graph`, `profile`, `project-stats`, `session`) plus the one main-process fs module (`project-loader`). `qa/world-recon/*` now re-export these (single source of truth). **Separate from `validator.js`** — no Mall Item rule is applied to a World Project. Read-only; no module writes.
+- `main.js` World Project surface (Phase 4A) — confined, **read-only** `world:*` IPC (`openFolder`/`openPrimaryFile`/`choosePrimary`/`scan`/`refresh`/`describe`/`reveal`/`revealRoot`/`openPrimaryInEditor`). The main process owns every project path (held in a `ProjectSession`); the renderer can only pick among detected candidates. There is **no** write-capable world channel. The capture-server (`WRL_FORGE_CAPTURE_SERVER`) gained a `world` job type so the World workspace can be screenshotted through the same single reused Electron process (see `docs/VISUAL_QA_SAFETY.md`).
 - `validator.js` — pure function `validate(text) -> { results, ok, gzipBytes, rawBytes }`. No filesystem access. Mirrors the Mall Item rules in `../new-items/CLAUDE.md` and `../new-items/README.md`, generically rather than the hardcoded per-item logic in files like `../new-items/vette-blue/corvette-study/validate.py`. If the mall rules change, update both this file and the new-items docs together — they must not drift. **This file is Mall Item-specific**; a future World Project validator is a separate module, not an extension of this one.
 
 ### Rename note (vrmlpad → WRL Forge)

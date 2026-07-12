@@ -144,22 +144,47 @@ read-only `qa/world-recon/` analyzer (`npm run recon:world`). Evidence gathered 
 - A documented (not yet enforced) world validation rule set, with each rule traceable to an actual confirmed constraint rather than an assumption
 - Open questions about real server limits explicitly flagged as unresolved, not silently guessed
 
-## Phase 4 — World Asset Resolver ⏳
+## Phase 4 — World Asset Resolver 🔄
 
-- Open a project folder (not just a single file)
-- Parse local URL references across the primary world file and any referenced VRML/Inline assets
-- Discover textures and nested local assets, however many there are — no arbitrary local 20-texture limit
-- Missing-file and filename-case mismatch diagnostics (case-sensitivity matters when the target server's filesystem is case-sensitive even if the author's isn't)
-- Report of referenced-but-unused and used-but-missing assets
+**Phase 4A (production resolver + read-only workspace) landed** — see
+`docs/WORLD_PROJECT_ARCHITECTURE.md`. The Phase 3A recon logic was promoted into
+`src/world-project/` (single source of truth; `qa/world-recon/*` re-export it),
+wired behind confined read-only `world:*` IPC, and rendered in a dedicated
+`renderer/world.html` workspace (summary, filterable asset table, dependency
+view). No world preview yet (that is **Phase 4B**, below); no packaging/upload.
 
-**Prerequisites:** Phase 3's world rules profile, at least in draft form.
+- [x] Open a project folder (not just a single file), with primary-file
+  detection (ambiguity surfaced, never guessed) — plus direct primary-file open
+- [x] Parse local URL references across the primary world and nested
+  `Inline`/EXTERNPROTO assets (gzip + plain, bounded + cycle-safe)
+- [x] Discover textures and nested local assets, however many — **no** arbitrary
+  20-texture limit (fixtures + tests cover 24 and 70 unique textures)
+- [x] Missing-file, filename-case-mismatch, absolute/traversal (unsafe), remote,
+  duplicate, and dependency-cycle diagnostics
+- [x] Read-only workspace UI (summary, filters, dependency view) sharing the one
+  window; Mall Item lane unchanged; profile kept separate from `validator.js`
+- [x] Non-mutation verified (fixtures byte-identical before/after scanning) and
+  one controlled `VisualQaRunner` visual run of the workspace states
 
-**Risks:**
-- Recursive/inline asset graphs could be large or cyclic — needs bounded traversal, not an assumption of a small flat file list.
-- Case-mismatch detection needs to be genuinely cross-platform-aware (the author's Linux filesystem is case-sensitive; a naive dev might not think to check).
+**Prerequisites:** Phase 3's world rules profile (draft) — met.
 
-**Completion criteria:**
-- Given a real multi-texture world project, the resolver correctly enumerates all referenced local assets and correctly flags at least one deliberately-broken reference (missing file, case mismatch) in a test fixture
+**Risks (addressed):**
+- Recursive/inline asset graphs could be large or cyclic — bounded traversal
+  (`maxWrlNodes`/`maxDepth`) + visited-set cycle safety; cycles are reported.
+- Case-mismatch detection is done in code (not leaning on the local fs), so it
+  catches a hazard that a case-insensitive dev machine would mask.
+
+**Completion criteria:** met — the resolver enumerates all referenced local
+assets in a real multi-texture project (`test/fixtures/world/mini`, 25 textures)
+and flags deliberately-broken references (`test/fixtures/world/broken`: missing,
+case mismatch, unsafe, remote).
+
+### Phase 4B — World Preview ⏳ (not yet approved)
+
+The embedded X_ITE **world** preview (render a complete world, honouring the
+gzip/nested-Inline asset graph the Phase 4A resolver produces). Highest blast
+radius; must route exclusively through `npm run qa:visual` / `VisualQaRunner`
+and keep the current isolation discipline. Requires its own approved lane.
 
 ## Phase 5 — Embedded X_ITE Preview ⏳
 

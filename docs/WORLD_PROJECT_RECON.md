@@ -2,9 +2,16 @@
 
 Read-only reconnaissance of real Cybertown world projects to establish how worlds
 are actually structured and referenced — so the World Project profile is built on
-confirmed constraints, not inherited assumptions. **Nothing here is enforced yet**
-(enforcement is Phase 3's rules profile → Phase 4's resolver). Every claim below
-is traceable to evidence gathered by `qa/world-recon/` over the corpus.
+confirmed constraints, not inherited assumptions. Every claim below is traceable
+to evidence gathered by `qa/world-recon/` over the corpus.
+
+> **Phase 4A update:** the recon logic documented here has been **promoted into
+> production** at `src/world-project/` (resolver + read-only workspace); the
+> `qa/world-recon/*` modules are now thin re-exports of it, and
+> `npm run recon:world` still works. See `docs/WORLD_PROJECT_ARCHITECTURE.md`.
+> The draft rules below remain **advisory** — the production profile reports
+> confidence-tagged findings but enforces no hard gate (there is no
+> packaging/upload step yet).
 
 ## Corpus examined
 
