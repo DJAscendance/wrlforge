@@ -326,6 +326,52 @@ Store, asset repair, Apply/Bake, internal editor, and any new world/Mall feature
 A broader Windows **beta** (signing, SmartScreen, live VSCodium launch, dialog-
 driven flows, arm64) is a separate future lane.
 
+### Phase 6B — Windows Beta Hardening ✅
+
+Turned the Phase 6A private test build into a **beta candidate** (`1.1.0-beta.1`,
+labelled **Private Beta — Unsigned**) by validating the real GUI workflows on
+Windows 11. **No new product features** — hardening + validation only. See
+`qa/phase-6b-windows/RESULTS.md`, `docs/SIGNING_READINESS.md`, and
+`docs/BETA_RELEASE_NOTES.md`.
+
+- [x] Fresh versioned x64 beta artifacts (portable + NSIS + `SHA256SUMS`), rebuilt
+  with `CSC_IDENTITY_AUTO_DISCOVERY=false` and **verified genuinely unsigned** (PE
+  cert table empty). Kept private + git-ignored; **no public GitHub Release**.
+- [x] **Committed** packaged-runtime self-test (`win-selftest.js`, unlike 6A) —
+  **37/37 on real Windows 11** (Electron 41.7.1 / Node 24.15): gzip, nested + gzip
+  scan, 25 & 71-texture worlds, viewpoints, missing/remote/unsafe/case diagnostics,
+  Package Audit, Review Bundle + ZIP hash integrity + in-project/overwrite refusals,
+  spaces + non-ASCII paths, **all editor-override cases incl. the invalid-override
+  fall-through**, `.edit.wrl` generation, window-state/userData paths. Also green on
+  Linux (CI-verifiable before the VM).
+- [x] **Live GUI focused pass** on the beta build: portable + NSIS-installed launch,
+  native file/folder dialogs, **X_ITE Mall Original/Fit preview renders on Windows**
+  (the Phase 6A gap), gzip open, **X_ITE World preview + viewpoints render**,
+  Package Audit + **Review Bundle written outside the project (6/6 manifest hashes
+  match)**, window-state persistence across portable↔installed (shared
+  `%APPDATA%\wrl-forge`), clean exit, Start-menu launch, and **uninstall** (app +
+  shortcuts removed, user projects untouched). Non-mutation verified (fixtures
+  byte-identical).
+- [x] **Signing-readiness audit** (`docs/SIGNING_READINESS.md`): cert format
+  (OV/EV → token/KMS, not bare `.pfx`), env/config points (`CSC_*` / `win.sign` /
+  `signtoolOptions`), RFC-3161 timestamping, CI implications (needs a Windows/cloud
+  signing stage; signed artifacts aren't byte-reproducible → re-checksum after
+  signing), secret handling. **No certificate purchased/generated/used.**
+- [x] Linux stays fully green: 234 unit tests, syntax gate, and the Mall/World-
+  preview/World-packaging visual regressions (20 pass) run **serially through the
+  sanctioned harness**, no leaks (launch-storm guardrail preserved).
+
+**Verdict:** **CONDITIONAL GO** for a limited private Windows beta. Conditions: a
+live VSCodium "Open in Editor" run (VSCodium was not installed in the VM — the
+clear not-found path was verified instead); artifacts stay **Unsigned** (no
+SmartScreen-elimination claim); the Review Bundle is **not** confirmed for direct
+Cybertown upload.
+
+**Explicitly not implemented** (unchanged exclusions): direct upload, auth,
+upload-ready CTR packaging, auto-update, code signing (only readiness documented),
+public releases, Microsoft Store, Apply/Bake, internal editor, **Windows ARM64**,
+any new Mall/World features.
+
 ## Deferred ⛔
 
 Not scheduled into any phase above; requires explicit future direction before any design work begins:

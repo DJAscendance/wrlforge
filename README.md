@@ -32,26 +32,34 @@ See `AGENTS.md` for the full mission, architecture, and conventions, and `docs/W
 ## Platform
 
 Linux is the first supported platform and is tested thoroughly. **Windows** is now
-validated for a private test build (Phase 6A): editor discovery is cross-platform
+a **private beta** (Phase 6B, `1.1.0-beta.1`). Editor discovery is cross-platform
 (Linux `codium`/`code`; Windows install-location search + `WRL_FORGE_EDITOR` /
 `settings.json` override, with a clear "editor not found" message), filename-case
-mismatches are caught even on case-insensitive Windows/macOS filesystems, and
-paths/gzip/scanning/Review-Bundle/window-state were verified on real Windows 11.
-See `docs/PLATFORM_NOTES.md` for platform-sensitive behavior and the test matrix.
+mismatches are caught even on case-insensitive Windows/macOS filesystems, and the
+real GUI workflows were driven end-to-end on Windows 11: native file/folder
+dialogs, the **X_ITE Mall + World preview render**, `.edit.wrl` generation, Package
+Audit + Review Bundle (ZIP hashes verified), NSIS install → Start-menu launch →
+uninstall, and window-state persistence — plus a committed **37/37** packaged-
+runtime self-test. See `docs/PLATFORM_NOTES.md` for the platform-sensitive behavior
+and test matrix, `qa/phase-6b-windows/RESULTS.md` for the beta evidence, and
+`docs/BETA_RELEASE_NOTES.md` for install/testing instructions.
 
-### Windows test build (private, unsigned)
+### Windows beta build (private, unsigned)
 
 ```
 npm run build:win            # portable .exe + NSIS installer (x64), via electron-builder
 npm run build:win:portable   # portable .exe only
 ```
 
-Output lands in `release/` (git-ignored) as **Private Test Build — Unsigned**
-artifacts. Because they are **unsigned**, Windows SmartScreen shows the normal
-"Windows protected your PC" / unknown-publisher warning on first launch — click
-**More info → Run anyway**. No code signing, auto-update, Microsoft Store, or
-public release is configured. Building the Windows target from Linux needs `wine`.
-See `docs/BUILD.md` for details and the dependency/license notes.
+Output lands in `release/` (git-ignored) as **Private Beta — Unsigned** artifacts
+(`WRL Forge-1.1.0-beta.1-x64-PrivateBeta-Unsigned-*.exe` + `SHA256SUMS`). Because
+they are **unsigned**, Windows SmartScreen shows the normal "Windows protected your
+PC" / unknown-publisher warning on first launch — click **More info → Run anyway**
+(signing does **not** eliminate this — see `docs/SIGNING_READINESS.md`). No code
+signing, auto-update, Microsoft Store, or public release is configured; **Windows
+ARM64 is unsupported** and **direct Cybertown (CTR) upload compatibility is
+unconfirmed**. Building the Windows target from Linux needs `wine`. See
+`docs/BUILD.md` for details and the dependency/license notes.
 
 ## Credits
 
