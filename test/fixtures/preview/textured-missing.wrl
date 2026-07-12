@@ -1,0 +1,6 @@
+#VRML V2.0 utf8
+WorldInfo { title "Textured Missing" }
+Shape {
+  appearance Appearance { texture ImageTexture { url "nope.png" } }
+  geometry Box { size 2 2 2 }
+}

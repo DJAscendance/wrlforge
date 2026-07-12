@@ -1,0 +1,20 @@
+#VRML V2.0 utf8
+WorldInfo { title "DEF/USE production fixture" }
+
+# A unit cube defined once and reused (USE) under a second, translated Transform.
+# A correct scene-graph traversal must count BOTH occurrences with their own
+# accumulated world matrices: the union bbox must span X:[-1, 6], proving the USE
+# occurrence at translation 5 0 0 was included, not deduplicated away.
+Transform {
+  children [
+    DEF Unit Shape {
+      appearance Appearance { material Material { diffuseColor 0.8 0.2 0.2 } }
+      geometry Box { size 2 2 2 }
+    }
+  ]
+}
+
+Transform {
+  translation 5 0 0
+  children [ USE Unit ]
+}

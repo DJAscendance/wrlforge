@@ -54,5 +54,11 @@ test('Electron launches, exposes the security posture, and exits cleanly', { tim
   assert.equal(result.report.hasVrmlpadBridge, true);
   assert.equal(result.report.contextIsolation, true);
   assert.equal(result.report.nodeIntegration, false);
+  // Phase 2B1 preview surface: container present, X_ITE engine initialised,
+  // Original/Fit controls present, and the CSP meta tag in effect.
+  assert.equal(result.report.hasPreviewCanvas, true, 'embedded preview canvas must exist');
+  assert.equal(result.report.xiteLoaded, true, 'X_ITE engine must initialise');
+  assert.equal(result.report.hasModeControls, true, 'Original/Fit controls must exist');
+  assert.equal(result.report.hasCspMeta, true, 'Content-Security-Policy meta must be present');
   assert.equal(result.exitCode, 0);
 });

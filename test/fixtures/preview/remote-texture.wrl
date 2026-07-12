@@ -1,0 +1,13 @@
+#VRML V2.0 utf8
+WorldInfo { title "Remote-URL rejection fixture" }
+
+# A deliberately hostile texture reference pointing at a remote host. The preview
+# must NEVER fetch this: it is blocked at the network layer (session.webRequest)
+# and by CSP, surfaced as a warning, and the item's bounds are still computed.
+Shape {
+  appearance Appearance {
+    texture ImageTexture { url "http://example.com/texture.png" }
+    material Material { diffuseColor 0.6 0.6 0.9 }
+  }
+  geometry Box { size 2 2 2 }
+}
