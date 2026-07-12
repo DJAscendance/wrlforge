@@ -20,6 +20,13 @@ const { CODE, error, warning } = require('./diagnostics');
 
 const DEFAULT_LIMITS = Object.freeze({ maxDepth: 256, maxNodes: 100000 });
 
+// Interface-declaration access keywords (start a `field`/`eventIn`/... member),
+// and the full set of keywords that can start a node-body statement. Named once
+// so the body dispatch and the resync in `syncInBody` share a single source of
+// truth -- adding a keyword in one place can't silently drift from the other.
+const ACCESS_KEYWORDS = new Set(['field', 'eventIn', 'eventOut', 'exposedField']);
+const BODY_STATEMENT_KEYWORDS = new Set(['ROUTE', 'PROTO', 'EXTERNPROTO', ...ACCESS_KEYWORDS]);
+
 // Thrown internally when a hard node-count limit trips; caught at the top so the
 // caller still gets the partial tree collected so far.
 class AbortParse extends Error {}
@@ -68,6 +75,15 @@ class Parser {
     const t = this.peek();
     this.diagnostics.push(error(CODE.EXPECTED_TOKEN,
       `Expected ${what} but found ${describe(t)}`, t.range, { expected: what }));
+    return null;
+  }
+
+  // Consume an identifier, or record an EXPECTED_IDENTIFIER diagnostic (without
+  // consuming) and return null. The many "name after DEF/USE/IS/..." sites share
+  // this shape; only the message and the `expected` hint vary.
+  expectIdent(message, expected = 'name') {
+    if (this.at(TT.ID)) return this.next();
+    this.diagnostics.push(error(CODE.EXPECTED_IDENTIFIER, message, this.peek().range, { expected }));
     return null;
   }
 
@@ -127,11 +143,7 @@ class Parser {
   parseNodeStatement(depth) {
     if (this.atKeyword('DEF')) {
       const defTok = this.next();
-      const nameTok = this.at(TT.ID) ? this.next() : null;
-      if (!nameTok) {
-        this.diagnostics.push(error(CODE.EXPECTED_IDENTIFIER,
-          'Expected a name after DEF', this.peek().range, { expected: 'name' }));
-      }
+      const nameTok = this.expectIdent('Expected a name after DEF');
       const node = this.parseNode(depth);
       if (node) {
         node.def = nameTok ? nameTok.name : null;
@@ -224,11 +236,7 @@ class Parser {
     const nameTok = this.next(); // ID
     if (this.atKeyword('IS')) {
       this.next();
-      const idTok = this.at(TT.ID) ? this.next() : null;
-      if (!idTok) {
-        this.diagnostics.push(error(CODE.EXPECTED_IDENTIFIER,
-          'Expected an interface name after IS', this.peek().range, { expected: 'name' }));
-      }
+      const idTok = this.expectIdent('Expected an interface name after IS');
       const binding = ast.isBinding(idTok ? idTok.name : null, idTok ? idTok.range : null,
         this.spanTo(nameTok));
       return { type: NODE.FIELD, name: nameTok.name, nameRange: nameTok.range,
@@ -318,11 +326,7 @@ class Parser {
 
   parseUse() {
     const kw = this.next(); // USE
-    const nameTok = this.at(TT.ID) ? this.next() : null;
-    if (!nameTok) {
-      this.diagnostics.push(error(CODE.EXPECTED_IDENTIFIER,
-        'Expected a name after USE', this.peek().range, { expected: 'name' }));
-    }
+    const nameTok = this.expectIdent('Expected a name after USE');
     return ast.use(nameTok ? nameTok.name : null, nameTok ? nameTok.range : null, this.spanTo(kw));
   }
 
@@ -338,20 +342,16 @@ class Parser {
 
   // nodeName.eventName
   parseRouteEndpoint() {
-    const nodeTok = this.at(TT.ID) ? this.next() : null;
+    const nodeTok = this.expectIdent('Expected a node name in ROUTE endpoint');
     if (!nodeTok) {
-      this.diagnostics.push(error(CODE.EXPECTED_IDENTIFIER,
-        'Expected a node name in ROUTE endpoint', this.peek().range, { expected: 'name' }));
       return { node: null, nodeRange: null, event: null, eventRange: null, range: this.peek().range };
     }
     let event = null;
     let eventRange = null;
     if (this.at(TT.PERIOD)) {
       this.next();
-      const evTok = this.at(TT.ID) ? this.next() : null;
+      const evTok = this.expectIdent('Expected an event name after "."', 'eventName');
       if (evTok) { event = evTok.name; eventRange = evTok.range; }
-      else this.diagnostics.push(error(CODE.EXPECTED_IDENTIFIER,
-        'Expected an event name after "."', this.peek().range, { expected: 'eventName' }));
     } else {
       this.diagnostics.push(error(CODE.EXPECTED_TOKEN,
         "Expected '.' in ROUTE endpoint", this.peek().range, { expected: '.' }));
@@ -420,8 +420,7 @@ class Parser {
   // field SFFloat radius 1  |  eventIn SFBool set_active  | exposedField ...
   parseInterfaceDecl(externNoDefaults) {
     const t = this.peek();
-    if (!(t.type === TT.KEYWORD && (t.keyword === 'field' || t.keyword === 'eventIn'
-      || t.keyword === 'eventOut' || t.keyword === 'exposedField'))) {
+    if (!(t.type === TT.KEYWORD && ACCESS_KEYWORDS.has(t.keyword))) {
       return null;
     }
     const access = this.next().keyword;
@@ -435,11 +434,8 @@ class Parser {
       // PROTO's interface: `field SFBool local IS local`, `eventIn SFBool x IS x`.
       // Valid for every access type; no default value follows.
       this.next();
-      const idTok = this.at(TT.ID) ? this.next() : null;
-      if (!idTok) {
-        this.diagnostics.push(error(CODE.EXPECTED_IDENTIFIER,
-          'Expected an interface name after IS', this.peek().range, { expected: 'name' }));
-      } else {
+      const idTok = this.expectIdent('Expected an interface name after IS');
+      if (idTok) {
         isName = idTok.name;
         isRange = idTok.range;
       }
@@ -469,8 +465,7 @@ class Parser {
     while (!this.atEof()) {
       const t = this.peek();
       if (t.type === TT.RBRACE || t.type === TT.ID) return;
-      if (t.type === TT.KEYWORD && ['ROUTE', 'PROTO', 'EXTERNPROTO', 'field',
-        'eventIn', 'eventOut', 'exposedField'].includes(t.keyword)) return;
+      if (t.type === TT.KEYWORD && BODY_STATEMENT_KEYWORDS.has(t.keyword)) return;
       this.next();
     }
   }

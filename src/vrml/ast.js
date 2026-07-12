@@ -53,7 +53,11 @@ function walk(node, visit, parent = null) {
     if (visit(node, parent) === false) return;
     parent = node;
   }
-  for (const key of Object.keys(node)) {
+  // for..in (not Object.keys) avoids allocating a throwaway key array per node;
+  // AST nodes are plain object literals with no inherited enumerable props, so
+  // enumeration order and membership are identical. walk() runs over the whole
+  // tree once per consumer (analyze's two passes, asset-refs), so this is hot.
+  for (const key in node) {
     if (key === 'range' || key === 'type' || key === 'leadingTrivia') continue;
     const v = node[key];
     if (v && typeof v === 'object') walk(v, visit, parent);

@@ -126,7 +126,7 @@ function tokenize(source) {
       while (i < n && isWhitespace(peek())) advance();
       leading.push({ kind: 'whitespace', lexeme: lexeme(startOffset), range: spanFrom(start) });
     }
-    if (peek() === '#' && /^#VRML/i.test(src.slice(i))) {
+    if (peek() === '#' && /^#VRML/i.test(src.slice(i, i + 5))) {
       const start = pos();
       const startOffset = i;
       while (i < n && peek() !== '\n' && peek() !== '\r') advance();
