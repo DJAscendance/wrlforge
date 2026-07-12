@@ -1,0 +1,8 @@
+==== persistent env (as seen by a fresh shell) ==== 
+WRL_FORGE_NO_EDITOR=[] 
+WRL_FORGE_EDITOR=[] 
+==== resolveEditor (packed Electron-as-node) ==== 
+WRL_FORGE_NO_EDITOR=[]
+WRL_FORGE_EDITOR=[]
+resolveEditor={"found":true,"command":"C:\\Users\\ryan\\AppData\\Local\\Programs\\VSCodium\\VSCodium.exe","shell":false,"source":"install-location"}
+buildLaunch={"command":"C:\\Users\\ryan\\AppData\\Local\\Programs\\VSCodium\\VSCodium.exe","args":["C:\\Users\\ryan\\x.edit.wrl"],"options":{"detached":true,"stdio":"ignore","windowsHide":true,"shell":false}}

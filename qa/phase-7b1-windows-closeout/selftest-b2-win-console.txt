@@ -1,0 +1,48 @@
+PASS  platform reported  — win32 x64
+PASS  path.sep matches platform  — "\\"
+PASS  win32 path.join drive-letter + spaces  — C:\Users\ryan\Projects\a b\world.wrl
+PASS  win32 isAbsolute drive letter
+PASS  detects gzip magic  — gzip[0]=0x1f
+PASS  gunzip round-trips to plain text
+PASS  scan nested world ok
+PASS  scan nested wrl node count  — wrlNodes=3
+PASS  scan nested unique textures  — tex=3
+PASS  scan nested clean (no missing/case/unsafe)
+PASS  scan nested viewpoints discovered  — vp=3
+PASS  scan 70-texture world (>=70 unique, not truncated)  — tex=71
+PASS  scan >20-texture world (mini)  — tex=25
+PASS  broken world: missing detected  — missing=1
+PASS  broken world: remote surfaced  — remote=2
+PASS  broken world: unsafe detected  — unsafe=2
+PASS  broken world: case mismatch flagged  — case=1
+PASS  case-insensitivity precondition (host-observed)  — NTFS existsSync(upper)=true (case detected in code regardless)
+PASS  package audit READY (nested)  — status=ready files=6
+PASS  review bundle: written outside project + integrity  — bytes=4054 files=6 entries=9
+PASS  review bundle: refuses in-project destination
+PASS  review bundle: refuses overwrite of existing file
+PASS  scans a path with spaces + non-ASCII  — C:\Users\ryan\AppData\Local\Temp\wrlbeta-6DSFRg\a b — wörld
+PASS  editor: clear not-found message (VSCodium absent)  — tried=16
+PASS  editor override: valid absolute .exe honoured (no shell)  — override
+PASS  editor override: valid absolute .cmd → shell launch  — shell=true
+PASS  editor override: valid bare command resolved on PATH  — \win\tools\codium.cmd
+PASS  editor override: INVALID absolute path is tried first then falls through to not-found  — not-found (bad override never launched)
+PASS  editor override: INVALID absolute path with VSCodium installed → falls back to install (documented)  — fell back to discovered install
+PASS  editor: linux codium/code discovery resolves to codium  — codium
+PASS  settings.json editorCommand loaded as override  — C:\Tools\VSCodium\VSCodium.exe
+PASS  settings.json missing → defaults, no throw
+PASS  .edit.wrl sibling path generated  — C:\Users\ryan\Projects\a b\ITEM.edit.wrl
+PASS  buildLaunch: .exe passes file as argv (no shell, spaces safe)
+PASS  buildLaunch: .cmd shim double-quotes command AND file for cmd.exe
+PASS  window-state path under userData  — C:\Users\ryan\AppData\Roaming\wrl-forge\window-state.json
+PASS  legacy vrmlpad migration path resolves  — C:\Users\ryan\AppData\Local\Temp\vrmlpad\window-state.json
+PASS  editor safe-save (plain): atomic write + backup, on-disk matches buffer  — item.wrl.bak-2026-07-12T14-19-53-104Z
+PASS  editor safe-save (gzip): round-trips as gzip on disk
+PASS  editor conflict: external change refuses save (EEXTERNAL), source intact
+PASS  editor path authorization: in-graph ok, traversal + stray rejected
+PASS  editor restore confinement: world doc outside recorded root is refused
+PASS  editor controller: open + save + restore through a spaces/non-ASCII path  — my itém.wrl
+PASS  mall open is passive: writes .edit.wrl working copy, never launches editor  — item.edit.wrl
+PASS  explicit external action launches on the working copy (recreates if missing)
+
+45/45 passed, 0 failed  (platform=win32 node=24.15.0 electron=41.7.1)
+result → \\host.lan\Data\Projects\cybertown\wrlforge\qa\phase-7b1-windows-closeout\selftest-b2-win-result.json

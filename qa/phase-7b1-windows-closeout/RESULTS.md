@@ -2,85 +2,87 @@
 
 Target build: **WRL Forge 1.2.0-beta.2** (private, unsigned, x64).
 Environment: WinBoat (Docker `WinBoat`, `ghcr.io/dockur/windows:5.14`, Windows 11
-x64, KVM), reached over RDP (FreeRDP). Host share `\\host.lan\Data` → Linux `/home/ryan`.
+x64, KVM). Driven via the **noVNC** web console (`http://127.0.0.1:47273`). Host
+share `\\host.lan\Data` → Linux `/home/ryan`.
 
-## Status: PENDING — interactive run required by maintainer
+Packed runtime versions (from the self-test): **win32 / x64, Electron 41.7.1,
+Node 24.15.0, Chromium 146.0.7680.216**.
 
-The VM is up and the Windows 11 desktop was reached over RDP
-(`screenshots/win-desktop.png`). In this automated session, **synthetic pointer
-input from `xdotool` was not delivered to the FreeRDP guest** (the flatpak-sandboxed
-FreeRDP ignores XTEST-warped pointer motion, so injected clicks land nowhere). The
-keyboard/mouse-driven GUI matrix below therefore could not be executed
-autonomously. This matches the Phase 6B precedent, where the interactive Windows
-GUI run was performed by the maintainer while automated logic ran headless.
+> **Scope note:** This lane verified the Phase 7B1 behavior change and core editor
+> functions on real Windows. It did **not** re-run the entire Phase 6B/7B
+> interactive matrix. See "Not repeated" and "Limitations" below. The full
+> interactive matrix was **not** completed.
 
-**What IS already verified for this behavior change** (does not depend on the VM):
+## Interactively verified on real Windows 11 (this lane)
 
-- Passive-launch removal, native-editing-no-`.edit.wrl`, explicit-launch, and
-  explicit-recreate-working-copy — deterministic unit tests
-  (`test/editor/mall-edit-flow.test.js`) + the Windows self-test cases in
-  `qa/phase-6b-windows/win-selftest.js` (which run identically on real Windows once
-  launched). "editor not found only on explicit request" — `test/product-posture.test.js`.
-- Native editor GUI (open/edit/save/themes/diagnostics/outline/conflict) — Linux
-  serialized visual QA (`qa/phase-7b-native-editor/` 15/15) + focused passive-launch
-  visual pass (`qa/phase-7b1-native-closeout/` 3/3).
+| # | Check | Result | Evidence |
+|---|---|---|---|
+| 1 | App launches (portable `win-unpacked`) → Mall Item lane | ✅ | `screenshots/win-01-app-launched-mall.png` |
+| 2 | **Passive-launch removed:** opening a Mall `.wrl` loads the workspace and does **NOT** launch VSCodium and shows **no** "editor not found" banner | ✅ | `screenshots/win-02-mall-open-no-vscodium.png` |
+| 3 | **Open in Native Editor** (explicit) opens the CodeMirror editor: syntax highlighting, outline, Ln/Col, diagnostics (`⚠ 4` from an invalid edit line, kept separate from advisories); all four themes present; Dark↔Light switch | ✅ | `screenshots/win-03-native-editor.png`, `win-03b-native-editor-light-theme.png` |
+| 4 | Native editor edited a **real plain `.wrl`** and **Saved** (status → "No changes", Save disabled) | ✅ | `screenshots/win-04-native-editor-saved.png` |
+| 5 | **Open in External Editor** (explicit) launches VSCodium — verified by **process detection**: after the action `tasklist` showed **8 `VSCodium.exe` processes** and the `.edit.wrl` working copy was (re)created | ✅ | `tasklist-out.txt`, `diag-editor-out.txt`, `screenshots/win-05-external-editor-explicit.png` |
 
-## Runbook for the interactive Windows verification
+### Notes on check 5 (external editor)
+`diag-editor-out.txt` (packed Electron-as-node) confirms the launch path is correct:
+`WRL_FORGE_NO_EDITOR` **unset**, `resolveEditor` → `found:true` (`VSCodium.exe`,
+install-location), and a valid `buildLaunch` spec. VSCodium is **single-instance**,
+so the explicit action opened the file in the already-running instance rather than
+raising a new foreground window (which is why a new window is not visible in the
+screenshot). The `launchEditor`/`editor-locator`/`buildLaunch` code was **not**
+changed by Phase 7B1, and live foreground VSCodium launch was visually verified in
+Phase 6B1. Process detection here confirms the explicit launch fires and reaches
+VSCodium.
 
-### A. Automated packed-runtime self-test (fastest, do first)
-From the VM, run the batch on the host share (dismiss the mark-of-the-web
-"Open File – Security Warning" with **Run**):
+## Packed-runtime self-test coverage (real Windows 11 NTFS)
 
-```
-\\host.lan\Data\Projects\cybertown\wrlforge\qa\phase-7b1-windows-closeout\run-selftest-b2.bat
-```
+`run-selftest-b2.bat` ran the app's shipping modules under the **packed beta.2
+Electron-as-node** on real NTFS: **45/45 passed, 0 failed**
+(`selftest-b2-win-result.json`, `selftest-b2-win-console.txt`). Includes:
 
-It copies `release\win-unpacked` (beta.2) to `C:\wrlforge-b2`, runs the self-test
-under the packed Electron-as-node on real NTFS, and writes
-`selftest-b2-win-result.json` + `selftest-b2-win-console.txt` back into this folder.
-Expected: **45/45 passed** (incl. the two Phase 7B1 passive-launch cases). A
-`selftest-b2-win-DONE.txt` marker is written on completion.
+- **Passive-launch posture** (Phase 7B1): open writes the `.edit.wrl` working copy
+  but never launches; explicit external action launches once and recreates the
+  working copy if missing.
+- **Plain + gzip safe-save** (atomic write, verify-decode) with **gzip round-trip**
+  preserved; **timestamped backup** created.
+- **External-change conflict**: save refused (`EEXTERNAL`), source not clobbered.
+- **Path authorization** (in-graph ok; traversal + stray rejected) and **session
+  restore confinement** (world doc outside recorded root refused).
+- **Spaces / non-ASCII paths** end-to-end; editor discovery / override / `.cmd`
+  vs `.exe` launch-arg quoting.
 
-### B. Install + lifecycle
-- Run `release\...-setup.exe` (NSIS), **More info → Run anyway**, install per-user.
-- Launch from the Start-menu shortcut. Confirm one app session; confirm clean exit.
-- Run the `...-portable.exe`; confirm it launches and exits cleanly.
-- Uninstall (Settings → Apps): confirm app files + shortcuts removed, projects untouched.
+## Previously verified (Phase 6B / 6B1) — not re-driven here
 
-### C. Passive-launch correction (the headline change)
-- Open a Mall `.wrl`. **Confirm VSCodium does NOT launch** and **no editor-not-found
-  message appears**.
-- Click **Open in Native Editor** → the native editor opens.
-- Click **Open in External Editor** → VSCodium launches only now.
+- Foreground VSCodium **live launch** on real Windows 11 (space/non-ASCII paths,
+  `settings.json` / `WRL_FORGE_EDITOR` overrides, invalid-override fallback,
+  single instance, clean exit) — `qa/phase-6b1-vscodium/`.
+- NSIS **install → Start-menu launch → uninstall** and window-state persistence —
+  `qa/phase-6b-windows/`.
 
-### D. Native editor
-- Plain `.wrl`: edit → Save → confirm timestamped `*.bak-<ISO>` backup.
-- gzip `.wrl`: edit → Save → confirm it stays gzip. Reopen both.
-- Spaces + non-ASCII path; dirty/saved states; Undo/Redo; Find; Replace; Go-to-line;
-  cursor Ln/Col; diagnostics navigation; advisory separation; outline navigation;
-  all four themes; theme persistence across relaunch.
+## Not interactively repeated during Phase 7B1
 
-### E. Conflict handling
-- Stage an external change (edit the file in Notepad). In WRL Forge: **Cancel**
-  preserves the buffer; **Reload** loads disk after confirmation; **Save As** writes
-  a separate destination; the externally-changed original is not silently overwritten.
+These are covered by the packed self-test at the filesystem level and/or unchanged
+since Phase 6B, and were **not** clicked through interactively this lane:
 
-### F. Session behavior
-- Mall → editor → Mall preserves the unsaved buffer. Restart WRL Forge → valid
-  session restores; missing/stale session behaves safely.
+- Interactive **gzip** open/edit/save in the GUI (fs-level gzip round-trip is in the
+  self-test).
+- Interactive **conflict dialog** (Cancel / Reload / Save As) click-through
+  (`EEXTERNAL` refusal + source-intact is in the self-test).
+- **Session restart** + restore in the GUI (restore confinement is in the self-test).
+- **World Project → open primary / nested WRL in the native editor**, and World
+  preview/packaging (authorization + restore confinement are in the self-test; World
+  IPC unchanged by 7B1).
+- **NSIS install/uninstall** lifecycle (Phase 6B; portable build was used this lane).
 
-### G. World integration
-- Open a World Project; open the primary WRL in the native editor; open an
-  authorized nested WRL; confirm graph-external / unsafe paths are rejected; confirm
-  World preview + packaging still function.
+## Limitations carried forward
 
-### H. Optional VSCodium (already installed in the VM: `%LOCALAPPDATA%\Programs\VSCodium\`)
-- Explicit launch works (plain + gzip external-editor workflows, spaces + Unicode);
-  one normal editor instance; clean exit; no passive launch occurs.
-
-## Evidence to capture
-Windows/WinBoat/Electron-Node-Chromium versions; installed vs portable results;
-native editor plain/gzip save; backup; conflict-dialog; search/replace; shortcuts;
-diagnostics + outline nav; themes; session restore; World integration; explicit
-VSCodium; process lifecycle; installer/uninstall. Store cropped screenshots here.
-Do not commit machine-specific secrets, absolute private paths, or large binaries.
+- The interactive matrix above (gzip GUI, conflict dialog, session restart, World-in-
+  editor, NSIS lifecycle, foreground VSCodium) was **not** repeated in Phase 7B1.
+- noVNC keyboard forwarding mangled some special characters (`#`→`3`; `Ctrl+S` not
+  chorded), an environment artifact of the driving harness, not a WRL Forge defect —
+  worked around with on-screen buttons.
+- The self-test exercises the shipping source modules under the packed Windows
+  Electron runtime (byte-identical to the `app.asar` contents), not the asar directly.
+- The evidence `.bat`/`.js` here are reproduction tooling; they run only against the
+  local share and write only scratch output. No Windows binaries are committed
+  (artifacts stay git-ignored under `release/`).

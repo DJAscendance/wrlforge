@@ -1,0 +1,24 @@
+==== VSCodium / Code processes ==== 
+
+Image Name                     PID Session Name        Session#    Mem Usage
+========================= ======== ================ =========== ============
+VSCodium.exe                 10744 Console                    2    141,584 K
+VSCodium.exe                  2896 Console                    2     82,744 K
+VSCodium.exe                    68 Console                    2     55,216 K
+VSCodium.exe                 11252 Console                    2    242,520 K
+VSCodium.exe                  6424 Console                    2    115,560 K
+VSCodium.exe                  9868 Console                    2    104,428 K
+VSCodium.exe                  1180 Console                    2    129,144 K
+VSCodium.exe                   816 Console                    2    115,740 K
+INFO: No tasks are running which match the specified criteria.
+==== any codium ==== 
+ERROR: Invalid argument/option - '|'.
+Type "TASKLIST /?" for usage.
+==== WRL Forge ==== 
+
+Image Name                     PID Session Name        Session#    Mem Usage
+========================= ======== ================ =========== ============
+WRL Forge.exe                 6468 Console                    2    134,700 K
+WRL Forge.exe                11168 Console                    2     92,788 K
+WRL Forge.exe                 8460 Console                    2     48,128 K
+WRL Forge.exe                 5840 Console                    2    145,648 K
