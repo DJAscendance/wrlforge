@@ -11,8 +11,11 @@
 // is correctly counted once per occurrence, each with its own accumulated
 // world matrix -- exactly the behavior a trustworthy bounds tool needs.
 //
-// Known limitation: Extrusion is approximated (spine bbox expanded by the
-// cross-section's local extent) rather than exactly swept -- see NOTES.md.
+// Extrusion (Phase 2B0): the local cross-section sweep -- including per-spine
+// `scale` and `orientation`, which the earlier approximation ignored (a
+// dangerous width/depth underestimate) -- is delegated to the pure
+// `extrusionLocalBounds` in extrusion-bounds.js. That module is loaded before
+// this one (see index.html) and exposes `window.extrusionLocalBounds`.
 
 function identityBox() {
   return { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
@@ -37,8 +40,24 @@ function isFiniteBox(box) {
   return Number.isFinite(box.min[0]) && Number.isFinite(box.max[0]);
 }
 
+// Convert an X_ITE MF field (MFVec2f/MFVec3f/MFRotation) into a plain array of
+// number tuples. Elements are indexable (v[0], v[1], ...) in X_ITE; SFRotation
+// also exposes .x/.y/.z/.angle. `size` is how many components to read.
+function mfToArrays(field, size) {
+  const out = [];
+  if (!field) return out;
+  for (let i = 0; i < field.length; i++) {
+    const v = field[i];
+    const tuple = [];
+    for (let k = 0; k < size; k++) tuple.push(v[k]);
+    out.push(tuple);
+  }
+  return out;
+}
+
 // Local-space bbox for a geometry node, before any transform is applied.
-function localGeometryBox(geometry) {
+// `diag` (optional) collects extrusion confidence/warnings for the report.
+function localGeometryBox(geometry, diag) {
   if (!geometry) return identityBox();
   const type = geometry.getNodeTypeName();
   const box = identityBox();
@@ -87,23 +106,26 @@ function localGeometryBox(geometry) {
       return box;
     }
     case 'Extrusion': {
-      // Approximation, not an exact sweep: union of the spine's bbox expanded
-      // by the cross-section's local (X,Z) extent at every spine point. This
-      // over-estimates in the general case (e.g. large scale/orientation at a
-      // single spine point) but never under-estimates for axis-aligned,
-      // unscaled extrusions -- flagged as lower-confidence in NOTES.md.
-      const spine = geometry.spine;
-      const crossSection = geometry.crossSection;
-      let csRadius = 0;
-      for (let i = 0; i < crossSection.length; i++) {
-        const p = crossSection[i];
-        csRadius = Math.max(csRadius, Math.hypot(p[0], p[1]));
+      // Exact VRML97 cross-section sweep (accounts for scale + orientation),
+      // via the pure extrusion-bounds.js module. Falls back to a conservative
+      // overestimate for any degenerate/ambiguous spine point -- never a
+      // width/depth underestimate (the pre-Phase-2B0 bug).
+      const fields = {
+        crossSection: mfToArrays(geometry.crossSection, 2),
+        spine: mfToArrays(geometry.spine, 3),
+        scale: mfToArrays(geometry.scale, 2),
+        orientation: mfToArrays(geometry.orientation, 4),
+      };
+      const result = window.extrusionLocalBounds(fields);
+      if (!result) return identityBox();
+      if (diag) {
+        diag.extrusionConfidence = diag.extrusionConfidence === 'conservative'
+          ? 'conservative'
+          : result.confidence;
+        for (const w of result.warnings) diag.warnings.push('Extrusion: ' + w);
       }
-      for (let i = 0; i < spine.length; i++) {
-        const v = spine[i];
-        unionPoint(box, [v[0] - csRadius, v[1] - csRadius, v[2] - csRadius]);
-        unionPoint(box, [v[0] + csRadius, v[1] + csRadius, v[2] + csRadius]);
-      }
+      unionPoint(box, result.min);
+      unionPoint(box, result.max);
       return box;
     }
     default:
@@ -134,7 +156,7 @@ function localMatrixForTransform(node) {
 }
 
 // children: MFNode of X3DChildNodeProxy; matrix: accumulated world SFMatrix4f
-function traverse(children, matrix, worldBox) {
+function traverse(children, matrix, worldBox, diag) {
   for (let i = 0; i < children.length; i++) {
     const node = children[i];
     if (!node) continue;
@@ -147,25 +169,34 @@ function traverse(children, matrix, worldBox) {
       // accumulated parent transform (p' = p * local * parent), that's
       // "local multiplied by parent on the right" -- multRight, not multLeft.
       const world = local.multRight(matrix);
-      traverse(node.children, world, worldBox);
+      traverse(node.children, world, worldBox, diag);
     } else if (type === 'Shape') {
-      const localBox = localGeometryBox(node.geometry);
+      const localBox = localGeometryBox(node.geometry, diag);
       unionBox(worldBox, transformCorners(localBox, matrix));
     } else if (node.children) {
       // Other grouping nodes (Group, Collision, StaticGroup, Switch, ...):
       // no additional transform, just recurse with the same world matrix.
-      traverse(node.children, matrix, worldBox);
+      traverse(node.children, matrix, worldBox, diag);
     }
   }
 }
 
-// scene: X3DScene (has .rootNodes). Returns { min:[x,y,z], max:[x,y,z] } or
-// null if no bounded geometry was found.
+// scene: X3DScene (has .rootNodes). Returns { min:[x,y,z], max:[x,y,z],
+//   confidence, warnings } or null if no bounded geometry was found.
+// `confidence` is 'exact' unless a conservative overestimate was used for any
+// ambiguous Extrusion spine point.
 function computeSceneBBox(scene) {
   const worldBox = identityBox();
+  const diag = { warnings: [], extrusionConfidence: null };
   const identity = new X3D.SFMatrix4f();
-  traverse(scene.rootNodes, identity, worldBox);
-  return isFiniteBox(worldBox) ? worldBox : null;
+  traverse(scene.rootNodes, identity, worldBox, diag);
+  if (!isFiniteBox(worldBox)) return null;
+  return {
+    min: worldBox.min,
+    max: worldBox.max,
+    confidence: diag.extrusionConfidence === 'conservative' ? 'conservative' : 'exact',
+    warnings: diag.warnings,
+  };
 }
 
 // Exposed for the page script; not a Node/CommonJS module since this file
