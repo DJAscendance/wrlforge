@@ -5,7 +5,8 @@
 // shipped user-facing surface so a future edit can't silently reintroduce
 // prototype / "not functioning" / direct-upload / editor-required wording.
 //
-// Scope: the strings a user actually sees — renderer HTML/JS, the main-process
+// Scope: the strings a user actually sees — renderer HTML/JS (including the native
+// editor surface renderer/editor.html + renderer/editor.js), the main-process
 // dialog/label strings, and the bundle label constant. It does NOT scan docs,
 // tests, or QA harnesses (those legitimately record history and rationale).
 //
@@ -30,6 +31,8 @@ const UI_FILES = [
   'renderer/world.js',
   'renderer/world-preview.js',
   'renderer/world-packaging.js',
+  'renderer/editor.html',
+  'renderer/editor.js',
   'main.js',
   'preload.js',
 ];
@@ -51,7 +54,18 @@ const BANNED = [
   ['requires VSCodium', /requires vscodium/i],
   ['technology demonstration', /technology demonstration/i],
   ['old bundle label', /Review Bundle\s*[—-]\s*Not Confirmed/i],
+  // Bare user-facing "Review Bundle" label. The space distinguishes it from the
+  // intentionally-stable internal IPC channel `world:buildReviewBundle` (camelCase,
+  // no space), which is not user-facing and must NOT be renamed.
+  ['user-facing Review Bundle label', /\bReview Bundle\b/],
   ['old editor button', /Open in VSCodium/],
+  // The native editor SHIPS -- it must never be described to users as planned/upcoming.
+  ['native editor planned', /native editor\b[^.]{0,40}\b(planned|coming soon|upcoming|not yet|will be)/i],
+  ['planned native editor', /(planned|upcoming|future|forthcoming)\b[^.]{0,20}\bnative editor/i],
+  // The unsaved-buffer X_ITE preview is Phase 7C and is NOT built -- the UI must not
+  // claim you can preview an unsaved buffer / live edits.
+  ['unsaved-buffer preview claim', /(preview|render)[^.]{0,30}\bunsaved\b/i],
+  ['unsaved-buffer preview claim (reverse)', /\bunsaved\b[^.]{0,30}(preview|render)/i],
 ];
 
 test('no prototype / unavailable-feature wording in the user-facing surface', () => {

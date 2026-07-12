@@ -38,7 +38,7 @@ a **private beta** (Phase 6B, `1.1.0-beta.1`). Editor discovery is cross-platfor
 mismatches are caught even on case-insensitive Windows/macOS filesystems, and the
 real GUI workflows were driven end-to-end on Windows 11: native file/folder
 dialogs, the **X_ITE Mall + World preview render**, `.edit.wrl` generation, Package
-Audit + Review Bundle (ZIP hashes verified), NSIS install → Start-menu launch →
+Audit + World Project Bundle (ZIP hashes verified), NSIS install → Start-menu launch →
 uninstall, and window-state persistence — plus a committed **37/37** packaged-
 runtime self-test. The optional **VSCodium "Open in External Editor" launch is
 verified on Windows 11** (Phase 6B1): real VSCodium auto-discovered and launched on a space/non-ASCII

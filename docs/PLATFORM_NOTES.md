@@ -8,10 +8,11 @@ platform-sensitive behavior; it does not implement Windows packaging.
 
 ## VSCodium executable discovery (cross-platform — Phase 6A)
 
-VSCodium (or VS Code) is an **optional external editor** (a native WRL editor +
-VRML97 parser are planned for Phase 7, `docs/NATIVE_EDITOR_ARCHITECTURE.md`).
-Editor discovery is resolved by `src/editor/editor-locator.js` (pure/injectable),
-wired into `main.js`'s `launchEditor`. Precedence on every platform:
+VSCodium (or VS Code) is an **optional external editor** (the built-in native WRL
+editor + VRML97 parser shipped in Phase 7A/7B, `docs/NATIVE_EDITOR_ARCHITECTURE.md`;
+the external editor launches only through the explicit "Open in External Editor"
+action). Editor discovery is resolved by `src/editor/editor-locator.js`
+(pure/injectable), wired into `main.js`'s `launchEditor`. Precedence on every platform:
 
 1. **Override** — `editorCommand` in `settings.json` (under Electron's userData)
    or the `WRL_FORGE_EDITOR` env var (an absolute path or a bare PATH command).
@@ -170,7 +171,7 @@ No product code changed (hardening + validation only). Evidence:
   launch; native file/folder dialogs; the **X_ITE Mall Original/Fit preview
   renders** (the Phase 6A "not yet run" gap — now closed) with `.edit.wrl`
   generation and the fit report; gzip Mall open; the **X_ITE World preview +
-  viewpoints render**; Package Audit; **Review Bundle written outside the project**
+  viewpoints render**; Package Audit; **World Project Bundle written outside the project**
   with `unzip -t` clean and **6/6 manifest SHA-256 hashes matching**; window-state
   persistence across portable↔installed (both use `%APPDATA%\wrl-forge`); clean
   exit; Start-menu launch; and **uninstall** (app + desktop shortcut removed, user
@@ -220,7 +221,7 @@ Windows column verified on Windows 11 (x64) under WinBoat/dockur-KVM, Electron
 | Electron smoke test | ✅ verified (real Electron launch; title/bridge/security-flags + preview-canvas/X_ITE/mode-controls/CSP assertions) | ✅ app launches (Mall + World lanes, correct branding, clean exit) — screenshots in `qa/phase-6a-windows/` |
 | Cross-platform editor discovery (`src/editor/editor-locator.js`) | ✅ Linux `codium`/`code` on PATH | ✅ **Phase 6B1: real VSCodium 1.126.04524 auto-discovered at install-location** (+ not-found path from 6B); unit-tested for both platforms via injected env |
 | Case-mismatch on case-INSENSITIVE fs (`asset-graph.js`) | ✅ (case-sensitive, real) | ✅ flagged on real NTFS despite `existsSync` returning true; explicit code-based test `test/world-project/case-cross-platform.test.js` |
-| Review Bundle ZIP creation + integrity | ✅ (unzip -t + hash match) | ✅ written on Windows; hashes match manifest; in-project/overwrite refusals |
+| World Project Bundle ZIP creation + integrity | ✅ (unzip -t + hash match) | ✅ written on Windows; hashes match manifest; in-project/overwrite refusals |
 | Windows portable/NSIS build (electron-builder) | build host | ✅ portable + installer produced (unsigned); portable launches |
 | Embedded preview (Phase 2B1: `src/preview/*`, `renderer/preview.js`) | ✅ verified on Linux (78-test suite incl. 5 Electron preview tests: DEF/USE, Extrusion, gzip, remote-URL block, missing texture; 16 real-app screenshots) | ✅ **Phase 6B: X_ITE Mall Original/Fit preview renders on real Windows 11** (plain + gzip item; fit report EXACT; `.edit.wrl` generated) — `qa/phase-6b-windows/screenshots/03,04` |
 | World preview (Phase 4B: `src/world-project/preview-source.js`, `renderer/world-preview.js`, `wrlworld://` handler) | ✅ verified on Linux (21 preview-source unit tests; opt-in Electron world-preview test; one `VisualQaRunner` run of all 10 states — one launch, graceful exit, no leak) | ✅ **Phase 6B: X_ITE World preview renders on real Windows 11** (nested + gzip deps resolved via `wrlworld://`, 3 local assets loaded, viewpoints + navigation) — `qa/phase-6b-windows/screenshots/05` |

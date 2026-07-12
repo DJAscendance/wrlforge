@@ -109,7 +109,7 @@ detected.
 | `world:previewLoad` | (Phase 4B) Ensure a scan, install the asset-graph read-authorization set into the `wrlworld://` handler, and return the decompressed primary text + base URL + advisory counts/warnings. **No** renderer path. |
 | `world:describe` | Report the open project (for restoring the view). |
 | `world:reveal` / `world:revealRoot` | Reveal a path in the OS file manager, **confined to the project root** and only if it exists. |
-| `world:openPrimaryInEditor` | Explicit-only launch of the optional external editor (VSCodium/VS Code) on the primary (opening a project never auto-launches the editor). A native WRL editor + VRML97 parser are planned (Phase 7, `docs/NATIVE_EDITOR_ARCHITECTURE.md`). |
+| `world:openPrimaryInEditor` | Explicit-only launch of the optional external editor (VSCodium/VS Code) on the primary (opening a project never auto-launches the editor). The built-in native WRL editor + VRML97 parser shipped in Phase 7A/7B (`docs/NATIVE_EDITOR_ARCHITECTURE.md`); the World lane also opens the primary and authorized nested WRLs in it via `editor:*` IPC. |
 | `world:packageAudit` | (Phase 5A) Read-only: derive the deterministic package plan and return status/totals/blocking/unused/manifest. **No** write, **no** renderer path. |
 | `world:buildReviewBundle` | (Phase 5A) Explicit action: main prompts (Save dialog, default OUTSIDE the project) and writes a deterministic ZIP via `bundle-builder`. Refuses blocked/in-project/overwrite. Not an upload. |
 

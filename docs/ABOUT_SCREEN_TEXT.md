@@ -29,8 +29,10 @@ prototype / test-build / "coming soon" wording. Suggested framing:
 
 Notes for whoever implements the screen:
 
-- Do **not** claim features that don't exist yet. A native in-app editor and VRML97
-  parser are **planned** (Phase 7) — only mention them once they ship.
+- Do **not** claim features that don't exist yet. The native in-app editor and VRML97
+  parser **shipped** (Phase 7A/7B) and may be described as built. The unsaved-buffer
+  X_ITE preview is **Phase 7C and not built** — do not mention it. Direct Cybertown
+  upload **will not be built** — do not present it as planned or coming.
 - WRL Forge performs **no direct upload** and will not (locked product decision);
   don't frame that as a limitation or "coming soon."
 - Keep the app version dynamic (read it from `package.json`), and keep the

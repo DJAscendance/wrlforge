@@ -89,7 +89,7 @@ countersignature/timestamp.
 - **Determinism**: signing embeds a signature + timestamp, so a signed artifact is
   **not** byte-reproducible across runs (the timestamp differs). The SHA-256
   checksum file must be regenerated **after** signing, and reproducibility claims
-  apply to the *unsigned* payload only. (This does not affect the Review Bundle
+  apply to the *unsigned* payload only. (This does not affect the World Project Bundle
   ZIP, which stays deterministic — it is content, not an app binary, and is never
   signed.)
 - **Ordering**: checksum + release-notes generation must run **after** the signing

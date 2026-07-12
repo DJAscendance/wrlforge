@@ -24,6 +24,7 @@ const { writeReviewBundle } = require('./src/world-project/bundle-builder');
 const { resolveEditor, buildLaunch } = require('./src/editor/editor-locator');
 const { loadSettings } = require('./src/settings/app-settings');
 const { EditorController } = require('./src/editor/editor-controller');
+const { openMallItem, openExternalEditor } = require('./src/editor/mall-edit-flow');
 
 // The World Project preview scheme (Phase 4B) is a privileged, standard, LOCAL
 // scheme. This MUST run before app 'ready'. It does NOT bypass CSP -- world.html
@@ -627,8 +628,18 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// Open a mall .wrl (gzip or plain), produce/refresh its plain .edit.wrl
-// sibling, and launch VSCodium on that sibling.
+// I/O + launch dependency bag for the Mall edit flow (src/editor/mall-edit-flow.js).
+// Kept here so the flow itself stays pure and unit-testable without Electron.
+const mallEditDeps = {
+  readSource: (p) => readWrlSource(p),
+  editPathFor,
+  writeWorkingCopy: (editFile, text) => fs.writeFileSync(editFile, text, 'utf8'),
+  workingCopyExists: (editFile) => fs.existsSync(editFile),
+  launch: (editFile) => launchEditor(editFile),
+};
+
+// Open a mall .wrl (gzip or plain) and prepare its plain .edit.wrl working copy.
+// Opening a file is PASSIVE (Phase 7B1): it never launches an external editor.
 ipcMain.handle('mall:open', async () => {
   const res = await dialog.showOpenDialog({
     title: 'Open Cybertown mall .wrl (gzip or plain)',
@@ -645,24 +656,17 @@ ipcMain.handle('mall:open', async () => {
 ipcMain.handle('mall:openPath', async (_evt, mallPath) => openMallFile(mallPath));
 
 function openMallFile(mallPath) {
-  const raw = fs.readFileSync(mallPath);
-  const wasGzipped = isGzip(raw);
-  const text = wasGzipped ? zlib.gunzipSync(raw).toString('utf8') : raw.toString('utf8');
-
-  const editFile = editPathFor(mallPath);
-  fs.writeFileSync(editFile, text, 'utf8');
-
-  currentSession = { mallPath, editFile };
-
-  const editorStatus = launchEditor(editFile);
-
+  // Passive open: write the plain working copy, but do NOT launch any external
+  // editor. The external editor starts only via the explicit mall:openInEditor
+  // action below.
+  const info = openMallItem(mallPath, mallEditDeps);
+  currentSession = { mallPath, editFile: info.editFile };
   return {
-    mallPath,
-    editFile,
-    wasGzipped,
-    rawBytes: raw.length,
-    editorStatus,
-    ...validate(text),
+    mallPath: info.mallPath,
+    editFile: info.editFile,
+    wasGzipped: info.wasGzipped,
+    rawBytes: info.rawBytes,
+    ...validate(info.text),
   };
 }
 
@@ -703,12 +707,13 @@ function launchEditor(editFile) {
   }
 }
 
-// Explicit "Open in External Editor" action for the currently-open edit file (the
-// file is also launched automatically on open; this re-launches on demand).
+// Explicit "Open in External Editor" action. This is the ONLY Mall-lane path that
+// starts an external-editor process: it ensures the .edit.wrl working copy exists
+// (recreating it from the source if it was removed) and launches the editor on it.
 ipcMain.handle('mall:openInEditor', async () => {
   if (!currentSession) throw new Error('No file is open.');
-  const editorStatus = launchEditor(currentSession.editFile);
-  return { editFile: currentSession.editFile, editorStatus };
+  const { editFile, editorStatus } = openExternalEditor(currentSession, mallEditDeps);
+  return { editFile, editorStatus };
 });
 
 // Read-only preview source loader. `role` selects the currently-open item

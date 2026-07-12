@@ -213,7 +213,7 @@ repair, file copy/rename/delete, packaging, direct upload, Apply/Bake transforms
 Windows packaging. World preview is **analysis + display only**; it never marks a
 project upload-ready.
 
-### Phase 5A — World Project Packaging Audit + Review Bundle ✅
+### Phase 5A — World Project Packaging Audit + World Project Bundle ✅
 
 A narrow packaging slice for the World Project lane (the world half of Phase 6),
 kept read-only except for one explicit user action. See
@@ -311,7 +311,7 @@ behavior or adding product features. See `docs/PLATFORM_NOTES.md`,
   Windows/macOS catch an authored `Stone.PNG`→`stone.png` hazard instead of
   masking it. Explicit code-based test + verified on real NTFS.
 - [x] Verified paths (drive letters/backslashes), gzip open, project scanning
-  (nested + gzip, >20 and 70 textures), Review Bundle ZIP + integrity, window-state
+  (nested + gzip, >20 and 70 textures), World Project Bundle ZIP + integrity, window-state
   / userData migration, and spaces/non-ASCII paths on **real Windows 11** via a
   packaged-runtime self-test (31/31).
 - [x] Produced a **private, unsigned** Windows test build with **electron-builder**
@@ -341,14 +341,14 @@ Windows 11. **No new product features** — hardening + validation only. See
 - [x] **Committed** packaged-runtime self-test (`win-selftest.js`, unlike 6A) —
   **37/37 on real Windows 11** (Electron 41.7.1 / Node 24.15): gzip, nested + gzip
   scan, 25 & 71-texture worlds, viewpoints, missing/remote/unsafe/case diagnostics,
-  Package Audit, Review Bundle + ZIP hash integrity + in-project/overwrite refusals,
+  Package Audit, World Project Bundle + ZIP hash integrity + in-project/overwrite refusals,
   spaces + non-ASCII paths, **all editor-override cases incl. the invalid-override
   fall-through**, `.edit.wrl` generation, window-state/userData paths. Also green on
   Linux (CI-verifiable before the VM).
 - [x] **Live GUI focused pass** on the beta build: portable + NSIS-installed launch,
   native file/folder dialogs, **X_ITE Mall Original/Fit preview renders on Windows**
   (the Phase 6A gap), gzip open, **X_ITE World preview + viewpoints render**,
-  Package Audit + **Review Bundle written outside the project (6/6 manifest hashes
+  Package Audit + **World Project Bundle written outside the project (6/6 manifest hashes
   match)**, window-state persistence across portable↔installed (shared
   `%APPDATA%\wrl-forge`), clean exit, Start-menu launch, and **uninstall** (app +
   shortcuts removed, user projects untouched). Non-mutation verified (fixtures
@@ -366,7 +366,7 @@ Windows 11. **No new product features** — hardening + validation only. See
 gated on one live check — a live VSCodium "Open in Editor" run (VSCodium was not
 installed in the VM at 6B; the clear not-found path was verified instead) — plus
 the standing scope facts that artifacts stay **Unsigned** (no SmartScreen-
-elimination claim) and the Review Bundle is **not** confirmed for direct Cybertown
+elimination claim) and the World Project Bundle is **not** confirmed for direct Cybertown
 upload.
 
 ### Phase 6B1 — VSCodium live-launch closeout ✅
@@ -388,7 +388,7 @@ verification + docs only. Linux stayed green (`npm test` / `npm run check`).
 last live condition is closed; the only remaining items are the deliberate,
 documented scope constraints of a private beta — artifacts remain **Unsigned**
 (SmartScreen warning expected, **not** eliminated), **x64 only** (no Windows
-ARM64), and the Review Bundle is **not** confirmed for direct Cybertown (CTR)
+ARM64), and the World Project Bundle is **not** confirmed for direct Cybertown (CTR)
 upload. Public release, signing, direct upload, and auto-update remain out of scope.
 
 **Explicitly not implemented** (unchanged exclusions): direct upload, auth,
@@ -428,8 +428,10 @@ reusable syntax tree feeding diagnostics, scene outline, asset-reference discove
 `DEF`/`USE` validation, navigation, future formatting, safe targeted edits, and the
 Mall/World validation profiles.
 
-**This roadmap entry is a PLAN.** No production editor or parser code ships in the
-current lane unless separately approved after the architecture review.
+**Status:** Phase 7A (parser) and Phase 7B (native editor) have **shipped** and are
+in production (see the ✅ sub-sections below). Phase 7C (unsaved-buffer preview
+integration) and Phase 7D (beta polish) remain **plans** and ship no code without
+separate approval.
 
 ### Phase 7A — Parser Foundation ✅
 **Shipped (parser-only lane).** A dependency-free, token-driven VRML97 tokenizer +
@@ -492,6 +494,25 @@ step). See `docs/NATIVE_EDITOR_ARCHITECTURE.md` and
 `qa/phase-7b-native-editor/RESULTS.md`. **Excludes** (Phase 7C): unsaved-buffer
 X_ITE preview, live per-keystroke rendering, AST rewriting, formatting, scope-
 aware PROTO analysis.
+
+### Phase 7B1 — Native Editor Closeout ✅ (in progress)
+Closes the issues from the independent Phase 7B review (Gemini, CONDITIONAL GO).
+Removed the **passive external-editor launch**: opening a Mall `.wrl` no longer
+launches VSCodium and never surfaces an "editor not found" message — the external
+editor starts **only** through the explicit "Open in External Editor" action
+(`src/editor/mall-edit-flow.js` extracts the passive-open vs explicit-launch logic
+so it is unit-tested without Electron). Native editing still edits the real source
+and never creates a `.edit.wrl`; the explicit external action ensures/refreshes the
+`.edit.wrl` working copy. Corrected stale parser/editor documentation across the
+agent guides and `docs/` (parser is wired into the native editor but has **not**
+replaced the Mall validator / World scanner / preview resolver / packaging;
+buffer-driven preview is Phase 7C, not 7B). Expanded `test/product-posture.test.js`
+to scan `renderer/editor.html` + `renderer/editor.js` and guard native-editor
+wording (no "planned", no unsaved-buffer-preview claim, no user-facing "Review
+Bundle" label). The externally-triggered `world:buildReviewBundle` IPC channel and
+its `buildReviewBundle` bridge/handler names are **intentionally retained** for
+stability (internal, not user-facing). Real Windows 11 native-editor GUI
+verification runs in this lane (WinBoat).
 
 ### Phase 7C — Editor + Preview Integration
 Preview refresh from the unsaved editor buffer, debounced parsing, last-valid-scene

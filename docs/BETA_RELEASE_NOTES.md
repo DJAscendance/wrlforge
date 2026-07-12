@@ -85,8 +85,9 @@ table empty — verified at build time). x64 only — **no Windows ARM64 build**
 - Windows 10/11 **x64**. (ARM64 unsupported this lane.)
 - ~250 MB free disk for the installed app.
 - **VSCodium** (or VS Code) — an **optional external editor**, only if you want to
-  exercise "Open in Editor" — see install notes below. The rest of the app works
-  without it. (A native WRL editor + VRML97 parser are planned for Phase 7; see
+  exercise "Open in External Editor" — see install notes below. The rest of the app
+  works without it; the built-in **native WRL editor** (Phase 7B, backed by the
+  built-in VRML97 parser) needs no external editor. (See
   `docs/NATIVE_EDITOR_ARCHITECTURE.md`.)
 
 ## Install / run
@@ -117,7 +118,7 @@ Mall lane: open a plain and a gzip `.wrl` via the native file dialog; confirm th
 render. World lane: open a project folder and a primary `.wrl` directly; confirm
 nested + gzip dependencies, >20 and ~70-texture projects, viewpoints/navigation,
 and the missing/case-mismatch/remote/unsafe diagnostics; run Package Audit; Build a
-Review Bundle to a folder **outside** the project and verify the ZIP opens and its
+World Project Bundle to a folder **outside** the project and verify the ZIP opens and its
 hashes match the manifest. Editor: install VSCodium, confirm discovery + live
 launch (including paths with spaces and non-ASCII), a configured override, and the
 clear failure message when the override points at an invalid executable. Confirm

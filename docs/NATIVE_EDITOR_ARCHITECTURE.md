@@ -237,9 +237,10 @@ UI**:
 6. Wire `node --check` for the new files into the `check` gate; **no** production
    editor UI, **no** changes to `validator.js`/world-project behavior in 7A.
 
-Deliverable: a proven, dependency-free parser + tree that Phases 7B/7C build the
-editor, highlighting, diagnostics, outline, and buffer-driven preview on top of —
-with the editor-component dependency decision (B.2) made at the review, not before.
+Deliverable: a proven, dependency-free parser + tree. Phase 7B builds the editor,
+highlighting, diagnostics, outline, and go-to on top of it (shipped — see
+"As-built" below); the **buffer-driven preview is Phase 7C and is not built**. The
+editor-component dependency decision (B.2) was made at the review (CodeMirror 6).
 
 ---
 

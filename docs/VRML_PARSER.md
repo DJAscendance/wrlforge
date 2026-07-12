@@ -310,9 +310,13 @@ Consume the parser as a pure module: `const { parse } = require('src/vrml')`.
 - **Scene outline** ← walk `result.tree` for `Node` hierarchy + `def` names.
 - **Go-to-definition** ← `result.defsByName` / `uses` / `routes` endpoint spans.
 - **Safe targeted edits** ← per-node `range` spans (edit by span, no full rewrite).
-- **Buffer-driven preview** ← parse the unsaved buffer; on the *last valid* tree,
-  keep the existing X_ITE path (`src/preview/` for Mall, `wrlworld://` for World).
-  **Do not** add a renderer.
+
+The first four items above **shipped in Phase 7B** (highlighting, diagnostics,
+outline, go-to). One item belongs to a **later** phase and is **not built**:
+
+- **Buffer-driven preview (Phase 7C — not built)** ← parse the unsaved buffer; on
+  the *last valid* tree, keep the existing X_ITE path (`src/preview/` for Mall,
+  `wrlworld://` for World). **Do not** add a renderer, and do not build this here.
 
 The editor component dependency decision (vendored CodeMirror core vs. minimal
 custom editor) stays open for the Phase 7B review — see
