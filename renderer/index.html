@@ -2,7 +2,34 @@
 <html>
 <head>
 <meta charset="utf-8">
+<!-- Strict CSP: no remote origins are listed anywhere, so http(s)/ws fetches are
+     refused at the document layer. This is a layered control -- main.js also
+     cancels remote requests at the network layer (session.webRequest). Local
+     schemes (file/data/blob) are permitted for the app bundle, X_ITE workers,
+     and the item's own textures. 'wasm-unsafe-eval' covers X_ITE's local WASM
+     decoders; no 'unsafe-inline' script is allowed (all scripts are external). -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' file: 'wasm-unsafe-eval';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' file: data: blob:;
+  media-src 'self' file: data: blob:;
+  connect-src 'self' file: data: blob:;
+  font-src 'self' file: data:;
+  worker-src 'self' blob:;
+  child-src blob:;
+  object-src 'none';
+  base-uri 'none';
+">
 <title>WRL Forge — Mall Item lane</title>
+<!-- X_ITE (MIT) embedded preview engine; loaded from the app's own node_modules
+     (local file:), never a CDN. Shared preview modules follow. All `defer` so
+     they finish executing before renderer.js/preview.js run. -->
+<script defer src="../node_modules/x_ite/dist/x_ite.min.js"></script>
+<script defer src="../src/preview/extrusion-bounds.js"></script>
+<script defer src="../src/preview/bbox-traversal.js"></script>
+<script defer src="../src/preview/guides.js"></script>
+<script defer src="../src/preview/fit-math.js"></script>
 <style>
   :root { color-scheme: dark; }
   body {
@@ -10,6 +37,7 @@
     font-family: -apple-system, "Segoe UI", sans-serif; font-size: 14px;
   }
   h1 { font-size: 16px; margin: 0 0 4px; }
+  h2 { font-size: 13px; margin: 0 0 8px; color: #aaa; text-transform: uppercase; letter-spacing: 0.04em; }
   .sub { color: #888; margin-bottom: 16px; }
   button {
     background: #2d6ae0; color: #fff; border: none; border-radius: 4px;
@@ -19,35 +47,74 @@
   button.secondary { background: #333; }
   button.secondary:hover { background: #444; }
   button:disabled { background: #333; color: #777; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid #7db3ff; outline-offset: 2px;
+  }
   .row { margin: 10px 0; }
   .paths { background: #111; border-radius: 6px; padding: 10px 12px; font-family: monospace; font-size: 12px; }
   .paths div { margin: 2px 0; word-break: break-all; }
   .paths .label { color: #888; display: inline-block; width: 90px; }
-  .sizes { display: flex; gap: 20px; margin: 10px 0; }
+  .sizes { display: flex; gap: 20px; margin: 10px 0; flex-wrap: wrap; }
   .sizes .stat { background: #111; border-radius: 6px; padding: 8px 14px; }
   .sizes .stat .n { font-size: 18px; font-weight: 600; }
   .sizes .stat.over .n { color: #ff6161; }
   .sizes .stat .l { color: #888; font-size: 11px; text-transform: uppercase; }
-  #results { margin-top: 14px; }
-  .check { padding: 6px 10px; border-radius: 4px; margin-bottom: 4px; font-size: 13px; display: flex; gap: 8px; }
+
+  /* Preview + report two-column layout, collapsing on narrow windows. */
+  .workspace { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+  .preview-col { flex: 1 1 420px; min-width: 300px; }
+  .report-col { flex: 1 1 340px; min-width: 280px; }
+  x3d-canvas#preview {
+    display: block; width: 100%; height: 46vh; min-height: 260px;
+    background: #0e0e10; border: 1px solid #333; border-radius: 6px;
+  }
+  .preview-controls { margin: 10px 0; display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; }
+  fieldset { border: 1px solid #333; border-radius: 6px; margin: 0; padding: 6px 12px 10px; }
+  legend { color: #888; font-size: 11px; text-transform: uppercase; padding: 0 4px; }
+  label.inline { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; }
+  .modes label { margin-right: 14px; }
+
+  .panel { background: #111; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+  table.kv { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.kv th, table.kv td { text-align: left; padding: 3px 6px; border-bottom: 1px solid #222; }
+  table.kv th { color: #888; font-weight: 500; }
+  table.kv td.num { font-family: monospace; text-align: right; }
+  .scale-proposed { color: #7db3ff; font-weight: 600; }
+  .scale-reduced { color: #ffb648; }
+
+  .badge-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+  .conf-exact { background: #123d1a; color: #7fe08a; }
+  .conf-conservative { background: #3a2f10; color: #ffce6a; }
+  .conf-unavailable { background: #401414; color: #ff8b8b; }
+
+  #results { margin-top: 8px; }
+  .check { padding: 6px 10px; border-radius: 4px; margin-bottom: 4px; font-size: 13px; display: flex; gap: 8px; align-items: baseline; }
   .check.pass { background: #123; }
   .check.fail.hard { background: #401414; }
   .check.fail.soft { background: #3a2f10; }
-  .badge { font-weight: 700; width: 42px; flex: none; }
+  .badge { font-weight: 700; width: 46px; flex: none; }
   .check.pass .badge { color: #5fd06a; }
+  .check.fail .badge::before { content: ""; }
   .check.fail .badge { color: #ff8b3d; }
+  .check.fail.hard .badge { color: #ff6161; }
   .check .detail { color: #999; }
+  .rulelist .check .badge { width: 62px; }
+  .warn { background: #3a2f10; color: #ffce6a; border-radius: 4px; padding: 6px 10px; margin: 4px 0; font-size: 12.5px; }
+  .warn.err { background: #401414; color: #ff9b9b; }
+  .status-line { font-size: 12.5px; color: #9ab; margin: 6px 0; min-height: 1.2em; }
   .placeholder { color: #666; font-style: italic; margin-top: 20px; }
   #toggleGzip { margin-right: 6px; }
-  label.inline { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; }
+  .hint { color: #777; font-size: 11.5px; }
 </style>
 </head>
 <body>
   <h1>WRL Forge <span style="color:#888; font-weight:400; font-size:12px;">— Mall Item lane</span></h1>
-  <div class="sub">Build. Preview. Validate. Package. — gzip-transparent editing and Cybertown Mall validation; editing/preview happens in VSCodium.</div>
+  <div class="sub">Build. Preview. Validate. Package. — gzip-transparent editing, embedded X_ITE fit preview, and Cybertown Mall validation. External editing happens in VSCodium.</div>
 
   <div class="row">
     <button id="openBtn">Open mall .wrl…</button>
+    <button id="vscodiumBtn" class="secondary" disabled>Open in VSCodium</button>
+    <button id="refreshBtn" class="secondary" disabled>Refresh Preview</button>
     <button id="checkBtn" class="secondary" disabled>Re-check</button>
     <label class="inline"><input type="checkbox" id="toggleGzip" checked> Save as gzip (mall format)</label>
     <button id="repackBtn" disabled>Repack &amp; Save to mall .wrl</button>
@@ -66,9 +133,65 @@
       <div class="stat" id="gzStat"><div class="n" id="gzSize">-</div><div class="l">gzip bytes (mall cap 80KB)</div></div>
     </div>
 
+    <div class="workspace">
+      <div class="preview-col">
+        <h2>Preview</h2>
+        <x3d-canvas id="preview" tabindex="0" aria-label="Embedded X_ITE 3D preview of the mall item"></x3d-canvas>
+        <div class="status-line" id="previewStatus" role="status" aria-live="polite">Preview idle.</div>
+        <div class="preview-controls">
+          <fieldset class="modes">
+            <legend>View mode</legend>
+            <label class="inline"><input type="radio" name="mode" id="modeOriginal" value="original" checked> Original</label>
+            <label class="inline"><input type="radio" name="mode" id="modeFit" value="fit"> Cybertown Fit</label>
+          </fieldset>
+          <fieldset id="guideControls" disabled>
+            <legend>Fit guides</legend>
+            <label class="inline"><input type="checkbox" class="guide" value="ground" checked> Ground</label>
+            <label class="inline"><input type="checkbox" class="guide" value="center" checked> Center</label>
+            <label class="inline"><input type="checkbox" class="guide" value="zlimit" checked> Z limit</label>
+            <label class="inline"><input type="checkbox" class="guide" value="cage" checked> 10m cage</label>
+            <label class="inline"><input type="checkbox" class="guide" value="itemBox"> Item box</label>
+          </fieldset>
+        </div>
+        <div class="hint">Fit mode shows a preview-only parent transform + non-exported guides. Nothing here is written to your file.</div>
+      </div>
+
+      <div class="report-col">
+        <h2>Cybertown Fit <span id="confidencePill" class="badge-pill conf-unavailable">—</span></h2>
+
+        <div class="panel">
+          <table class="kv">
+            <tr><th>Requested scale</th><td class="num" id="reqScale">—</td></tr>
+            <tr><th>Max compliant scale</th><td class="num" id="maxScale">—</td></tr>
+            <tr><th>Proposed applied scale</th><td class="num scale-proposed" id="propScale">—</td></tr>
+            <tr><th>Offset X / Y / Z</th><td class="num" id="offsets">—</td></tr>
+          </table>
+        </div>
+
+        <div class="panel">
+          <table class="kv" id="boundsTable">
+            <thead><tr><th></th><th>min</th><th>max</th><th>size</th></tr></thead>
+            <tbody id="boundsBody">
+              <tr><td colspan="4" class="hint">No bounds yet.</td></tr>
+            </tbody>
+          </table>
+          <div class="hint" id="centerLine"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Fit rules</h2>
+          <div class="rulelist" id="rules"></div>
+        </div>
+
+        <div id="previewWarnings"></div>
+      </div>
+    </div>
+
+    <h2 style="margin-top:16px;">Mall validation</h2>
     <div id="results"></div>
   </div>
 
-<script src="renderer.js"></script>
+<script defer src="preview.js"></script>
+<script defer src="renderer.js"></script>
 </body>
 </html>

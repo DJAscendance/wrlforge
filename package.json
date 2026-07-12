@@ -6,13 +6,14 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/",
-    "check": "node --test test/ && node --check main.js && node --check preload.js && node --check validator.js"
+    "check": "node --test test/ && node --check main.js && node --check preload.js && node --check validator.js && node --check src/preview/bbox-traversal.js && node --check src/preview/extrusion-bounds.js && node --check src/preview/fit-math.js && node --check src/preview/guides.js && node --check src/preview/texture-base.js && node --check src/preview/url-policy.js && node --check src/preview/wrl-source.js && node --check renderer/renderer.js && node --check renderer/preview.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "electron": "^41.7.1"
+    "electron": "^41.7.1",
+    "x_ite": "^15.1.10"
   }
 }

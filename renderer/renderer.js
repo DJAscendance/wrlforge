@@ -9,6 +9,8 @@ const els = {
   openBtn: document.getElementById('openBtn'),
   checkBtn: document.getElementById('checkBtn'),
   repackBtn: document.getElementById('repackBtn'),
+  vscodiumBtn: document.getElementById('vscodiumBtn'),
+  refreshBtn: document.getElementById('refreshBtn'),
   toggleGzip: document.getElementById('toggleGzip'),
   empty: document.getElementById('empty'),
   loaded: document.getElementById('loaded'),
@@ -30,6 +32,13 @@ function renderResults(data) {
 
   els.results.innerHTML = '';
   for (const r of data.results) {
+    // Suppress the validator's advisory, untransformed text-bbox placement line
+    // when the authoritative transform-aware X_ITE bounds drive the Fit panel
+    // above -- showing two placement verdicts from different bounding systems
+    // would be contradictory (see AGENTS.md / roadmap Phase 2B1). The other
+    // static validator checks (header, WorldInfo, size, textures, DEF/USE, URLs)
+    // remain authoritative and are shown unchanged.
+    if (/^Placement\/bbox/.test(r.name)) continue;
     const div = document.createElement('div');
     div.className = `check ${r.pass ? 'pass' : 'fail'} ${r.severity}`;
     div.innerHTML = `<span class="badge">${r.pass ? 'PASS' : 'FAIL'}</span><span>${r.name}</span>` +
@@ -46,8 +55,12 @@ function applyState(data) {
   els.editFile.textContent = data.editFile;
   els.checkBtn.disabled = false;
   els.repackBtn.disabled = false;
+  els.vscodiumBtn.disabled = false;
+  els.refreshBtn.disabled = false;
   renderResults(data);
   startPolling();
+  // Load the item into the embedded X_ITE preview (read-only; never mutates).
+  if (window.wrlPreview) window.wrlPreview.load();
 }
 
 function startPolling() {
@@ -83,6 +96,10 @@ els.repackBtn.addEventListener('click', async () => {
   setTimeout(() => { els.repackBtn.textContent = 'Repack & Save to mall .wrl'; }, 1500);
 });
 
+els.vscodiumBtn.addEventListener('click', async () => {
+  try { await window.vrmlpad.openInEditor(); } catch (e) { /* no file open */ }
+});
+
 els.revealMall.addEventListener('click', (e) => {
   e.preventDefault();
   if (state) window.vrmlpad.revealInFolder(state.mallPath);
@@ -92,3 +109,9 @@ els.revealEdit.addEventListener('click', (e) => {
   e.preventDefault();
   if (state) window.vrmlpad.revealInFolder(state.editFile);
 });
+
+// Exposed only for the non-interactive QA/screenshot harness (main.js
+// WRL_FORGE_PREVIEW_CAPTURE), so it can drive the real open->validate->preview
+// path headlessly. It wraps applyState over data from already-exposed IPC and
+// adds no new capability or privilege.
+window.__wrlForgeApplyOpen = applyState;
