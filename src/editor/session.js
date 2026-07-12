@@ -54,7 +54,13 @@ class EditorSession {
       context: this.context,
       stat: this.doc.stat,
     };
-    if (includeText) out.text = this.doc.text;
+    if (includeText) {
+      out.text = this.doc.text;
+      // The on-disk baseline travels with the text so the renderer can track
+      // dirty locally (buffer !== baseline) after a page reload/navigation --
+      // unsaved edits are preserved across Mall<->World<->editor page switches.
+      out.baseline = this.doc.baseline;
+    }
     return out;
   }
 

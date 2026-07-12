@@ -13,8 +13,8 @@ import {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
   drawSelection, dropCursor, rectangularSelection, crosshairCursor, Decoration,
 } from '@codemirror/view';
-import { history, historyKeymap, defaultKeymap, indentWithTab } from '@codemirror/commands';
-import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import { history, historyKeymap, defaultKeymap, indentWithTab, undo, redo } from '@codemirror/commands';
+import { search, searchKeymap, highlightSelectionMatches, openSearchPanel } from '@codemirror/search';
 import { bracketMatching } from '@codemirror/language';
 import { lintGutter, setDiagnostics } from '@codemirror/lint';
 import * as language from '../language.js';
@@ -141,6 +141,7 @@ function create(parent, opts = {}) {
     }))));
     if (typeof options.onAnalysis === 'function') {
       options.onAnalysis({
+        version: forVersion, // monotonic; lets the renderer drop a stale callback too
         diagnostics: result.diagnostics,
         advisories: result.advisories,
         outline: result.outline,
@@ -176,6 +177,11 @@ function create(parent, opts = {}) {
       view.focus();
     },
     reanalyzeNow() { runAnalyze(++version); },
+    // Toolbar-driven equivalents of the built-in keymap commands, so the app's
+    // buttons and CodeMirror's own shortcuts route through the same commands.
+    undo() { undo(view); view.focus(); },
+    redo() { redo(view); view.focus(); },
+    openSearch() { openSearchPanel(view); },
     destroy() { if (pending) clearTimeout(pending); view.destroy(); },
   };
 }

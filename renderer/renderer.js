@@ -9,6 +9,7 @@ const els = {
   openBtn: document.getElementById('openBtn'),
   checkBtn: document.getElementById('checkBtn'),
   repackBtn: document.getElementById('repackBtn'),
+  editorBtn: document.getElementById('editorBtn'),
   vscodiumBtn: document.getElementById('vscodiumBtn'),
   refreshBtn: document.getElementById('refreshBtn'),
   toggleGzip: document.getElementById('toggleGzip'),
@@ -71,6 +72,7 @@ function applyState(data) {
   els.editFile.textContent = data.editFile;
   els.checkBtn.disabled = false;
   els.repackBtn.disabled = false;
+  els.editorBtn.disabled = false;
   els.vscodiumBtn.disabled = false;
   els.refreshBtn.disabled = false;
   renderResults(data);
@@ -115,6 +117,17 @@ els.repackBtn.addEventListener('click', async () => {
   renderResults(data);
   els.repackBtn.textContent = 'Saved ✓';
   setTimeout(() => { els.repackBtn.textContent = 'Repack & Save to mall .wrl'; }, 1500);
+});
+
+// Open the current mall .wrl in the native editor (gzip-transparent, edits the
+// real source directly -- no .edit.wrl sibling needed), then switch to the editor
+// page. Returning Back preserves the buffer.
+els.editorBtn.addEventListener('click', async () => {
+  if (!state) return;
+  try {
+    await window.vrmlpad.editor.openMall();
+    await window.vrmlpad.goto('editor');
+  } catch (e) { showEditorStatus({ launched: false }); }
 });
 
 els.vscodiumBtn.addEventListener('click', async () => {

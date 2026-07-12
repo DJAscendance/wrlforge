@@ -25,6 +25,7 @@ const els = {
   refreshBtn: document.getElementById('refreshBtn'),
   revealBtn: document.getElementById('revealBtn'),
   editorBtn: document.getElementById('editorBtn'),
+  nativeEditorBtn: document.getElementById('nativeEditorBtn'),
 };
 
 let current = null;   // last applied scan payload
@@ -81,6 +82,7 @@ async function handleDetection(desc) {
   els.refreshBtn.disabled = !canRefresh;
   els.revealBtn.disabled = !desc.root;
   els.editorBtn.disabled = !desc.primary;
+  els.nativeEditorBtn.disabled = !desc.primary;
 
   if (desc.empty) {
     showState('empty');
@@ -130,6 +132,7 @@ function applyScan(payload) {
   els.refreshBtn.disabled = false;
   els.revealBtn.disabled = false;
   els.editorBtn.disabled = false;
+  els.nativeEditorBtn.disabled = false;
 
   els.rootPath.textContent = payload.root || '—';
   els.primaryPath.textContent = payload.primary || '—';
@@ -296,8 +299,26 @@ function renderTree(payload) {
     const head = document.createElement('div');
     head.className = 'wrl';
     const rel = relTo(payload.root, node.path);
-    head.textContent = `▸ ${rel}` + (node.depth ? `  (depth ${node.depth})` : '  (primary)') +
+    const label = document.createElement('span');
+    label.textContent = `▸ ${rel}` + (node.depth ? `  (depth ${node.depth})` : '  (primary)') +
       (node.unreadable ? '  — UNREADABLE' : '');
+    head.appendChild(label);
+    // Open this discovered WRL node in the native editor (main authorizes the
+    // path against the scan graph). Only offered for readable nodes.
+    if (!node.unreadable) {
+      const open = document.createElement('button');
+      open.className = 'secondary';
+      open.style.cssText = 'margin-left:8px; padding:1px 8px; font-size:11px;';
+      open.textContent = 'Edit';
+      open.title = 'Open in the native editor';
+      open.addEventListener('click', async () => {
+        try {
+          await window.vrmlpad.editor.openWorldReference(node.path);
+          await window.vrmlpad.goto('editor');
+        } catch (e) { setStatus('Could not open that WRL: ' + e.message); }
+      });
+      head.appendChild(open);
+    }
     els.tree.appendChild(head);
 
     const refs = byReferrer.get(node.path) || [];
@@ -325,6 +346,7 @@ function resetWorld() {
   els.refreshBtn.disabled = true;
   els.revealBtn.disabled = true;
   els.editorBtn.disabled = true;
+  els.nativeEditorBtn.disabled = true;
   if (window.wrlWorldPackaging) window.wrlWorldPackaging.setEnabled(false);
   setStatus('No project open.');
 }
@@ -356,6 +378,14 @@ els.editorBtn.addEventListener('click', async () => {
     }
   } catch { /* nothing open */ }
 });
+// Open the primary WRL in the native editor, then switch to the editor page.
+els.nativeEditorBtn.addEventListener('click', async () => {
+  try {
+    await window.vrmlpad.editor.openWorldPrimary();
+    await window.vrmlpad.goto('editor');
+  } catch (e) { setStatus('Could not open the editor: ' + e.message); }
+});
+
 document.getElementById('mallBtn').addEventListener('click', () => window.vrmlpad.goto('mall'));
 
 // On load, restore any already-open project (e.g. after returning from Mall).

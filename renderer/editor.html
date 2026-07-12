@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- Strict CSP: no remote origins anywhere. The CodeMirror bundle is the app's
+     own local file (vendor/wrl-editor.bundle.js, 'self'); it injects its editor
+     styles via <style> (covered by 'unsafe-inline' style-src). No eval, no wasm,
+     no network -- the native editor never fetches. main.js also cancels remote
+     requests at the network layer, so this is a layered control. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' file:;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' file: data: blob:;
+  font-src 'self' file: data:;
+  connect-src 'none';
+  object-src 'none';
+  base-uri 'none';
+">
+<title>WRL Forge — Native Editor</title>
+<!-- The CodeMirror 6 assembly (window.WrlEditor), then the pure UI view-models
+     (window.WrlEditorUI), then the DOM binding. All local, all defer. -->
+<script defer src="vendor/wrl-editor.bundle.js"></script>
+<script defer src="../src/editor/ui-state.js"></script>
+<script defer src="editor.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: #1b1b1b; color: #ddd;
+    font-family: -apple-system, "Segoe UI", sans-serif; font-size: 13px;
+    display: flex; flex-direction: column;
+  }
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    padding: 8px 12px; background: #202020; border-bottom: 1px solid #333;
+  }
+  .toolbar .spacer { flex: 1 1 auto; }
+  button {
+    background: #2d6ae0; color: #fff; border: none; border-radius: 4px;
+    padding: 6px 12px; font-size: 12.5px; cursor: pointer;
+  }
+  button:hover { background: #3a78ee; }
+  button.secondary { background: #333; }
+  button.secondary:hover { background: #444; }
+  button:disabled { background: #2a2a2a; color: #666; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid #7db3ff; outline-offset: 2px;
+  }
+  .main { flex: 1 1 auto; display: flex; min-height: 0; }
+  .editor-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  #editor { flex: 1 1 auto; min-height: 0; overflow: hidden; background: #fbfbfb; }
+  .cm-editor { height: 100%; }
+  .sidebar {
+    flex: 0 0 320px; max-width: 42vw; border-left: 1px solid #333;
+    background: #161616; display: flex; flex-direction: column; overflow: auto;
+  }
+  .sidebar section { border-bottom: 1px solid #262626; }
+  .sidebar h2 {
+    font-size: 11px; margin: 0; padding: 8px 12px 6px; color: #9a9a9a;
+    text-transform: uppercase; letter-spacing: 0.05em; position: sticky; top: 0; background: #161616;
+  }
+  .sidebar h2 .count { color: #ddd; font-weight: 700; }
+  .list { padding: 0 0 6px; }
+  .row-item {
+    padding: 4px 12px; cursor: pointer; font-size: 12px; line-height: 1.4;
+    display: flex; gap: 8px; align-items: baseline; border-left: 3px solid transparent;
+  }
+  .row-item:hover { background: #202430; }
+  .row-item .loc { color: #667; font-family: monospace; font-size: 11px; flex: none; }
+  .row-item.sev-error { border-left-color: #ff6161; }
+  .row-item.sev-warning { border-left-color: #ffb648; }
+  .row-item.advisory { border-left-color: #6a5acd; }
+  .outline .kind { color: #7aa2f7; font-family: monospace; font-size: 10.5px; flex: none; }
+  .outline .row-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .empty-note { color: #666; font-style: italic; padding: 6px 12px; }
+  .advisory-note { color: #8a80c8; font-size: 11px; padding: 0 12px 8px; }
+  .statusbar {
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+    padding: 5px 12px; background: #202020; border-top: 1px solid #333;
+    font-size: 12px; color: #9ab;
+  }
+  .statusbar .seg { display: inline-flex; gap: 5px; align-items: center; }
+  .statusbar .fmt { color: #cbd; }
+  .statusbar .dirty-dot { color: #ffce6a; font-weight: 700; }
+  .statusbar .save-clean { color: #7fbf7f; }
+  .statusbar .save-dirty { color: #ffce6a; }
+  .statusbar .save-saving { color: #7db3ff; }
+  .statusbar .save-error, .statusbar .save-conflict { color: #ff8b8b; }
+  .editor-msg { background: #3a2f10; color: #ffce6a; padding: 6px 12px; font-size: 12px; }
+  .editor-msg.err { background: #401414; color: #ff9b9b; }
+
+  /* In-DOM modal (unsaved confirm / external-change conflict / go-to-line) -- no
+     native alert()/confirm()/prompt(), which are discouraged in Electron. */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: #232323; border: 1px solid #3a3a3a; border-radius: 8px;
+    padding: 18px 20px; max-width: 460px; width: 90%;
+  }
+  .modal h3 { margin: 0 0 8px; font-size: 15px; }
+  .modal p { margin: 0 0 14px; color: #bbb; line-height: 1.5; }
+  .modal input[type=number], .modal input[type=text] {
+    width: 100%; padding: 7px 9px; margin-bottom: 14px; border-radius: 4px;
+    border: 1px solid #3a3a3a; background: #1a1a1a; color: #eee; font-size: 13px;
+  }
+  .modal .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .empty-state { padding: 40px; text-align: center; color: #888; }
+</style>
+</head>
+<body>
+  <div class="toolbar" role="toolbar" aria-label="Editor actions">
+    <button id="backBtn" class="secondary" title="Return to the originating workspace">← Back</button>
+    <button id="saveBtn" disabled>Save</button>
+    <button id="saveAsBtn" class="secondary" disabled>Save As…</button>
+    <button id="reloadBtn" class="secondary" disabled title="Discard edits and re-read from disk">Reload</button>
+    <button id="undoBtn" class="secondary" disabled>Undo</button>
+    <button id="redoBtn" class="secondary" disabled>Redo</button>
+    <button id="findBtn" class="secondary" disabled>Find</button>
+    <button id="replaceBtn" class="secondary" disabled>Replace</button>
+    <button id="gotoBtn" class="secondary" disabled>Go to line…</button>
+    <button id="externalBtn" class="secondary" disabled title="Open the same file in your external editor">External editor</button>
+    <span class="spacer"></span>
+    <button id="closeBtn" class="secondary" disabled>Close</button>
+  </div>
+
+  <div id="editorMsg" class="editor-msg" style="display:none" role="status" aria-live="polite"></div>
+
+  <div class="main">
+    <div class="editor-col">
+      <div id="editor" aria-label="VRML97 source editor"></div>
+    </div>
+    <aside class="sidebar" aria-label="Document panels">
+      <section class="outline">
+        <h2>Outline</h2>
+        <div id="outlineList" class="list"><div class="empty-note">No document.</div></div>
+      </section>
+      <section>
+        <h2>Diagnostics <span class="count" id="diagCount">0</span></h2>
+        <div id="diagList" class="list"><div class="empty-note">No syntax diagnostics.</div></div>
+      </section>
+      <section>
+        <h2>Advisories <span class="count" id="advCount">0</span></h2>
+        <div class="advisory-note">Non-authoritative. Flat-scope semantic hints only — not runtime-validity checks, and they never block saving.</div>
+        <div id="advList" class="list"><div class="empty-note">No advisories.</div></div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="statusbar" role="status" aria-live="polite">
+    <span class="seg"><span id="stFile">—</span></span>
+    <span class="seg fmt" id="stFormat"></span>
+    <span class="seg" id="stDirty"></span>
+    <span class="seg" id="stSave"></span>
+    <span class="spacer"></span>
+    <span class="seg" id="stCursor">Ln 1, Col 1</span>
+    <span class="seg">⚠ <span id="stDiag">0</span></span>
+    <span class="seg">ℹ <span id="stAdv">0</span></span>
+  </div>
+
+  <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <h3 id="modalTitle"></h3>
+      <p id="modalMsg"></p>
+      <input type="text" id="modalInput" style="display:none">
+      <div class="actions" id="modalActions"></div>
+    </div>
+  </div>
+</body>
+</html>

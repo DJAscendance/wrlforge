@@ -66,7 +66,7 @@ let editorController = null;
 
 // Renderer pages the app may navigate between (whitelist -- never a path from
 // the renderer). Both share the one BrowserWindow, preload, and security config.
-const APP_PAGES = { mall: 'index.html', world: 'world.html' };
+const APP_PAGES = { mall: 'index.html', world: 'world.html', editor: 'editor.html' };
 let currentPage = 'mall';
 
 // Navigate the one window to a whitelisted local page and await its load. Used
