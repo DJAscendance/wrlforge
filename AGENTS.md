@@ -100,9 +100,12 @@ A read-only asset resolver and workspace now ships (`src/world-project/`,
 
 **Will not be built** (locked product decision): **direct upload**, authentication,
 networking/submission code. **Not** implemented and each its own future approved
-lane: automatic path repair, copy, rename, delete, Apply/Bake. The **native editor +
-VRML97 parser** is a planned beta requirement (Phase 7, see
-`docs/NATIVE_EDITOR_ARCHITECTURE.md`). Everything except the single Build-World-
+lane: automatic path repair, copy, rename, delete, Apply/Bake. The **VRML97 parser**
+foundation is now **built** (Phase 7A) — a dependency-free, token-driven tokenizer +
+structural parser under `src/vrml/` (see `docs/VRML_PARSER.md`) that ships
+*alongside* existing systems and changes none of them; it is not yet wired into any
+production path. The **native editor** on top of it remains a planned beta
+requirement (Phase 7B, see `docs/NATIVE_EDITOR_ARCHITECTURE.md`). Everything except the single Build-World-
 Project-Bundle action is read-only; that action writes only a portable bundle to a
 caller-chosen destination and never mutates the source project. See
 `docs/WORLD_PROJECT_ARCHITECTURE.md` and `docs/WORLD_PACKAGE_QUESTIONS.md`.

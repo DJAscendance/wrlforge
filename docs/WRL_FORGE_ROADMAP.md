@@ -431,11 +431,20 @@ Mall/World validation profiles.
 **This roadmap entry is a PLAN.** No production editor or parser code ships in the
 current lane unless separately approved after the architecture review.
 
-### Phase 7A — Parser Foundation
-Tokenizer, parser, syntax tree, line/column diagnostics with safe error recovery,
-and a fixture corpus drawn from real VRML97 files (Mall items + World projects,
-plain and gzip). No production editing UI yet. Recommended scope in
-`docs/NATIVE_EDITOR_ARCHITECTURE.md` (§ "Phase 7A scope").
+### Phase 7A — Parser Foundation ✅
+**Shipped (parser-only lane).** A dependency-free, token-driven VRML97 tokenizer +
+structural parser under `src/vrml/` (`tokenizer`, `parser`, `ast`, `diagnostics`,
+`analyze`, `asset-refs`, `index`), producing a profile-neutral partial syntax tree
+with exact source spans, stable diagnostic codes, bounded error recovery, and
+explicit depth/node safety limits. Includes a semantic index (`DEF`/`USE`/`ROUTE`)
+and a read-only AST asset-reference extractor validated for **parity** against the
+production World Project scanner. Fixture corpus + `node:test` coverage under
+`test/fixtures/vrml/` and `test/vrml/`; parser files wired into the `check` gate.
+**No editing UI**, and **no change** to `validator.js` / World Project scanning /
+Mall Fit / X_ITE preview / packaging / VSCodium / UI / save. See
+`docs/VRML_PARSER.md` for grammar coverage, AST shape, diagnostic model, recovery,
+safety limits, parity status, known limitations, and the Phase 7B integration
+boundary. Design in `docs/NATIVE_EDITOR_ARCHITECTURE.md` (§ "Phase 7A scope").
 
 ### Phase 7B — Native Editor
 Editor component (plain HTML/CSS/JS, no framework — see `AGENTS.md`): line numbers,

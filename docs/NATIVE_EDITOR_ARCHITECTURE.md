@@ -36,7 +36,16 @@ requirement**. X_ITE remains the ONLY renderer — this plan adds a *parser* and
 
 ---
 
-## Part A — VRML97 Parser
+## Part A — VRML97 Parser  ✅ SHIPPED (Phase 7A)
+
+**Status: implemented as a parser-only lane.** The design below was built out under
+`src/vrml/` with zero new dependencies; see **`docs/VRML_PARSER.md`** for the
+as-shipped grammar coverage, AST shape, diagnostic-code table, recovery strategy,
+safety limits, asset-reference parity status, performance numbers, known
+limitations, and the recommended Phase 7B editor-integration boundary. Part B
+(the native editor) remains **PLAN ONLY**. Nothing in Part A changed any existing
+production system (`validator.js`, World scanning, previews, packaging, VSCodium,
+UI, save).
 
 A real **tokenizer + structural parser**, not a regex approximation. Lives in a new
 dependency-free module tree, e.g. `src/vrml/`:
