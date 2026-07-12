@@ -1,0 +1,14 @@
+{
+  "name": "xite-mall-fit-spike",
+  "version": "0.0.0",
+  "private": true,
+  "description": "WRL Forge Phase 2A spike: X_ITE-based Mall Item fit bounding-box + preview technical exploration. Isolated from the production app.",
+  "main": "main.js",
+  "scripts": {
+    "test": "node --test fit-math.test.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "x_ite": "15.1.10"
+  }
+}
