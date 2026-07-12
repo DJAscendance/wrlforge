@@ -1,0 +1,43 @@
+{
+  "launchCount": 1,
+  "launchesUsed": 1,
+  "pids": [
+    1408564
+  ],
+  "captureCount": 3,
+  "survivors": [],
+  "runError": null,
+  "perState": [
+    {
+      "id": "01-mall-open-passive",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7b1-native-closeout/screenshots/01-mall-open-passive.png",
+      "editor": null
+    },
+    {
+      "id": "02-native-editor-explicit",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7b1-native-closeout/screenshots/02-native-editor-explicit.png",
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 8
+      }
+    },
+    {
+      "id": "03-external-editor-explicit",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7b1-native-closeout/screenshots/03-external-editor-explicit.png",
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 8
+      }
+    }
+  ]
+}
