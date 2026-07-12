@@ -100,10 +100,30 @@ world preview through the real read-only `world:previewLoad` path + the confined
   primary path is under the OS temp dir, and is reachable only under
   `WRL_FORGE_CAPTURE_SERVER` — it never touches a real project file.
 
+**World packaging jobs (Phase 5A).** A world job may also drive the read-only
+packaging audit and (QA-only) an actual review-bundle build:
+
+```json
+[
+  { "id": "audit",  "world": { "root": "/abs/fx/nested", "primary": "/abs/fx/nested/world.wrl" }, "packageAudit": true, "size": "1100x860", "out": "/abs/out/audit.png" },
+  { "id": "build",  "world": { "root": "/abs/fx/nested", "primary": "/abs/fx/nested/world.wrl" }, "buildBundle": "/abs/tmp/nested-review-bundle.zip", "out": "/abs/out/build.png" }
+]
+```
+
+- `packageAudit: true` → after the read-only scan, drive `world:packageAudit` and
+  render the packaging section; the job result carries a `packageAudit` debug
+  object (status, totals, blocking codes, unused count). Read-only.
+- `buildBundle: <destPath>` → **QA-only** deterministic bundle build via the real
+  `bundle-builder`. It is refused unless `destPath` is under the OS temp dir, and
+  is reachable only under `WRL_FORGE_CAPTURE_SERVER` — it never writes a real
+  destination and never inside a project. The job result carries a `bundle`
+  summary (outPath, bytes, entryCount) or `bundleError`.
+
 The full Phase 4B run (all 10 required states, one launch, graceful exit, no
 leak) lives at `qa/phase-4b-world-preview/orchestrate.js`
-(`RESULTS.md` / `RESULTS.json`), driven by `VisualQaRunner` directly — the same
-harness the visual tests use.
+(`RESULTS.md` / `RESULTS.json`), and the Phase 5A packaging run (7 states incl. a
+real bundle build to the OS temp dir) at `qa/phase-5a-world-packaging/`, both
+driven by `VisualQaRunner` directly — the same harness the visual tests use.
 
 ## Lifecycle logging
 

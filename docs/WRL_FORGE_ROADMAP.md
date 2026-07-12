@@ -213,6 +213,43 @@ repair, file copy/rename/delete, packaging, direct upload, Apply/Bake transforms
 Windows packaging. World preview is **analysis + display only**; it never marks a
 project upload-ready.
 
+### Phase 5A — World Project Packaging Audit + Review Bundle ✅
+
+A narrow packaging slice for the World Project lane (the world half of Phase 6),
+kept read-only except for one explicit user action. See
+`docs/WORLD_PROJECT_ARCHITECTURE.md` (“Packaging”) and
+`docs/WORLD_PACKAGE_QUESTIONS.md`.
+
+- [x] **Package Audit** (read-only): a deterministic package plan from the
+  production asset graph — packaged file set (primary + nested local WRL + present
+  approved assets) with project-relative path, asset type, byte size, content hash
+  (sha256), referencing WRL files, and dependency depth; totals (files / bytes /
+  WRL count / unique textures); findings (missing / case / unsafe / remote /
+  cycles / repeated); and **unused** files under the root (reported, never
+  auto-included). Repeated references packaged once; plain + gzip WRL; >20 and ≥70
+  textures.
+- [x] **Build Review Bundle** (explicit action, requires a destination): a
+  **deterministic ZIP** (Node `zlib` only — **no** third-party archive
+  dependency; fixed 1980 timestamps) containing `project/<relpath>` (byte-for-byte,
+  structure preserved), `MANIFEST.json`, `REPORT.md`, and a
+  `READ-ME-FIRST.txt`, all labelled **“Review Bundle — Not Confirmed for Direct
+  Cybertown Upload.”**
+- [x] **Blocking rules**: missing / case-mismatch / absolute / traversal / remote
+  / unreadable references block packaging; cycles are reported but do **not** block
+  (local + bounded). Build refuses a blocked project, an in-project destination,
+  and overwriting an existing file; it re-hashes every file against the manifest.
+- [x] **Non-mutation** verified (source byte-identical across audit + real build;
+  bundle contents/hashes match the manifest; deterministic output). One serialized
+  `VisualQaRunner` run of all packaging states (`qa/phase-5a-world-packaging/`).
+- [x] Open questions for a **true** upload-ready packager (archive/layout format,
+  size cap, asset-count limits, allowed types, naming/case, primary-world naming,
+  auth + submission workflow) documented in `docs/WORLD_PACKAGE_QUESTIONS.md`.
+
+**Explicitly not implemented:** direct upload, authentication, automatic repairs,
+path rewriting, renaming, asset deletion, source mutation, Apply/Bake transforms,
+internal editing, Windows packaging. Packaging is **analysis + a review bundle
+only**; it never uploads and claims no current-server compatibility.
+
 ## Phase 5 — Embedded X_ITE Preview ⏳
 
 - Integrate X_ITE as WRL Forge's embedded rendering engine — do not build a custom VRML/X3D renderer
@@ -235,8 +272,15 @@ See Phase 2A for the earlier, narrowly-scoped X_ITE technical spike that precede
 
 ## Phase 6 — Packaging ⏳
 
+The **World Project** half landed early as **Phase 5A** above (deterministic
+package audit + review bundle, `docs/WORLD_PROJECT_ARCHITECTURE.md` “Packaging”).
+Remaining for this phase: the Mall Item equivalent, and — gated on
+`docs/WORLD_PACKAGE_QUESTIONS.md` being answered — a *true* upload-ready world
+package format (the Phase 5A review bundle is explicitly **not** confirmed for
+direct upload).
+
 - Deterministic Mall Item package output
-- Deterministic World Project package output
+- Deterministic World Project package output *(Phase 5A: review-bundle form done; server-format-confirmed form pending the open questions)*
 - Human-readable validation report (shared format across profiles where it makes sense)
 - **No direct upload** — packaging produces a file/folder ready for a human to submit, it does not submit anything itself
 

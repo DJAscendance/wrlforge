@@ -60,9 +60,32 @@ Derived from `app.getPath('userData')`, which Electron bases on `package.json`'s
 
 The GTK file-open dialog's `Ctrl+L` + typed-path unreliability documented in `AGENTS.md` "Known gotchas" is Linux/GTK-specific — Windows' native common file dialog doesn't share this quirk. Documented as a known gotcha, explicitly not in scope to fix in this lane.
 
+## World Project review bundle (Phase 5A)
+
+The World Project packaging lane builds a portable **review bundle** as a
+deterministic ZIP using Node's built-in `zlib` only — a small in-repo writer
+(`src/world-project/zip-writer.js`), **no third-party archive dependency**. This
+is a deliberate portability + determinism choice: most archive libraries stamp the
+current wall-clock mtime into every entry (non-reproducible) and add
+platform/OS-specific metadata. The in-repo writer pins every entry to a fixed
+1980 DOS timestamp, writes entries in a caller-sorted order, and marks filenames
+UTF-8 (general-purpose bit 11), so `buildZip(sameInput)` is byte-identical every
+run and on every platform. All path arithmetic uses `path` (portable), and the
+output is validated to open under the system `unzip`. The one platform-observable
+input is filename **case** (see “Case sensitivity”): a case-mismatched reference
+is a *blocking* finding, so a bundle is never built around a reference that would
+fail on a case-sensitive server. The builder writes only to a caller-chosen
+destination outside the project and never mutates the source — no platform-specific
+behavior there.
+
 ## Packaging implications
 
-Not implemented in this lane. A future Windows packaging pass will need `electron-builder` (or similar) configuration for a Windows target — deferred per the roadmap and per this lane's explicit instruction not to implement Windows packaging yet.
+Windows *installer* packaging is not implemented in this lane. A future Windows
+packaging pass will need `electron-builder` (or similar) configuration for a
+Windows target — deferred per the roadmap and per this lane's explicit instruction
+not to implement Windows packaging yet. (This is distinct from the Phase 5A World
+Project *review bundle* above, which is a portable content ZIP, not an app
+installer.)
 
 ## Test matrix
 

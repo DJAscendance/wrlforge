@@ -8,10 +8,15 @@ behind confined main-process IPC, and renders it in a dedicated workspace page.
 It is a **sibling** of the Mall Item lane, not an extension of it: World Project
 analysis never applies Mall Item rules, and the Mall Item lane is unchanged.
 
-**This lane is read-only.** It opens, scans, reports, and (Phase 4B) previews.
-It does not repair paths, copy/rename/delete assets, package, or upload. The
-embedded X_ITE world preview added in Phase 4B is itself read-only, local-only,
-and asset-graph-authorized — see "World preview (Phase 4B)" below.
+**This lane opens, scans, reports, previews (Phase 4B), and packages (Phase 5A).**
+Everything except the one explicit Build-Review-Bundle action is read-only; that
+action writes **only** a portable review bundle to a caller-chosen destination
+outside the project. It never repairs paths, copies/renames/deletes assets,
+rewrites source, uploads, or mutates the source project. The embedded X_ITE world
+preview (Phase 4B) is read-only, local-only, and asset-graph-authorized; the
+packaging audit (Phase 5A) is read-only and produces a review bundle that is
+explicitly **not** confirmed for direct upload — see "World preview (Phase 4B)"
+and "Packaging (Phase 5A)" below.
 
 ## Module layout (`src/world-project/`)
 
@@ -30,6 +35,9 @@ graph touch is injectable, so the whole set is unit-tested without a real tree.
 | `project-loader.js` | Detects the primary world file in a folder; runs a scan with real fs (sizes + texture dimensions). | **yes** (main) |
 | `session.js` | Holds the open project; enforces single-flight scanning, keep-last-good-on-error, candidate-validated primary selection. | no |
 | `preview-source.js` | (Phase 4B) Read-authorization + serving for the embedded X_ITE preview: `wrlworld://` URL builders, `buildAuthorizedSet`, `resolveWorldRequest` (confine + allow-list + gzip-decompress), `buildPreviewPayload`. | injected |
+| `package-plan.js` | (Phase 5A) Deterministic packaging PLAN from the asset graph: packaged file set (path/kind/bytes/sha256/depth/referencedBy/refCount), totals, findings, unused-file detection, blocking rules + status, plus `buildManifest`/`renderReport`. | injected |
+| `zip-writer.js` | (Phase 5A) Deterministic, dependency-free ZIP writer built on Node's `zlib` only (fixed 1980 timestamps, caller-controlled order, UTF-8 names) + a small reader for tests. | no |
+| `bundle-builder.js` | (Phase 5A) The ONE module that writes a file: assembles the review-bundle ZIP and enforces the write-time safety rules (blocked / in-project / overwrite refusals; re-hash vs. manifest). | injected (main) |
 
 `qa/world-recon/url-fields.js` and `qa/world-recon/asset-graph.js` are now thin
 re-exports of the production modules (single source of truth); `npm run
@@ -100,6 +108,8 @@ detected.
 | `world:describe` | Report the open project (for restoring the view). |
 | `world:reveal` / `world:revealRoot` | Reveal a path in the OS file manager, **confined to the project root** and only if it exists. |
 | `world:openPrimaryInEditor` | Explicit-only VSCodium launch on the primary (opening a project never auto-launches the editor). |
+| `world:packageAudit` | (Phase 5A) Read-only: derive the deterministic package plan and return status/totals/blocking/unused/manifest. **No** write, **no** renderer path. |
+| `world:buildReviewBundle` | (Phase 5A) Explicit action: main prompts (Save dialog, default OUTSIDE the project) and writes a deterministic ZIP via `bundle-builder`. Refuses blocked/in-project/overwrite. Not an upload. |
 
 There is **no write-capable World Project IPC**. `contextIsolation: true` /
 `nodeIntegration: false` are unchanged. As of Phase 4B the `world.html` page
@@ -158,6 +168,54 @@ non-mutation, no-Mall-rules), the opt-in `test/visual/electron-world-preview.tes
 and one serialized `VisualQaRunner` run of all 10 states
 (`qa/phase-4b-world-preview/`, `RESULTS.md`).
 
+## Packaging (Phase 5A)
+
+A read-only **package audit** plus one explicit **Build Review Bundle** action.
+Both are derived from the same production asset graph; neither ever repairs a URL,
+renames/flattens files, copies an external asset, rewrites WRL source, or mutates
+the source project. **Direct upload is NOT implemented** and no current-server
+compatibility is claimed.
+
+**Package audit (`package-plan.js`, read-only).** Produces a DETERMINISTIC plan of
+what a portable bundle would contain: the primary WRL + nested local WRL (that
+exist on disk) + present, exact-case local assets, each with project-relative
+path, asset type, byte size, content hash (sha256), referencing WRL files, and
+dependency depth; plus totals (files / bytes / WRL count / unique textures),
+findings (missing / case / unsafe / remote / cycles / repeated), and the files
+under the project root that are **unused** (referenced by nothing — reported, never
+auto-included). A repeated reference is packaged **once**.
+
+**Blocking rules.** A bundle is **blocked** when any required referenced asset is
+missing, case-mismatched, an absolute path, escapes the project root, or is remote
+— i.e. anything that could not be reproduced portably. A dependency **cycle** is
+reported but does **not** block (all its files are local and the walk is bounded,
+so the packaged set is finite and complete). Status is `ready` / `needs-review`
+(cycles, unused files, or a truncated/depth-capped graph) / `blocked`.
+
+**Review bundle (`bundle-builder.js` + `zip-writer.js`).** The one write path.
+`buildReviewBundle` prompts (main-process Save dialog defaulting OUTSIDE the
+project) and writes a **deterministic ZIP** containing `project/<relpath>` (the
+referenced files, byte-for-byte, structure preserved), `MANIFEST.json` (machine-
+readable), `REPORT.md` (human-readable), and `READ-ME-FIRST.txt` — every one
+carrying the label **“Review Bundle — Not Confirmed for Direct Cybertown Upload.”**
+Write-time safety: it **refuses** to build a blocked project, to write inside the
+project root, or to overwrite an existing file, and it **re-hashes** every
+packaged file against the manifest so the archive and manifest can never disagree.
+
+**No dependency.** The ZIP is built with Node's built-in `zlib` only (a small
+in-repo deterministic writer), so no third-party archive library enters the app.
+This is deliberate: most archive libs stamp the current wall-clock mtime and are
+non-deterministic. See `docs/PLATFORM_NOTES.md` (“Packaging”). The open questions
+that block a *true* upload-ready packager are tracked in
+`docs/WORLD_PACKAGE_QUESTIONS.md`.
+
+Verified by `test/world-project/{zip-writer,package-plan,bundle-builder}.test.js`
+(deterministic ordering, nested WRL, gzip WRL, >20 and ≥70 textures, repeated-once,
+missing/case/remote/unsafe blocking, safe cycles, unused reporting, collision
+handling, non-mutation, and bundle-hashes-match-manifest), the opt-in
+`test/visual/electron-world-packaging.test.js`, and one serialized `VisualQaRunner`
+run (`qa/phase-5a-world-packaging/`, `RESULTS.md`).
+
 ## Workspace UI (`renderer/world.html` + `world.js`)
 
 A separate page sharing the one BrowserWindow and preload (so it gets the same
@@ -179,8 +237,12 @@ A separate page sharing the one BrowserWindow and preload (so it gets the same
 - **World preview** (Phase 4B) — embedded X_ITE canvas with viewpoint selector,
   Reset View, navigation mode, Refresh Preview, loaded-vs-missing counts, and a
   stale badge (see "World preview (Phase 4B)" above).
+- **Packaging** (Phase 5A) — a status badge (Ready / Blocked / Needs Review),
+  package totals, blocking findings, the unused-file list, a manifest preview, the
+  written output location, a **Package Audit** button (analysis) and a **Build
+  Review Bundle…** button (explicit action, disabled when blocked).
 - **Actions** — Refresh Scan, Reveal Project Folder, Open Primary WRL in
-  VSCodium, ← Mall Item workspace. No repair/delete/copy/rename/package/upload.
+  VSCodium, ← Mall Item workspace. No repair/delete/copy/rename/upload.
 
 ## Refresh
 
@@ -191,7 +253,11 @@ overlapping scan); a transient parse error keeps the last good result visible
 
 ## Not in this lane
 
-Automatic path repair, asset copy/rename/delete, packaging, direct upload,
-Apply/Bake transforms, Windows packaging — each needs its own approved lane. The
-Phase 4B world preview is **analysis + display only**; it never repairs, copies,
-packages, uploads, edits, or marks a project upload-ready.
+Automatic path repair, asset copy/rename/delete, **direct upload**,
+authentication, Apply/Bake transforms, internal editing, Windows packaging — each
+needs its own approved lane. The Phase 4B world preview is **analysis + display
+only**. The Phase 5A packaging lane produces a **review bundle only** (a portable
+ZIP for a human to inspect); it never repairs, renames, flattens, rewrites, or
+uploads, and it never marks a project server-ready — it explicitly labels its
+output “Not Confirmed for Direct Cybertown Upload” and its blocking questions are
+in `docs/WORLD_PACKAGE_QUESTIONS.md`.
