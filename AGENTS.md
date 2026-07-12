@@ -12,7 +12,7 @@ WRL Forge is a modern VRML97 creation, inspection, validation, and packaging wor
 
 The project was previously named `vrmlpad` and scoped narrowly to Cybertown Mall items. That narrow tool is the working foundation this expansion builds on — it is not being replaced or rewritten, it is being kept and grown into one profile of a larger workbench. See `docs/WRL_FORGE_ROADMAP.md` for the phased plan.
 
-It does not yet implement its own text editor or syntax highlighter, and (today) no 3D renderer. An **optional** external editor — VSCodium plus the `create3000.x-ite-vscode` / `create3000.x3d-vscode-syntax-highlighting` extensions — provides VRML97 syntax highlighting and live 3D preview (`X3D: Preview 3D Model`, `Ctrl+Alt+X`) when installed. A **native WRL editor + a real VRML97 parser are now a planned beta requirement (Phase 7)** so the app works without any external editor; VSCodium is an integration, not a dependency. See `docs/NATIVE_EDITOR_ARCHITECTURE.md`. WRL Forge's job today is the two things a generic editor can't do for Cybertown Mall items:
+It now implements its **own native WRL editor with VRML97 syntax highlighting and parser diagnostics** (Phase 7B, CodeMirror 6 driven by the built-in `src/vrml` parser), but still no 3D renderer of its own (X_ITE only). An **optional** external editor — VSCodium plus the `create3000.x-ite-vscode` / `create3000.x3d-vscode-syntax-highlighting` extensions — additionally provides live 3D preview (`X3D: Preview 3D Model`, `Ctrl+Alt+X`) when installed. A **native WRL editor + a real VRML97 parser are now built (Phase 7A parser + Phase 7B editor)** so the app works without any external editor; VSCodium is an integration, not a dependency. See `docs/NATIVE_EDITOR_ARCHITECTURE.md`. WRL Forge's job today is the two things a generic editor can't do for Cybertown Mall items:
 
 1. **Gzip transparency** — the mall's actual upload files are gzip-compressed `.wrl` (a real VRML text file inside, but the bytes on disk are binary). VSCodium can't usefully open that. WRL Forge decompresses to a plain sibling file for editing and recompresses on save.
 2. **Cybertown Mall validation** — the upload rules from `../new-items/CLAUDE.md` (80KB gzip cap, required `WorldInfo`, forbidden nodes, texture rules, DEF/USE integrity, placement bounds) are mall-item-specific and not something a generic VRML/X3D extension checks. These rules apply to the **Mall Item** profile only — do not apply them to World Project or Generic VRML97 validation.
@@ -26,7 +26,7 @@ Linux is the first supported platform and must be thoroughly tested — every la
 Prefer open-source components; the current stack is:
 
 - **Electron** — application shell.
-- **VSCodium** — **optional** external editor (not bundled; the user's existing installation, with the `create3000.x-ite-vscode` / `create3000.x3d-vscode-syntax-highlighting` extensions). Optional, not required — a native editor is planned for Phase 7.
+- **VSCodium** — **optional** external editor (not bundled; the user's existing installation, with the `create3000.x-ite-vscode` / `create3000.x3d-vscode-syntax-highlighting` extensions). Optional, not required — a native editor is now built (Phase 7B).
 - **X_ITE** (MIT) — the approved VRML/X3D rendering and preview engine, both for VSCodium's live-preview extension today and for the embedded-preview direction below. See `spikes/xite-mall-fit/` for the Phase 2A technical spike and `spikes/xite-mall-fit/NOTES.md` for what was verified about its API.
 - **Node.js built-ins** — `zlib`, `fs`, `path`, `child_process`, `node:test` — preferred over adding a dependency where they suffice (e.g. no external test framework; see `package.json`'s `test`/`check` scripts).
 
@@ -34,7 +34,7 @@ Do not build a custom VRML/X3D renderer under any circumstances — X_ITE is the
 
 ### Embedded preview status
 
-An embedded X_ITE preview now ships for the **Mall Item** lane (Phase 2B1) **and** the **World Project** lane (Phase 4B): `x_ite` (MIT, v15.1.10) is a root dependency loaded locally (never a CDN), integrated per the isolation discipline below. The **optional** external editor stays available ("Open in External Editor"; a Mall item still auto-launches it on open when one is installed, but opening never *requires* an editor and never surfaces an "editor not found" message unless the user requests the external-editor action) — the embedded previews did not replace it, and a native editor is planned for Phase 7. The two previews are **separate profiles**: the Mall Item preview (`renderer/preview.js`) does Original/Cybertown Fit with placement bounds; the World Project preview (`renderer/world-preview.js`, Phase 4B) renders a whole world (nested Inline, gzip, ≥70 textures) with **no** Mall placement/fit/cap rules, routing every dependency through a confined, asset-graph-authorized `wrlworld://` scheme (see `docs/PREVIEW_ARCHITECTURE.md` / `docs/WORLD_PROJECT_ARCHITECTURE.md`). The **Generic VRML97** embedded preview (**Phase 5**) is still a separate future phase requiring its own approval; shipping the World preview does not license opportunistic X_ITE integration into the Generic lane. Do not build a custom VRML/X3D renderer under any circumstances — X_ITE is the approved engine. Shared preview/fit modules live in `src/preview/`; the World preview reuses the shared gzip reader but **not** the Mall fit/guide math.
+An embedded X_ITE preview now ships for the **Mall Item** lane (Phase 2B1) **and** the **World Project** lane (Phase 4B): `x_ite` (MIT, v15.1.10) is a root dependency loaded locally (never a CDN), integrated per the isolation discipline below. The **optional** external editor stays available ("Open in External Editor"; a Mall item still auto-launches it on open when one is installed, but opening never *requires* an editor and never surfaces an "editor not found" message unless the user requests the external-editor action) — the embedded previews did not replace it, and a native editor is now built (Phase 7B). The two previews are **separate profiles**: the Mall Item preview (`renderer/preview.js`) does Original/Cybertown Fit with placement bounds; the World Project preview (`renderer/world-preview.js`, Phase 4B) renders a whole world (nested Inline, gzip, ≥70 textures) with **no** Mall placement/fit/cap rules, routing every dependency through a confined, asset-graph-authorized `wrlworld://` scheme (see `docs/PREVIEW_ARCHITECTURE.md` / `docs/WORLD_PROJECT_ARCHITECTURE.md`). The **Generic VRML97** embedded preview (**Phase 5**) is still a separate future phase requiring its own approval; shipping the World preview does not license opportunistic X_ITE integration into the Generic lane. Do not build a custom VRML/X3D renderer under any circumstances — X_ITE is the approved engine. Shared preview/fit modules live in `src/preview/`; the World preview reuses the shared gzip reader but **not** the Mall fit/guide math.
 
 A narrowly-scoped **technical spike** at `spikes/xite-mall-fit/` (Phase 2A) is a deliberate exception to "don't begin that work without approval" — it was explicitly commissioned to de-risk Phase 5/2B by proving out X_ITE's bounding-box behavior and a preview-only fit calculation, in complete isolation from the production app (its own Electron main process, no shared IPC surface, no production code path touches it). It does **not** constitute the "dedicated planning/approval pass" Phase 5 itself still requires, and does not license further opportunistic X_ITE integration into `main.js`/`renderer/` outside of an explicitly approved lane.
 
@@ -49,7 +49,7 @@ A narrowly-scoped **technical spike** at `spikes/xite-mall-fit/` (Phase 2A) is a
 
 - Open plain or gzip `.wrl`
 - Create a plain `.edit.wrl` working copy
-- Optionally launch an external editor (VSCodium), if one is installed (native editor planned, Phase 7)
+- Optionally launch an external editor (VSCodium), if one is installed (a native editor is now built — Phase 7B)
 - Validate Cybertown Mall item rules
 - Show Cybertown placement, offsets, scaling, and bounds (advisory today)
 - Backup and repack
@@ -110,8 +110,14 @@ leniently accepts Cybertown/Blaxxun `ROUTE`/`PROTO`-in-MFNode-array (98.1% corpu
 diagnostic reduction). Its semantic scope is **flat and NOT authoritative** (PROTO
 DEF leakage, cross-PROTO false duplicate-DEF, USE-before-DEF, context-insensitive
 `IS`) — a future scope-aware lane fixes that; the editor must not present those
-semantic diagnostics as authoritative yet. The **native editor** on top of it remains a planned beta
-requirement (Phase 7B, see `docs/NATIVE_EDITOR_ARCHITECTURE.md`). Everything except the single Build-World-
+semantic diagnostics as authoritative yet. The **native editor** on top of it is now **built**
+(Phase 7B, see `docs/NATIVE_EDITOR_ARCHITECTURE.md`): a CodeMirror 6 workspace (MIT devDeps, local
+esbuild bundle, no CDN; `src/editor/*` + `renderer/editor.*`) opened from both lanes via `editor:*` IPC,
+using the `src/vrml` parser as its **sole** grammar (highlighting/diagnostics/outline), with a
+verify-before-commit safe save + timestamped backup + external-change Reload/Save-As/Cancel, gzip
+transparency, four themes, and main-process path ownership. Syntax diagnostics are authoritative; the
+flat-scope VRML040–044 stay non-authoritative **advisories** that never block saving. The unsaved-buffer
+X_ITE preview is **Phase 7C, not built** — do not add it, and do not build a renderer. Everything except the single Build-World-
 Project-Bundle action is read-only; that action writes only a portable bundle to a
 caller-chosen destination and never mutates the source project. See
 `docs/WORLD_PROJECT_ARCHITECTURE.md` and `docs/WORLD_PACKAGE_QUESTIONS.md`.

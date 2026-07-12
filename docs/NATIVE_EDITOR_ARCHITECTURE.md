@@ -1,9 +1,9 @@
 # Native WRL Editor + VRML97 Parser — Architecture Plan
 
-Status: **PLAN ONLY** (Phase 7). No production editor or parser code ships in the
-current lane unless separately approved after this architecture review. This
-document is the design that Phases 7A–7D (see `docs/WRL_FORGE_ROADMAP.md`) build
-against.
+Status: **Phase 7A parser BUILT**, **Phase 7B native editor BUILT** (see the
+"As-built — Phase 7B" section at the end). Phases 7C–7D remain planned. The
+sections below are the original design; the as-built section records what actually
+shipped and where it differs. See `docs/WRL_FORGE_ROADMAP.md` for phase status.
 
 ## Why
 
@@ -240,3 +240,82 @@ UI**:
 Deliverable: a proven, dependency-free parser + tree that Phases 7B/7C build the
 editor, highlighting, diagnostics, outline, and buffer-driven preview on top of —
 with the editor-component dependency decision (B.2) made at the review, not before.
+
+---
+
+## As-built — Phase 7B (native editor)
+
+The native editor shipped as designed, with the editor-component decision resolved
+to **CodeMirror 6**. This section is the authoritative record of what runs.
+
+### Dependencies + licenses (all MIT, all `devDependencies`)
+
+`@codemirror/state`, `@codemirror/view`, `@codemirror/commands`,
+`@codemirror/language`, `@codemirror/search`, `@codemirror/lint`, and
+`@lezer/highlight` — the modules actually used, no more. Bundled locally by
+`esbuild` (MIT, devDependency) into `renderer/vendor/wrl-editor.bundle.js` via
+`npm run build:editor` (**no CDN, no remote runtime asset**). The bundle is
+git-ignored and regenerated on `prestart`/`pretest:visual`/`build:win*`. Runtime
+`dependencies` stay **`x_ite`-only**. The single VRML97 language authority is the
+Phase 7A parser (`src/vrml`) — there is **no second grammar or regex mode**.
+
+### Modules
+
+- `src/editor/wrl-document.js` — pure buffer model; `dirty` is **derived**
+  (`text !== baseline`), never stored.
+- `src/editor/file-io.js` — the only fs-touching editor module. Safe save: encode
+  → conflict-guard → temp sibling write + `fsync` → **verify the temp decodes back
+  to the buffer** → timestamped backup → **atomic rename** → success only after
+  verify. Any failure leaves the source intact and removes the temp. External-
+  change detection = size + authoritative content hash (mtime is a hint).
+  Injectable `deps` (fs/zlib/hash/clock) make every failure path unit-testable.
+- `src/editor/language.js` — one `analyze(text)` pass → highlight spans + SYNTAX
+  diagnostics + SEMANTIC advisories (kept separate) + AST outline. Identifier
+  roles (nodeType/fieldName/DEF/USE) come from the AST.
+- `src/editor/browser/editor-view.js` — the CodeMirror assembly (bundle-only,
+  ESM). Debounced re-analyze drops stale parses via a monotonic version; four
+  palette-driven themes via a Compartment. `window.WrlEditor.create`.
+- `src/editor/session.js` — main-process one-document holder; **owns the path**.
+- `src/editor/path-authorizer.js` — confines a renderer-named World WRL open:
+  lexical root confinement + scan-graph membership + realpath (symlink-escape).
+- `src/editor/session-store.js` — writable last-session persistence under
+  userData; `validateRestore` enforces the previously-authorized context.
+- `src/editor/editor-controller.js` — orchestrates the above behind the `editor:*`
+  IPC; a monotonic `sessionId` rejects stale-renderer writes.
+- `src/editor/ui-state.js` — pure renderer view-models (toolbar/status/outline/
+  conflict/shortcut/diagnostic-cap/theme), dual CJS+global for Node tests.
+- `renderer/editor.html` + `editor.js` — the workspace (thin DOM binding).
+
+### File + buffer lifecycle
+
+Open reads the real `.wrl` (gzip transparently decompressed into the buffer; the
+source format is tracked). The renderer owns the buffer text (no IPC per
+keystroke); it pushes the buffer to main only on save or on navigating away
+(`editor:setText`), so unsaved edits survive Mall↔World↔editor page switches, and
+`describe` returns the baseline so dirty tracking survives a page reload.
+
+- **Gzip:** a gzip source saves back as gzip; a plain source as plain — **never
+  silently converted**. The `.edit.wrl` sibling is only for the optional external
+  editor; the native editor needs no sibling.
+- **Backup:** timestamped, collision-free name (`*.bak-<ISO>`); an atomic rename
+  only ever replaces the destination with an already-verified temp.
+- **Conflict:** if the file changed on disk since open, save refuses and the UI
+  offers **Reload / Save As / Cancel** (Save As is the "keep mine" escape hatch —
+  no silent overwrite from the dialog).
+
+### Diagnostics limitations
+
+Syntax diagnostics are authoritative and shown inline + in the panel (capped, with
+a retained total). Semantic (flat-scope) findings — VRML040–044 duplicate-`DEF`
+etc. — are surfaced **only** as clearly-labelled **non-authoritative advisories**,
+never as editor errors, and **never block saving**. A syntactically clean file is
+not claimed runtime-valid. Scope-aware PROTO analysis is out of scope (a future
+lane). Parsing is debounced with stale-result rejection; a parser fault leaves the
+last good editor state in place.
+
+### External editor + Phase 7C boundary
+
+"Open in External Editor" stays **optional**, reusing the cross-platform locator
+(`src/editor/editor-locator.js`). Previews in 7B continue to use files **saved on
+disk**. Phase 7C will add unsaved-buffer X_ITE preview and last-valid-scene
+behavior — **not built here** (no renderer is added; X_ITE stays the only engine).

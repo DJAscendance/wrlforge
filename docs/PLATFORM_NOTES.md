@@ -34,9 +34,38 @@ silently. Unit-tested for Linux **and** Windows via injected `platform`/`env`/
 11 (the not-found path, since VSCodium was absent in the test VM — see
 `qa/phase-6a-windows/`).
 
+## Native editor — cross-platform behavior (Phase 7B)
+
+The native editor's filesystem behavior is written to be portable and is
+covered by the Windows self-test (`qa/phase-6b-windows/win-selftest.js`, 6 editor
+cases) as well as the Linux suite:
+
+- **Safe save** (`src/editor/file-io.js`) writes a temp sibling
+  (`<file>.wrlforge-tmp-<ISO>`), `fsync`s it, verifies it decodes back to the
+  buffer, then **atomically renames** it over the source (`fs.renameSync` — atomic
+  within a volume on both ext4 and NTFS). The timestamped backup (`*.bak-<ISO>`)
+  reuses `src/files/backups.js`. All path arithmetic uses `path.*`.
+- **Spaces / non-ASCII paths** are exercised end-to-end (open → edit → save →
+  restore through a `…/wrlforge 7b ünïcode …/my itém.wrl` path).
+- **Path authorization** (`src/editor/path-authorizer.js`) uses `path.relative`
+  for root confinement and `fs.realpathSync` for symlink-escape detection; both
+  are platform-aware. World references are confined to the project root **and** to
+  the scan graph.
+- **Session restore** persists under `userData` (see below) via
+  `src/editor/session-store.js`; a world document is refused if it no longer sits
+  inside its recorded root.
+- **Keyboard shortcuts** are Ctrl-based, mapped from `e.ctrlKey || e.metaKey`
+  (`src/editor/ui-state.js` `resolveShortcut`) so Cmd works on macOS and Ctrl on
+  Linux/Windows; CodeMirror owns Undo/Redo/Find/Replace via its own keymap.
+
+The editor **GUI** (CodeMirror rendering, themes, search/replace panel) is
+verified on Linux via the serialized `VisualQaRunner`
+(`qa/phase-7b-native-editor/`); the Windows GUI run is the interactive WinBoat
+step, consistent with how the Phase 6B GUI was verified.
+
 ## Path separators
 
-All path construction in this codebase uses `path.join`/`path.dirname`/`path.basename`/`path.extname` (see `src/files/vrml-file.js`, `src/files/backups.js`, `src/settings/window-state.js`) — never string-concatenated `/`. New code should follow the same rule; it's what makes the existing `node:test` suite's path assertions portable without modification.
+All path construction in this codebase uses `path.join`/`path.dirname`/`path.basename`/`path.extname` (see `src/files/vrml-file.js`, `src/files/backups.js`, `src/settings/window-state.js`, `src/editor/*`) — never string-concatenated `/`. New code should follow the same rule; it's what makes the existing `node:test` suite's path assertions portable without modification.
 
 ## Case sensitivity
 

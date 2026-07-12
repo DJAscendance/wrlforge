@@ -456,12 +456,42 @@ array pattern. Read-only corpus re-audit: diagnostics **−98.1%** (926,063 →
 flat-scope duplicate-`DEF` limitation (NOT fixed — no PROTO-scope rewrite in this
 lane). Parser-only; no production system changed. See `docs/VRML_PARSER.md`.
 
-### Phase 7B — Native Editor
-Editor component (plain HTML/CSS/JS, no framework — see `AGENTS.md`): line numbers,
-undo/redo, search & replace, selection/keyboard navigation, bracket/brace matching,
-VRML97 syntax highlighting, parser diagnostics inline, safe save with backup, dirty
-tracking, plain + gzip `.wrl`. External editor remains optional ("Open in External
-Editor").
+### Phase 7B — Native Editor ✅
+Shipped a first-class native WRL editor so WRL Forge edits and safely saves plain
+**and** gzip `.wrl` without any external editor. Built on **CodeMirror 6** (MIT,
+local `@codemirror/*` + `@lezer/highlight`, bundled by esbuild → `renderer/vendor/`,
+**no CDN**, all **devDependencies**; runtime deps stay `x_ite`-only). The existing
+Phase 7A tokenizer/parser is the **sole** language authority — highlighting,
+diagnostics, and the outline all derive from it; there is no second grammar.
+
+Delivered: a new Editor workspace (`renderer/editor.html`/`editor.js`) reachable
+from both lanes (Mall "Open in Native Editor" edits the real `.wrl` gzip-
+transparently — no `.edit.wrl`; World "Open Primary WRL in Native Editor" plus a
+per-dependency "Edit" that main authorizes against the scan graph). Line numbers,
+undo/redo, search & replace, bracket matching, active-line highlight, VRML97
+syntax highlighting, **authoritative** syntax diagnostics (click-to-navigate,
+capped with a retained total) kept **separate** from a clearly-labelled
+**non-authoritative** advisories panel (flat-scope VRML040–044; never blocks
+saving), an AST outline (click-to-navigate), dirty tracking, cursor Ln/Col, a
+conservative **safe save** (encode → conflict-guard → temp+fsync → verify-decode
+→ timestamped backup → atomic rename → verify), external-change detection with a
+**Reload / Save As / Cancel** dialog, Save As, Reload, Go-to-line, session
+restore (confined to the previously-authorized context), optional "Open in
+External Editor", and **four themes** (Dark/Light/Terminal/Tokyo Night, contrast-
+checked, persisted). Security preserved: `contextIsolation:true`,
+`nodeIntegration:false`, the narrow `window.vrmlpad.editor` bridge, and
+**main-process path ownership** (the renderer sends text + intent + an opaque
+sessionId, never a write path; Save As targets only a main-owned dialog path).
+
+Verification: **388** non-visual tests; serialized **Linux visual QA 15/15**
+(one Electron process via `VisualQaRunner`); a pure-Node **perf gate** (analyze()
+< the 250 ms debounce across small/world/327 KB/1.3 MB/script-heavy/many-errors);
+private unsigned **Windows x64** build with the editor packed in `app.asar` and 6
+editor cases added to the Windows selftest (Linux-green; NTFS run is the WinBoat
+step). See `docs/NATIVE_EDITOR_ARCHITECTURE.md` and
+`qa/phase-7b-native-editor/RESULTS.md`. **Excludes** (Phase 7C): unsaved-buffer
+X_ITE preview, live per-keystroke rendering, AST rewriting, formatting, scope-
+aware PROTO analysis.
 
 ### Phase 7C — Editor + Preview Integration
 Preview refresh from the unsaved editor buffer, debounced parsing, last-valid-scene

@@ -4,7 +4,7 @@
 
 **Build. Preview. Validate. Package.**
 
-WRL Forge is an Electron app for Linux. Today it covers the **Mall Item** lane: gzip-transparent editing of Cybertown Revival Mall `.wrl` files, with Cybertown Mall upload-rule validation, an **embedded X_ITE Mall Item Fit preview** (Original vs. Cybertown Fit modes, transform-aware bounds, placement guides — preview only), and backup-before-overwrite repacking. An external editor (VSCodium, with the X_ITE extensions) is supported as an **optional** integration; a native WRL editor and VRML97 parser are a planned beta requirement (Phase 7) so the app works on its own — see `docs/NATIVE_EDITOR_ARCHITECTURE.md`.
+WRL Forge is an Electron app for Linux. Today it covers the **Mall Item** lane: gzip-transparent editing of Cybertown Revival Mall `.wrl` files, with Cybertown Mall upload-rule validation, an **embedded X_ITE Mall Item Fit preview** (Original vs. Cybertown Fit modes, transform-aware bounds, placement guides — preview only), and backup-before-overwrite repacking. An external editor (VSCodium, with the X_ITE extensions) is supported as an **optional** integration. A **native WRL editor** (Phase 7B) now ships so the app works on its own: a CodeMirror 6 workspace (opened from either lane) with VRML97 syntax highlighting, parser diagnostics, an AST outline, dirty tracking, a conservative safe save (verify-before-commit + timestamped backup + atomic rename), external-change conflict handling, gzip-transparent editing of plain **and** gzip `.wrl`, and four themes (Dark/Light/Terminal/Tokyo Night). It is driven by the built-in Phase 7A VRML97 parser (no second grammar) — see `docs/NATIVE_EDITOR_ARCHITECTURE.md`.
 
 The Mall Item Fit preview shows the item's authoritative, transform-aware world-space bounds and a proposed non-destructive fit (scale/offset) against the Cybertown rules (ground `Y=-1.75`, center `X=0`, max `Z<=+1`, max `10×10×10`, requested `125%`). It is **preview only** — it never rewrites your file; Apply/Bake is not implemented. Gzip-compressed items are decompressed in the main process and only local (`file://`) textures load — remote (http/https) URLs are blocked. See `docs/PREVIEW_ARCHITECTURE.md`.
 
@@ -56,7 +56,7 @@ npm run build:win:portable   # portable .exe only
 ```
 
 Output lands in `release/` (git-ignored) as **Private Beta — Unsigned** artifacts
-(`WRL Forge-1.1.0-beta.1-x64-PrivateBeta-Unsigned-*.exe` + `SHA256SUMS`). Because
+(`WRL Forge-1.2.0-beta.1-x64-PrivateBeta-Unsigned-*.exe` + `SHA256SUMS`). Because
 they are **unsigned**, Windows SmartScreen shows the normal "Windows protected your
 PC" / unknown-publisher warning on first launch — click **More info → Run anyway**
 (signing does **not** eliminate this — see `docs/SIGNING_READINESS.md`). No code

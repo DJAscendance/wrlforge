@@ -1,3 +1,51 @@
+# WRL Forge 1.2.0-beta.1 — Private Windows Beta (Unsigned)
+
+**Status:** Private beta candidate. **Do not distribute publicly.**
+**Signing:** **Unsigned** — SmartScreen shows the unknown-publisher prompt on
+first run (**More info → Run anyway**); not eliminated (see `docs/SIGNING_READINESS.md`).
+
+## What's new in 1.2.0-beta.1 — the native WRL editor (Phase 7B)
+
+This build adds a **native WRL editor** so WRL Forge edits and safely saves plain
+**and** gzip `.wrl` **without any external editor** (VSCodium stays optional). It
+is a CodeMirror 6 workspace (all MIT, bundled locally — no CDN), driven by the
+built-in Phase 7A VRML97 parser as the **sole** language authority:
+
+- VRML97 **syntax highlighting**, **parser diagnostics** (click-to-navigate,
+  capped with a retained total), and an **AST outline** — all from the parser, no
+  second grammar. Flat-scope semantic findings show as a **separate, non-
+  authoritative advisories** panel that never blocks saving.
+- **Conservative safe save**: encode → conflict-guard → temp + `fsync` → verify-
+  decode → timestamped backup → atomic rename. A failed save never damages the
+  source. **External-change** detection offers **Reload / Save As / Cancel**.
+- Gzip transparency (a gzip source saves back gzip, never silently converted),
+  dirty tracking, cursor Ln/Col, Save As, Reload, Go-to-line, Undo/Redo, Find/
+  Replace, session restore, optional "Open in External Editor", and **four
+  themes** (Dark/Light/Terminal/Tokyo Night, contrast-checked).
+- Opened from **both** lanes: Mall "Open in Native Editor" (edits the real `.wrl`,
+  no `.edit.wrl`); World "Open Primary WRL in Native Editor" + a per-dependency
+  "Edit" that the main process authorizes against the scan graph.
+
+Security is unchanged: `contextIsolation:true`, `nodeIntegration:false`, the
+narrow `window.vrmlpad` bridge (with an `editor` sub-object), and main-process
+path ownership (the renderer never supplies a write path). Verified by 388
+non-visual tests, serialized Linux visual QA (15/15), and a perf gate; the
+editor's non-GUI logic is also in the Windows self-test. Excludes (Phase 7C):
+unsaved-buffer X_ITE preview.
+
+### Artifacts (x64, unsigned)
+
+| File | Size | SHA-256 |
+|---|---|---|
+| `WRL Forge-1.2.0-beta.1-x64-PrivateBeta-Unsigned-portable.exe` | 98,301,072 B (~94 MB) | `0bab1c55af648d58a5d52d30682196c909a2b1dac6d8bcd234481ebfb70c30d2` |
+| `WRL Forge-1.2.0-beta.1-x64-PrivateBeta-Unsigned-setup.exe` (NSIS installer) | 98,509,197 B (~94 MB) | `5e431e003f649bf36dddff76301a03e99ffaf9c4b5d328991154c676ad3ab102` |
+
+Checksums also in `release/SHA256SUMS-1.2.0-beta.1.txt`. The Windows **GUI** run
+of the editor is the interactive WinBoat step (the editor's filesystem logic is
+covered by the self-test on Linux and slated for the NTFS run).
+
+---
+
 # WRL Forge 1.1.0-beta.1 — Private Windows Beta (Unsigned)
 
 **Status:** Private beta candidate. **Do not distribute publicly.**

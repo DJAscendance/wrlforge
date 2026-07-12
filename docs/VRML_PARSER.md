@@ -3,8 +3,17 @@
 Status: **SHIPPED (parser-only lane).** A real, dependency-free VRML97 tokenizer +
 structural parser lives under `src/vrml/`. It ships **alongside** the existing
 production systems (`validator.js`, World Project scanners, X_ITE previews,
-packaging) and does **not** change any of them. No editor UI is part of this lane
-— that is Phase 7B (see `docs/NATIVE_EDITOR_ARCHITECTURE.md`).
+packaging) and does **not** change any of them.
+
+**Now consumed by the Phase 7B native editor** (`docs/NATIVE_EDITOR_ARCHITECTURE.md`)
+as its **sole** language authority: `src/editor/language.js` runs one `parse()`
+per debounced analysis and derives highlighting, syntax diagnostics, non-
+authoritative advisories, and the AST outline from it — there is **no second
+grammar or regex mode** anywhere in the editor. The editor still routes nothing
+else through the parser: `validator.js`, World scanning, previews, and packaging
+are unchanged. The flat, non-authoritative semantic scope is honored — the editor
+surfaces VRML040–044 (`DEF`/`USE`/`ROUTE`) only as clearly-labelled advisories,
+never as authoritative errors, and never blocks saving on them.
 
 > **Phase 7A1 — Corpus Compatibility Corrections.** Independent real-corpus QA
 > (Gemini, ~2,124 Cybertown files) gave Phase 7A a CONDITIONAL GO and found three

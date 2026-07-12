@@ -69,19 +69,35 @@ setup would require. Do not distribute these publicly.
 
 electron-builder bundles `main.js`, `preload.js`, `validator.js`, `src/**`, and
 `renderer/**` into `app.asar`, plus the Electron runtime and the `x_ite` runtime
-dependency. Tests, QA harnesses, fixtures, docs, and the generators
+dependency. This includes the native editor: `renderer/editor.html`/`editor.js`,
+the generated CodeMirror bundle `renderer/vendor/wrl-editor.bundle.js`, and every
+`src/editor/*` module. Tests, QA harnesses, fixtures, docs, and the generators
 (`*.test.js`, `_generate.js`, `_make-icon.js`) are excluded (see the `build.files`
 globs in `package.json`).
 
-## Dependency added this lane
+**Native-editor bundle:** `npm run build:win` runs `npm run build:editor` first
+(esbuild → `renderer/vendor/wrl-editor.bundle.js`), so the bundle is always fresh
+in the package. The bundle itself is git-ignored and regenerated; it is **not** a
+runtime npm dependency — CodeMirror ships only as the compiled bundle.
 
-- **electron-builder 26.15.3** (MIT) — dev dependency; the packaging tool. It
-  pulls in its own MIT/BSD/ISC-licensed dependency tree (`app-builder-lib`, etc.).
-  No third-party archive library was added for the WRL Forge World Project Bundle
-  ZIP — that uses Node's built-in `zlib` (`src/world-project/zip-writer.js`).
-- `electron` was moved from `dependencies` to `devDependencies` (it is the build
-  runtime, provided by electron-builder in the packaged app — not an app-bundled
-  npm dependency). `x_ite` remains the only runtime `dependency`.
+## Dependencies + third-party licenses
+
+Runtime `dependencies` remain **`x_ite` only** (MIT) — the app-bundled renderer.
+Everything else is a **devDependency** used only to build:
+
+- **CodeMirror 6** — `@codemirror/{state,view,commands,language,search,lint}` and
+  `@lezer/highlight`, all **MIT**. The native editor's compiled bundle
+  (`renderer/vendor/wrl-editor.bundle.js`) is derived from these and ships inside
+  `app.asar`; their MIT notices cover that bundle.
+- **esbuild 0.24** (MIT) — builds the CodeMirror bundle (`npm run build:editor`).
+- **electron-builder 26.15.3** (MIT) — the packaging tool; pulls its own MIT/BSD/
+  ISC dependency tree (`app-builder-lib`, etc.).
+- **electron** is a devDependency (the build runtime, provided in the packaged app
+  by electron-builder — not an app-bundled npm dependency).
+
+No third-party archive library was added for the World Project Bundle ZIP — that
+uses Node's built-in `zlib` (`src/world-project/zip-writer.js`). No renderer UI
+framework/bundler was added; only the editor bundle is precompiled.
 
 ## Cross-platform notes
 
