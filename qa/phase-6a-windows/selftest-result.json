@@ -1,0 +1,167 @@
+{
+  "platform": "win32",
+  "arch": "x64",
+  "node": "24.15.0",
+  "electron": "41.7.1",
+  "chrome": "146.0.7680.216",
+  "total": 31,
+  "passed": 31,
+  "failed": 0,
+  "results": [
+    {
+      "name": "platform is win32",
+      "pass": true,
+      "detail": "win32 x64"
+    },
+    {
+      "name": "path.sep is backslash",
+      "pass": true,
+      "detail": "\"\\\\\""
+    },
+    {
+      "name": "detects gzip mall .wrl",
+      "pass": true,
+      "detail": "gzip[0]=0x1f"
+    },
+    {
+      "name": "gunzip round-trips to plain text",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "scan nested world (wrl files)",
+      "pass": true,
+      "detail": "wrlFiles=3"
+    },
+    {
+      "name": "scan nested resolves gzip Inline child",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "scan nested unique textures",
+      "pass": true,
+      "detail": "tex=3"
+    },
+    {
+      "name": "scan nested no missing/case/unsafe",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "scan 70-texture world (>=70 unique)",
+      "pass": true,
+      "detail": "tex=71"
+    },
+    {
+      "name": "70-texture scan not truncated",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "scan >20-texture world (mini)",
+      "pass": true,
+      "detail": "tex=25"
+    },
+    {
+      "name": "viewpoints discovered (lexical)",
+      "pass": true,
+      "detail": "vp=2"
+    },
+    {
+      "name": "broken world: missing detected",
+      "pass": true,
+      "detail": "missing=1"
+    },
+    {
+      "name": "broken world: remote surfaced",
+      "pass": true,
+      "detail": "remote=2"
+    },
+    {
+      "name": "broken world: unsafe detected",
+      "pass": true,
+      "detail": "unsafe=2"
+    },
+    {
+      "name": "NTFS is case-insensitive (precondition)",
+      "pass": true,
+      "detail": "existsSync(Stone.PNG)=true"
+    },
+    {
+      "name": "case mismatch flagged on case-insensitive fs",
+      "pass": true,
+      "detail": "case=1 missing=0"
+    },
+    {
+      "name": "case-mismatched file NOT counted present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "package audit READY (nested)",
+      "pass": true,
+      "detail": "status=ready files=6"
+    },
+    {
+      "name": "review bundle written on Windows",
+      "pass": true,
+      "detail": "bytes=4030 entries=9"
+    },
+    {
+      "name": "bundle ZIP integrity: hashes match manifest",
+      "pass": true,
+      "detail": "files=6"
+    },
+    {
+      "name": "bundle label is not-for-upload",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "refuses to write bundle inside the project",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "refuses to overwrite an existing bundle",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "scans a path with spaces + non-ASCII",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "editor discovery: clear not-found message (VSCodium absent)",
+      "pass": true,
+      "detail": "VSCodium/VS Code was not found. Install VSCodium, or set WRL_FORGE_EDITOR to the full path of VSCodium.exe (or a codium.cmd shim)."
+    },
+    {
+      "name": "editor discovery: reports what it tried",
+      "pass": true,
+      "detail": "tried=16"
+    },
+    {
+      "name": "window-state path under Windows userData",
+      "pass": true,
+      "detail": "C:\\Users\\ryan\\AppData\\Roaming\\wrl-forge\\window-state.json"
+    },
+    {
+      "name": "legacy migration path resolves to vrmlpad sibling",
+      "pass": true,
+      "detail": "C:\\Users\\ryan\\AppData\\Roaming\\vrmlpad\\window-state.json"
+    },
+    {
+      "name": "drive-letter path join",
+      "pass": true,
+      "detail": "C:\\Users\\ryan\\Projects\\a b\\world.wrl"
+    },
+    {
+      "name": "win32 isAbsolute drive letter",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

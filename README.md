@@ -31,12 +31,27 @@ See `AGENTS.md` for the full mission, architecture, and conventions, and `docs/W
 
 ## Platform
 
-Linux is the first supported platform and is tested thoroughly. Windows
-support is planned in the near future — reusable core logic (paths, process
-launching, project/validation/packaging code) is written to stay
-cross-platform-conscious now rather than deferred to a rewrite. See
-`docs/PLATFORM_NOTES.md` for platform-sensitive behavior and the current
-test matrix.
+Linux is the first supported platform and is tested thoroughly. **Windows** is now
+validated for a private test build (Phase 6A): editor discovery is cross-platform
+(Linux `codium`/`code`; Windows install-location search + `WRL_FORGE_EDITOR` /
+`settings.json` override, with a clear "editor not found" message), filename-case
+mismatches are caught even on case-insensitive Windows/macOS filesystems, and
+paths/gzip/scanning/Review-Bundle/window-state were verified on real Windows 11.
+See `docs/PLATFORM_NOTES.md` for platform-sensitive behavior and the test matrix.
+
+### Windows test build (private, unsigned)
+
+```
+npm run build:win            # portable .exe + NSIS installer (x64), via electron-builder
+npm run build:win:portable   # portable .exe only
+```
+
+Output lands in `release/` (git-ignored) as **Private Test Build — Unsigned**
+artifacts. Because they are **unsigned**, Windows SmartScreen shows the normal
+"Windows protected your PC" / unknown-publisher warning on first launch — click
+**More info → Run anyway**. No code signing, auto-update, Microsoft Store, or
+public release is configured. Building the Windows target from Linux needs `wine`.
+See `docs/BUILD.md` for details and the dependency/license notes.
 
 ## Credits
 

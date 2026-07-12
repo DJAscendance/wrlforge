@@ -294,6 +294,38 @@ direct upload).
 - Validation report clearly states pass/fail per rule with enough detail to act on
 - No network calls are made by the packaging step
 
+### Phase 6A — Windows Compatibility Recon + First Private Build ✅
+
+Prepared and validated the existing app for Windows **without** changing Linux
+behavior or adding product features. See `docs/PLATFORM_NOTES.md`,
+`docs/BUILD.md`, and `qa/phase-6a-windows/`.
+
+- [x] Audited Linux-only assumptions; the only in-code one was `spawn('codium')`.
+  Made editor discovery cross-platform (`src/editor/editor-locator.js`): Linux
+  `codium`/`code`, Windows install-location search + PATH shims, a configurable
+  override (`WRL_FORGE_EDITOR` / `settings.json` `editorCommand`), and a clear
+  "editor not found" message. Spaces/non-ASCII-safe launch args.
+- [x] Hardened case-mismatch detection for **case-insensitive** filesystems: the
+  directory listing (not `existsSync`) is now authoritative on every platform, so
+  Windows/macOS catch an authored `Stone.PNG`→`stone.png` hazard instead of
+  masking it. Explicit code-based test + verified on real NTFS.
+- [x] Verified paths (drive letters/backslashes), gzip open, project scanning
+  (nested + gzip, >20 and 70 textures), Review Bundle ZIP + integrity, window-state
+  / userData migration, and spaces/non-ASCII paths on **real Windows 11** via a
+  packaged-runtime self-test (31/31).
+- [x] Produced a **private, unsigned** Windows test build with **electron-builder**
+  (MIT): portable `.exe` + NSIS installer, neutral placeholder icon, labelled
+  **Private Test Build — Unsigned**. `electron` moved to `devDependencies`.
+- [x] Verified the packaged app **launches** on Windows 11 (Mall + World lanes,
+  correct branding, clean exit) and kept Linux fully green (234 unit tests + Mall/
+  World-preview/packaging visual regressions).
+
+**Explicitly not implemented** (unchanged exclusions): direct upload, auth,
+upload-ready CTR packaging, auto-update, code signing, public releases, Microsoft
+Store, asset repair, Apply/Bake, internal editor, and any new world/Mall features.
+A broader Windows **beta** (signing, SmartScreen, live VSCodium launch, dialog-
+driven flows, arm64) is a separate future lane.
+
 ## Deferred ⛔
 
 Not scheduled into any phase above; requires explicit future direction before any design work begins:

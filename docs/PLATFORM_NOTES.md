@@ -6,11 +6,31 @@ reusable core logic stays cross-platform-conscious now rather than picking
 up Linux-only assumptions that have to be unwound later. It records
 platform-sensitive behavior; it does not implement Windows packaging.
 
-## VSCodium executable discovery
+## VSCodium executable discovery (cross-platform — Phase 6A)
 
-`main.js` currently launches the editor via `spawn('codium', [editFile], { detached: true, stdio: 'ignore' })`, relying on `codium` being resolvable on `PATH`. This is Linux-verified (the installed VSCodium provides a `codium` binary on `PATH`).
+Editor discovery is resolved by `src/editor/editor-locator.js` (pure/injectable),
+wired into `main.js`'s `launchEditor`. Precedence on every platform:
 
-Windows implication (not yet implemented): the typical VSCodium install exposes `codium.cmd` rather than a bare `codium`, and `PATH` resolution/quoting rules differ from POSIX shells. A future Windows-readiness pass should resolve the correct executable name per `process.platform` rather than assuming `codium` works unmodified — this is a small, scoped change when it happens, not a redesign.
+1. **Override** — `editorCommand` in `settings.json` (under Electron's userData)
+   or the `WRL_FORGE_EDITOR` env var (an absolute path or a bare PATH command).
+2. **Platform discovery**:
+   - **Linux/macOS**: `codium` then `code`, verified on `PATH` (falls back to the
+     bare `codium` command to preserve the historical behavior).
+   - **Windows**: known install locations, existence-checked — VSCodium
+     `%LOCALAPPDATA%\Programs\VSCodium\VSCodium.exe` (and `bin\codium.cmd`),
+     `%ProgramFiles%`/`%ProgramFiles(x86)%` equivalents, then VS Code
+     `Code.exe`/`code.cmd`, then `codium.cmd`/`code.cmd`/`.exe` on `PATH`.
+
+`.exe` targets are launched directly (args array → spaces/non-ASCII safe, no
+shell); `.cmd` shims go through the shell with **both** the command and the file
+double-quoted (survives `cmd.exe` re-parsing of paths with spaces/Unicode) — see
+`buildLaunch`. When nothing is found, `launchEditor` returns a structured
+`{ launched:false, reason:'not-found', hint, tried }`; the renderer surfaces a
+clear message ("Set `WRL_FORGE_EDITOR` or `editorCommand`…") instead of failing
+silently. Unit-tested for Linux **and** Windows via injected `platform`/`env`/
+`existsSync` (`test/editor/editor-locator.test.js`), and verified on real Windows
+11 (the not-found path, since VSCodium was absent in the test VM — see
+`qa/phase-6a-windows/`).
 
 ## Path separators
 
@@ -22,21 +42,31 @@ Linux (ext4) is case-sensitive; Windows (NTFS) is case-insensitive-but-case-pres
 
 **Empirically confirmed (Phase 2B0):** in the X_ITE spike, a texture referenced as `Stone.PNG` when the file on disk is `stone.png` fails to load on Linux and surfaces a clear `Couldn't load URL '…/Stone.PNG'` warning — i.e. the case mismatch is caught here because the filesystem is case-sensitive. On a case-insensitive Windows/macOS dev machine the same reference would load silently, masking a bug that breaks on a case-sensitive server. This is exactly why Phase 4 must detect case mismatches in code rather than leaning on the local fs, and it's an argument for authoring/testing on the case-sensitive (Linux) platform. The texture base-URL resolution itself (`spikes/xite-mall-fit/texture-base.js`) is written with `path` arithmetic and percent-encoding, so it is portable as-is; only the *observed* case behavior differs by platform.
 
-**Implemented in code (Phase 4A):** the World Project resolver
-(`src/world-project/asset-graph.js`) now detects case mismatches **in code** —
-for a reference that doesn't exist at its exact path, it lists the directory and
-reports a `case-mismatch` when a case-only sibling exists — rather than relying
-on the filesystem's behavior. This is the cross-platform-aware detection the note
-above called for: it flags a `Wall.JPG`→`wall.jpg` hazard on the author's Linux
-box (where it fails) *and* would flag it on a case-insensitive dev machine (where
-it would otherwise load silently and only break on a case-sensitive server). All
-world-project path handling uses `path` arithmetic (POSIX-normalized authored
-urls), so it is portable; only which files "exist" at a given case differs by
-platform, and the detection does not depend on that.
+**Implemented in code (Phase 4A) + hardened for case-insensitive fs (Phase 6A):**
+the World Project resolver (`src/world-project/asset-graph.js`) detects case
+mismatches **in code**, and does **not** trust `existsSync` to mean "present".
+Phase 4A's detector listed the directory only when `existsSync(exactPath)`
+returned false — which is correct on Linux (case-sensitive) but **wrong on
+Windows/macOS**, where `existsSync('Stone.PNG')` returns true when the disk holds
+`stone.png`, masking the mismatch. Phase 6A makes the **directory listing the
+authoritative check on every platform**: a reference is `present` only when the
+directory literally contains that exact basename; a case-only sibling →
+`case-mismatch`; otherwise `missing` (with a listing cache so many textures in one
+folder don't re-`readdir`). It falls back to `existsSync` only when the directory
+can't be enumerated.
+
+**Verified on real Windows 11 (Phase 6A):** the self-test asserted the
+precondition that NTFS is case-insensitive (`existsSync('Stone.PNG')===true`) and
+that the detector *still* flagged `caseMismatches=1, missing=0` and did **not**
+count the file present — i.e. Windows behaves exactly like Linux for authored
+case, catching a hazard that would otherwise break only on the case-sensitive
+server. See `qa/phase-6a-windows/` and
+`test/world-project/case-cross-platform.test.js` (an explicit, code-based test on
+a simulated case-insensitive fs).
 
 ## Desktop launcher vs. Windows shortcut
 
-`wrl-forge.desktop` is a Linux/XDG desktop-entry file (`Exec=`/`Path=` pointing at `launch.sh`), installed both in-repo and to `~/.local/share/applications/`. This mechanism doesn't exist on Windows — the equivalent would be a Start Menu shortcut (`.lnk`) or an installer-created entry, not implemented in this lane.
+`wrl-forge.desktop` is a Linux/XDG desktop-entry file (`Exec=`/`Path=` pointing at `launch.sh`), installed both in-repo and to `~/.local/share/applications/`. This mechanism doesn't exist on Windows — the equivalent is a Start-Menu/desktop shortcut (`.lnk`), which the **Phase 6A NSIS installer** creates for the user (the portable build needs none). The Linux `.desktop` launcher is unchanged.
 
 ## Electron `userData` locations
 
@@ -78,24 +108,54 @@ fail on a case-sensitive server. The builder writes only to a caller-chosen
 destination outside the project and never mutates the source — no platform-specific
 behavior there.
 
-## Packaging implications
+## Windows app packaging (Phase 6A)
 
-Windows *installer* packaging is not implemented in this lane. A future Windows
-packaging pass will need `electron-builder` (or similar) configuration for a
-Windows target — deferred per the roadmap and per this lane's explicit instruction
-not to implement Windows packaging yet. (This is distinct from the Phase 5A World
-Project *review bundle* above, which is a portable content ZIP, not an app
-installer.)
+A **private, unsigned Windows test build** is produced with **electron-builder**
+26.15.3 (MIT), driven from Linux via `wine` (for exe icon/metadata + the NSIS
+installer). Targets: a single-file **portable** `.exe` and an **NSIS installer**
+(per-user, user-choosable install dir, Start-menu/desktop shortcuts). Config lives
+in `package.json` `build`; `electron` moved to `devDependencies` (it is the build
+runtime, not an app npm dependency), leaving `x_ite` as the only runtime
+`dependency`. The app icon is a **neutral placeholder** (`assets/icon.ico`, not
+final branding). Artifacts are labelled **Private Test Build — Unsigned** and land
+in `release/` (git-ignored). See `docs/BUILD.md`.
+
+**Unsigned warning.** No Authenticode certificate is applied, so Windows
+SmartScreen shows the normal "Windows protected your PC" / unknown-publisher
+prompt on first run (**More info → Run anyway**). No signing, auto-update, store,
+or public release is configured. This is distinct from the Phase 5A World Project
+*review bundle* (a portable content ZIP, not an app installer).
 
 ## Test matrix
 
+Windows column verified on Windows 11 (x64) under WinBoat/dockur-KVM, Electron
+41.7.1 / Node 24.15 / Chromium 146 — see `qa/phase-6a-windows/RESULTS.md`.
+
 | Coverage | Linux | Windows |
 |---|---|---|
-| `npm test` (`node:test` suite: validator, vrml-file, backups, window-state) | ✅ verified this lane | Not yet run — pure `path`-based logic, expected to be portable, not independently confirmed |
-| Electron smoke test | ✅ verified (real Electron launch; title/bridge/security-flags + preview-canvas/X_ITE/mode-controls/CSP assertions) | Not yet run |
+| `npm test` (`node:test` suite: validator, vrml-file, backups, window-state) | ✅ verified this lane | ✅ core logic verified on Windows via the packaged-runtime self-test (31/31): paths, gzip, scan, case, bundle, window-state |
+| Electron smoke test | ✅ verified (real Electron launch; title/bridge/security-flags + preview-canvas/X_ITE/mode-controls/CSP assertions) | ✅ app launches (Mall + World lanes, correct branding, clean exit) — screenshots in `qa/phase-6a-windows/` |
+| Cross-platform editor discovery (`src/editor/editor-locator.js`) | ✅ Linux `codium`/`code` on PATH | ✅ Windows install-location search + not-found message (VSCodium absent in VM → hint path exercised); unit-tested for both platforms via injected env |
+| Case-mismatch on case-INSENSITIVE fs (`asset-graph.js`) | ✅ (case-sensitive, real) | ✅ flagged on real NTFS despite `existsSync` returning true; explicit code-based test `test/world-project/case-cross-platform.test.js` |
+| Review Bundle ZIP creation + integrity | ✅ (unzip -t + hash match) | ✅ written on Windows; hashes match manifest; in-project/overwrite refusals |
+| Windows portable/NSIS build (electron-builder) | build host | ✅ portable + installer produced (unsigned); portable launches |
 | Embedded preview (Phase 2B1: `src/preview/*`, `renderer/preview.js`) | ✅ verified on Linux (78-test suite incl. 5 Electron preview tests: DEF/USE, Extrusion, gzip, remote-URL block, missing texture; 16 real-app screenshots) | Not yet run; `x_ite` ships no native binaries and the security controls (`webRequest`, CSP) are Electron-level, so no structural blocker is known. VSCodium `codium` launch gap still applies |
 | World preview (Phase 4B: `src/world-project/preview-source.js`, `renderer/world-preview.js`, `wrlworld://` handler) | ✅ verified on Linux (21 preview-source unit tests; opt-in Electron world-preview test; one `VisualQaRunner` run of all 10 states — one launch, graceful exit, no leak) | Not yet run; `protocol.handle`/`registerSchemesAsPrivileged`, CSP, and `webRequest` are Electron-level and `path`/`zlib` are portable, so no structural blocker is known. Case-mismatch authorization is platform-observable (see Case sensitivity) |
 | X_ITE spike (`spikes/xite-mall-fit/`) | ✅ verified this lane against 4 real fixtures | Not yet run; `x_ite` itself ships no native/platform-specific binaries, so no structural blocker is known |
 | X_ITE spike Phase 2B0 (extrusion sweep, gzip loading, relative textures) | ✅ verified on Linux (26 spike node:tests; extrusion bounds EXACT vs X_ITE mesh oracle; gzip + texture base-URL end-to-end; case-mismatch surfaced) | Not yet run; logic is `path`-portable and `zlib`/`isGzip` are cross-platform. Case-*mismatch* detection is platform-observable (see Case sensitivity) |
-| VSCodium launch (`spawn('codium', ...)`) | ✅ working | Known gap — executable name differs, not yet handled |
-| Desktop launcher | ✅ working (corrected path this lane) | N/A — no Windows equivalent implemented |
+| Editor launch (`editor-locator` + `launchEditor`) | ✅ `codium`/`code` on PATH | ✅ discovery + clear not-found message verified (VSCodium not installed in the test VM, so a successful *launch* is unverified) |
+| Desktop launcher / installer shortcut | ✅ `.desktop` working | ✅ NSIS installer creates Start-menu/desktop shortcuts |
+
+## Known Windows limitations (Phase 6A)
+
+- **Unsigned**: SmartScreen unknown-publisher warning on first run (expected).
+- **Editor launch not end-to-end verified**: VSCodium was not installed in the
+  test VM, so only the discovery + not-found path ran on Windows (a real launch is
+  covered by the cross-platform unit tests, not a live Windows run).
+- **File-dialog-driven flows not GUI-automated**: opening a Mall `.wrl` / World
+  folder through the native Windows dialog, and the live X_ITE preview render, were
+  not driven via the GUI this lane (fragile over RDP); the underlying logic is
+  covered by the 31 Windows self-tests + the Linux visual regressions.
+- **x64 only**: no arm64 Windows build; no macOS build.
+- Not implemented (by design): code signing, auto-update, Microsoft Store,
+  public release.
