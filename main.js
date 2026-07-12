@@ -552,8 +552,8 @@ function launchEditor(editFile) {
   }
 }
 
-// Explicit "Open in VSCodium" action for the currently-open edit file (the file
-// is also launched automatically on open; this re-launches on demand).
+// Explicit "Open in External Editor" action for the currently-open edit file (the
+// file is also launched automatically on open; this re-launches on demand).
 ipcMain.handle('mall:openInEditor', async () => {
   if (!currentSession) throw new Error('No file is open.');
   const editorStatus = launchEditor(currentSession.editFile);
@@ -778,10 +778,10 @@ ipcMain.handle('world:buildReviewBundle', async () => {
 
   // Default the bundle name + a location OUTSIDE the project (its parent folder),
   // so the default never lands inside the source project.
-  const defaultName = `${plan.projectName || 'world'}-review-bundle.zip`;
+  const defaultName = `${plan.projectName || 'world'}-world-project-bundle.zip`;
   const defaultDir = path.dirname(path.resolve(scan.root));
   const res = await dialog.showSaveDialog(mainWindow, {
-    title: 'Save Review Bundle (Not Confirmed for Direct Cybertown Upload)',
+    title: 'Save WRL Forge World Project Bundle',
     defaultPath: path.join(defaultDir, defaultName),
     filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
     properties: ['createDirectory', 'showOverwriteConfirmation'],

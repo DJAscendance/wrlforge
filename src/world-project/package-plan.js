@@ -32,16 +32,18 @@ const crypto = require('crypto');
 
 const PACKAGE_SCHEMA_VERSION = 1;
 const GENERATOR = 'WRL Forge — World Project packaging (Phase 5A)';
-// The mandatory, non-negotiable label on every bundle output and manifest. Direct
-// upload is NOT implemented and current server compatibility is NOT claimed.
-const BUNDLE_LABEL = 'Review Bundle — Not Confirmed for Direct Cybertown Upload';
+// The label on every bundle output and manifest. The bundle is a review + manual
+// hand-off package: WRL Forge does not upload it, and no server-certified format is
+// claimed (the exact CTR requirements are not yet documented).
+const BUNDLE_LABEL = 'WRL Forge World Project Bundle';
 const BUNDLE_DISCLAIMER =
-  'This bundle is an analysis aid produced by WRL Forge. It is NOT confirmed to ' +
-  'match any current Cybertown / CTR server upload format, size limit, or naming ' +
-  'requirement, and WRL Forge does not upload it anywhere. A human must review it ' +
-  'and follow the real (currently undocumented) submission process. See ' +
-  'docs/WORLD_PACKAGE_QUESTIONS.md for the open questions that block a true ' +
-  'upload-ready packager.';
+  'This bundle is produced by WRL Forge to help you review a World Project and ' +
+  'prepare its files for manual upload through the Cybertown website. It is a ' +
+  'review and hand-off package, not a server-certified upload format: WRL Forge ' +
+  'does not upload it anywhere, and the exact Cybertown / CTR submission ' +
+  'requirements (format, size limits, naming) are not yet documented — see ' +
+  'docs/WORLD_PACKAGE_QUESTIONS.md. Review the contents, then submit through the ' +
+  'normal Cybertown upload workflow.';
 
 // Where the project's own files live inside the bundle archive (kept under a
 // prefix so a project file literally named MANIFEST.json can never collide with

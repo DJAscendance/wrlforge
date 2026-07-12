@@ -10,7 +10,7 @@
 //                       preserved (no repair / rename / flatten / rewrite),
 //   MANIFEST.json       the machine-readable manifest (package-plan),
 //   REPORT.md           the human-readable report,
-//   READ-ME-FIRST.txt   the "Not Confirmed for Direct Cybertown Upload" label.
+//   READ-ME-FIRST.txt   the "WRL Forge World Project Bundle" label + review note.
 //
 // Safety rules enforced here (in addition to the plan's own blocking rules):
 //   * REFUSE if the plan is `blocked` (missing / case / unsafe / remote / unreadable),

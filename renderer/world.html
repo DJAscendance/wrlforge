@@ -141,7 +141,7 @@
     <button id="openFileBtn" class="secondary">Open Primary WRL…</button>
     <button id="refreshBtn" class="secondary" disabled>Refresh Scan</button>
     <button id="revealBtn" class="secondary" disabled>Reveal Project Folder</button>
-    <button id="editorBtn" class="secondary" disabled>Open Primary WRL in VSCodium</button>
+    <button id="editorBtn" class="secondary" disabled>Open Primary WRL in External Editor</button>
     <button id="mallBtn" class="secondary">← Mall Item workspace</button>
   </div>
 
@@ -217,19 +217,20 @@
     <h2>Dependency view</h2>
     <div class="tree" id="tree"></div>
 
-    <!-- Packaging (Phase 5A): read-only audit + explicit Build Review Bundle. -->
+    <!-- Packaging (Phase 5A): read-only audit + explicit Build World Project Bundle. -->
     <h2>Packaging
       <span id="pkgStatusBadge" class="badge-pill" style="display:none"></span>
     </h2>
     <div class="pkg">
       <div class="pkg-note">
-        Read-only <strong>package audit</strong> — what a portable review bundle would contain.
-        <em>Not an upload validator, not current-server-format-confirmed.</em>
-        The bundle is labelled <strong>“Review Bundle — Not Confirmed for Direct Cybertown Upload”</strong>.
+        Read-only <strong>package audit</strong> — what a portable
+        <strong>WRL Forge World Project Bundle</strong> would contain. Use it to
+        review a world and prepare its files for <strong>manual upload through the
+        Cybertown website</strong>. <em>Review the contents before submitting.</em>
       </div>
       <div class="row">
         <button id="pkgAuditBtn" class="secondary" disabled>Package Audit</button>
-        <button id="pkgBuildBtn" disabled>Build Review Bundle…</button>
+        <button id="pkgBuildBtn" disabled>Build World Project Bundle…</button>
       </div>
       <div class="status-line" id="pkgStatus" role="status" aria-live="polite">No audit run.</div>
 

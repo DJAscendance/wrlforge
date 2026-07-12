@@ -1,13 +1,15 @@
 'use strict';
 // World Project packaging controller (renderer, Phase 5A). Read-only analysis +
 // one explicit action:
-//   * "Package Audit"        — asks the main process what a portable review bundle
-//                              would contain (status / totals / blocking / unused /
-//                              manifest preview). Nothing is written.
-//   * "Build Review Bundle…" — the ONE explicit user action: the main process
-//                              prompts for a destination OUTSIDE the project and
-//                              writes a deterministic ZIP. It is NOT an upload and
-//                              claims no current-server compatibility.
+//   * "Package Audit"              — asks the main process what a portable World
+//                                    Project Bundle would contain (status / totals /
+//                                    blocking / unused / manifest preview). Nothing
+//                                    is written.
+//   * "Build World Project Bundle…" — the ONE explicit user action: the main process
+//                                    prompts for a destination OUTSIDE the project and
+//                                    writes a deterministic ZIP for review + manual
+//                                    upload. WRL Forge never sends it anywhere and
+//                                    claims no server-certified format.
 //
 // It has no filesystem access of its own — every path and the manifest come back
 // from the confined main-process handlers. It never applies Mall Item rules.
@@ -120,8 +122,8 @@ function showOutput(res) {
   if (res && res.ok && res.outPath) {
     el.output.className = 'pkg-output';
     el.output.textContent =
-      `Review Bundle written: ${res.outPath}  (${res.entryCount} entries, ${humanBytes(res.bytes)}). ` +
-      'Not confirmed for direct Cybertown upload — review it before submitting.';
+      `World Project Bundle written: ${res.outPath}  (${res.entryCount} entries, ${humanBytes(res.bytes)}). ` +
+      'Review the contents, then upload through the Cybertown website.';
   } else if (res && res.code === 'EBLOCKED') {
     el.output.className = 'pkg-output err';
     el.output.textContent = 'Blocked: resolve the blocking findings before building a bundle.';
@@ -150,7 +152,7 @@ async function buildBundle() {
     if (res === null) { el.status.textContent = 'Bundle canceled.'; return; }
     showOutput(res);
     // Re-audit so totals/unused reflect the current state after a build.
-    if (res.ok) el.status.textContent = 'Review Bundle written.';
+    if (res.ok) el.status.textContent = 'World Project Bundle written.';
     else el.status.textContent = res.code === 'EBLOCKED' ? 'Blocked — nothing written.' : 'Bundle not written.';
   } catch (err) {
     showOutput({ ok: false, error: String((err && err.message) || err) });

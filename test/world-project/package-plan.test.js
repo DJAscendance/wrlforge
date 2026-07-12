@@ -165,12 +165,14 @@ test('a primary-unreadable scan yields an un-buildable (blocked) plan', () => {
   assert.ok(plan.blocking.some((b) => b.code === 'primary-unreadable'));
 });
 
-test('manifest + report carry the mandatory not-for-upload label', () => {
+test('manifest + report carry the World Project Bundle label + review disclaimer', () => {
   const { plan } = planOf('nested');
   const man = buildManifest(plan);
   assert.equal(man.label, BUNDLE_LABEL);
-  assert.match(man.disclaimer, /NOT confirmed/i);
+  assert.equal(BUNDLE_LABEL, 'WRL Forge World Project Bundle');
+  assert.match(man.disclaimer, /not a server-certified upload format/i);
   assert.match(man.disclaimer, /does not upload/i);
+  assert.match(man.disclaimer, /manual upload through the Cybertown website/i);
   const report = renderReport(plan);
   assert.ok(report.startsWith(`# ${BUNDLE_LABEL}`));
   assert.match(report, /Unique textures \| 3/);

@@ -115,7 +115,7 @@ test('world packaging across fixtures in ONE reused Electron process', {
     assert.ok(fs.existsSync(bundleDest));
     const entries = readZip(fs.readFileSync(bundleDest));
     const manifest = JSON.parse(entries.find((e) => e.name === 'MANIFEST.json').data.toString('utf8'));
-    assert.equal(manifest.label, 'Review Bundle — Not Confirmed for Direct Cybertown Upload');
+    assert.equal(manifest.label, 'WRL Forge World Project Bundle');
     for (const mf of manifest.files) {
       const entry = entries.find((e) => e.name === 'project/' + mf.path);
       assert.ok(entry, `bundle has project/${mf.path}`);

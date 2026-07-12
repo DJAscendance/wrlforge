@@ -64,7 +64,9 @@ function applyState(data) {
   state = { mallPath: data.mallPath, editFile: data.editFile };
   els.empty.style.display = 'none';
   els.loaded.style.display = 'block';
-  showEditorStatus(data.editorStatus);
+  // The external editor is optional: opening a file never surfaces an
+  // "editor not found" message. That message appears only when the user
+  // explicitly requests the external-editor action (see the button handler).
   els.mallPath.textContent = data.mallPath;
   els.editFile.textContent = data.editFile;
   els.checkBtn.disabled = false;
