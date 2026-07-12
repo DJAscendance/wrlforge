@@ -65,6 +65,12 @@ ARM64 is unsupported** and **direct Cybertown (CTR) upload compatibility is
 unconfirmed**. Building the Windows target from Linux needs `wine`. See
 `docs/BUILD.md` for details and the dependency/license notes.
 
-## Credits
+## Inspiration and Acknowledgments
 
-Inspired by the Cybertown tools, vehicles, and world-building work of scott99 (Mark), whose contributions helped keep VRML creation alive.
+WRL Forge is inspired by the builders, creators, coders, and community members who helped make Cybertown such a memorable place and kept its creative spirit alive.
+
+Special thanks to **Morning.star**, **scott99 (Mark)**, **LSS**, **Wovencroft**, **GeordieJohn**, and the many other world builders, ComTech members, coders, and friends I met along the way.
+
+Their worlds, vehicles, tools, experiments, knowledge, and willingness to help others all contributed to the inspiration behind WRL Forge.
+
+This project is an independent continuation of that creative spirit and is not presented as the work of, or officially endorsed by, the people named above.
