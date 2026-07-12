@@ -1,0 +1,11 @@
+#VRML V2.0 utf8
+# Multiple orientation values: same wide rectangle at three spine joints,
+# rotated 0deg, 45deg, 90deg about the spine. The 0deg joint reaches x=+/-2;
+# the 90deg joint reaches z=+/-2; the 45deg joint is within both.
+# Expected union X:[-2,2] Y:[0,4] Z:[-2,2].
+WorldInfo { title "Extrusion Multi Orientation" }
+Shape { geometry Extrusion {
+  crossSection [ -2 -0.5, 2 -0.5, 2 0.5, -2 0.5, -2 -0.5 ]
+  spine [ 0 0 0, 0 2 0, 0 4 0 ]
+  orientation [ 0 1 0 0, 0 1 0 0.7853981634, 0 1 0 1.5707963268 ]
+} }

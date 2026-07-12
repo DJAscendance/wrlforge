@@ -1,0 +1,10 @@
+#VRML V2.0 utf8
+# Per-spine scale: small (1x1) at the ends, large (2x2) in the middle. 3 spine
+# points y=0,2,4. Widest cross-section is 2x2 at the middle joint.
+# Expected X:[-2,2] Y:[0,4] Z:[-2,2].
+WorldInfo { title "Extrusion Per-Spine Scale" }
+Shape { geometry Extrusion {
+  crossSection [ -1 -1, 1 -1, 1 1, -1 1, -1 -1 ]
+  spine [ 0 0 0, 0 2 0, 0 4 0 ]
+  scale [ 1 1, 2 2, 1 1 ]
+} }

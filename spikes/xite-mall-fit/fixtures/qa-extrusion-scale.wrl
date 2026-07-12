@@ -1,0 +1,21 @@
+#VRML V2.0 utf8
+# QA regression fixture (Phase 2B0): the independent QA's blocking case.
+# A 2x2 cross-section (corners at +/-1 in the cross-section X/Z plane) swept
+# along a straight vertical spine from y=-5 to y=+5, with a uniform scale of
+# [3 3] applied at every spine point. The scale grows the cross-section to
+# 6x6, so the TRUE local bounds are X:[-3,3] Y:[-5,5] Z:[-3,3].
+#
+# The pre-fix bbox-traversal.js ignored `scale` entirely and used the raw
+# cross-section half-diagonal (hypot(1,1)=1.414) expanded on ALL axes,
+# yielding X:[-1.414,1.414] Y:[-6.414,6.414] Z:[-1.414,1.414] -- a dangerous
+# UNDERESTIMATE of width/depth (1.414 vs the true 3).
+WorldInfo { title "QA Extrusion Scale" }
+Shape {
+  geometry Extrusion {
+    crossSection [ -1 -1, 1 -1, 1 1, -1 1, -1 -1 ]
+    spine [ 0 -5 0, 0 5 0 ]
+    scale [ 3 3 ]
+    beginCap TRUE
+    endCap TRUE
+  }
+}

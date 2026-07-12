@@ -1,0 +1,12 @@
+#VRML V2.0 utf8
+# Combined scale + orientation: rectangle (2 x 0.5 half-extents) scaled x2
+# (to 4 x 1) then rotated 45deg about the spine. Corner (4,-1) -> ((4+1)/sqrt2,
+# (4-1)/sqrt2) = (3.5355, 2.1213); max extent 3.5355 on both x and z.
+# Expected X:[-3.5355,3.5355] Y:[0,4] Z:[-3.5355,3.5355].
+WorldInfo { title "Extrusion Scale+Orientation" }
+Shape { geometry Extrusion {
+  crossSection [ -2 -0.5, 2 -0.5, 2 0.5, -2 0.5, -2 -0.5 ]
+  spine [ 0 0 0, 0 4 0 ]
+  scale [ 2 2 ]
+  orientation [ 0 1 0 0.7853981634 ]
+} }

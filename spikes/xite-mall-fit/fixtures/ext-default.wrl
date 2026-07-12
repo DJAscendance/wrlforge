@@ -1,0 +1,8 @@
+#VRML V2.0 utf8
+# Default extrusion: 2x2 square cross-section, vertical spine y=0..4, no scale
+# or orientation fields. Expected local bounds X:[-1,1] Y:[0,4] Z:[-1,1].
+WorldInfo { title "Extrusion Default" }
+Shape { geometry Extrusion {
+  crossSection [ -1 -1, 1 -1, 1 1, -1 1, -1 -1 ]
+  spine [ 0 0 0, 0 4 0 ]
+} }

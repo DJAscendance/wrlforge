@@ -1,0 +1,16 @@
+#VRML V2.0 utf8
+# Transformed extrusion: a 2x2-square, spine y=0..2 extrusion (local bounds
+# X:[-1,1] Y:[0,2] Z:[-1,1]) under a Transform translate [5 1 0] scale [2 1 1].
+# World: X = [-1,1]*2 + 5 = [3,7]; Y = [0,2]*1 + 1 = [1,3]; Z = [-1,1].
+# Expected world X:[3,7] Y:[1,3] Z:[-1,1].
+WorldInfo { title "Extrusion Transformed" }
+Transform {
+  translation 5 1 0
+  scale 2 1 1
+  children [
+    Shape { geometry Extrusion {
+      crossSection [ -1 -1, 1 -1, 1 1, -1 1, -1 -1 ]
+      spine [ 0 0 0, 0 2 0 ]
+    } }
+  ]
+}

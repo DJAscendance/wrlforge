@@ -1,0 +1,9 @@
+#VRML V2.0 utf8
+# Single uniform scale [2 2] reused for all spine points. Cross-section +/-1
+# grows to +/-2. Vertical spine y=0..3. Expected X:[-2,2] Y:[0,3] Z:[-2,2].
+WorldInfo { title "Extrusion Uniform Scale" }
+Shape { geometry Extrusion {
+  crossSection [ -1 -1, 1 -1, 1 1, -1 1, -1 -1 ]
+  spine [ 0 0 0, 0 3 0 ]
+  scale [ 2 2 ]
+} }

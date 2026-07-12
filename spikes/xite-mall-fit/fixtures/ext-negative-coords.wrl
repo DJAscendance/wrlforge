@@ -1,0 +1,8 @@
+#VRML V2.0 utf8
+# Extrusion living entirely in negative coordinate space: cross-section +/-1,
+# spine descending y=-1..-5. Expected X:[-1,1] Y:[-5,-1] Z:[-1,1].
+WorldInfo { title "Extrusion Negative Coords" }
+Shape { geometry Extrusion {
+  crossSection [ -1 -1, 1 -1, 1 1, -1 1, -1 -1 ]
+  spine [ 0 -1 0, 0 -5 0 ]
+} }

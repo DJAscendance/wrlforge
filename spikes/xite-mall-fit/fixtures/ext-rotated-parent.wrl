@@ -1,0 +1,14 @@
+#VRML V2.0 utf8
+# Rotated parent transform: a wide/shallow extrusion (local X:[-2,2] Y:[0,2]
+# Z:[-0.5,0.5]) under a 90-degree Y-axis rotation, which swaps the X and Z
+# extents. Expected world X:[-0.5,0.5] Y:[0,2] Z:[-2,2].
+WorldInfo { title "Extrusion Rotated Parent" }
+Transform {
+  rotation 0 1 0 1.5707963268
+  children [
+    Shape { geometry Extrusion {
+      crossSection [ -2 -0.5, 2 -0.5, 2 0.5, -2 0.5, -2 -0.5 ]
+      spine [ 0 0 0, 0 2 0 ]
+    } }
+  ]
+}

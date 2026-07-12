@@ -1,0 +1,12 @@
+#VRML V2.0 utf8
+# Orientation about the spine axis (Y): a wide/shallow rectangle cross-section
+# (x half-extent 2, z half-extent 0.5) rotated 45 degrees in its own plane.
+# The 45deg rotation makes the AABB square: corner (2,-0.5) rotates to
+# (2.5/sqrt2, 1.5/sqrt2) = (1.7678, 1.0607); max extent 1.7678 on both x and z.
+# Expected X:[-1.7678,1.7678] Y:[0,4] Z:[-1.7678,1.7678].
+WorldInfo { title "Extrusion Orientation" }
+Shape { geometry Extrusion {
+  crossSection [ -2 -0.5, 2 -0.5, 2 0.5, -2 0.5, -2 -0.5 ]
+  spine [ 0 0 0, 0 4 0 ]
+  orientation [ 0 1 0 0.7853981634 ]
+} }
