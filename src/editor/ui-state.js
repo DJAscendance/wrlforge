@@ -7,6 +7,20 @@
 
 const DIAG_CAP = 200; // cap visible diagnostics/advisories; the true total is kept
 
+// Built-in editor themes (must mirror the palette ids in browser/editor-view.js).
+// Each has strong text-on-background contrast; two light-on-dark, one dark-on-
+// light, one high-contrast terminal green.
+const THEMES = [
+  { id: 'dark', label: 'Dark' },
+  { id: 'light', label: 'Light' },
+  { id: 'terminal', label: 'Terminal' },
+  { id: 'tokyo', label: 'Tokyo Night' },
+];
+const DEFAULT_THEME = 'dark';
+function isValidTheme(id) { return THEMES.some((t) => t.id === id); }
+// A saved/requested theme falls back to the default when absent or unknown.
+function resolveTheme(id) { return isValidTheme(id) ? id : DEFAULT_THEME; }
+
 const FORMAT_LABEL = { plain: 'Plain', gzip: 'gzip' };
 function formatLabel(format) { return FORMAT_LABEL[format] || 'Plain'; }
 
@@ -136,10 +150,11 @@ function isFreshAnalysis(resultVersion, appliedVersion) {
 }
 
 const API = {
-  DIAG_CAP, SAVE_STATE, CONFLICT_ACTION,
+  DIAG_CAP, SAVE_STATE, CONFLICT_ACTION, THEMES, DEFAULT_THEME,
   formatLabel, isDirty, saveStateLabel, basename, cursorLabel,
   capDiagnostics, statusModel, toolbarModel, flattenOutline,
   originNav, conflictDecision, needsUnsavedConfirm, resolveShortcut, isFreshAnalysis,
+  isValidTheme, resolveTheme,
 };
 
 // Dual use: CommonJS for Node unit tests, a window global for the renderer (this

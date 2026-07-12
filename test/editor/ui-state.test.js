@@ -131,6 +131,19 @@ test('resolveShortcut dispatches app-level accelerators only', () => {
   assert.strictEqual(ui.resolveShortcut({}), null);
 });
 
+test('themes: at least four, with a safe default and fallback', () => {
+  assert.ok(ui.THEMES.length >= 4, 'at least four built-in themes');
+  const ids = ui.THEMES.map((t) => t.id);
+  for (const id of ['dark', 'light', 'terminal', 'tokyo']) assert.ok(ids.includes(id), `${id} present`);
+  assert.ok(ui.THEMES.every((t) => t.id && t.label), 'every theme has an id and a label');
+  assert.strictEqual(ui.isValidTheme('tokyo'), true);
+  assert.strictEqual(ui.isValidTheme('nope'), false);
+  assert.strictEqual(ui.resolveTheme('terminal'), 'terminal');
+  assert.strictEqual(ui.resolveTheme('bogus'), ui.DEFAULT_THEME);
+  assert.strictEqual(ui.resolveTheme(null), ui.DEFAULT_THEME);
+  assert.strictEqual(ui.isValidTheme(ui.DEFAULT_THEME), true);
+});
+
 test('isFreshAnalysis rejects an older analysis version', () => {
   assert.strictEqual(ui.isFreshAnalysis(5, 3), true);
   assert.strictEqual(ui.isFreshAnalysis(3, 3), true, 'equal is fresh enough');

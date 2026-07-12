@@ -45,29 +45,94 @@ function buildDecorations(state, highlights) {
   return Decoration.set(ranges, true);
 }
 
-// --- theme (styles are injected by CodeMirror; kept neutral for a light UI) --
-const vrmlTheme = EditorView.theme({
-  '&': { height: '100%', fontSize: '13px' },
-  '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
-  '.cm-vrml-header': { color: '#6a737d', fontStyle: 'italic' },
-  '.cm-vrml-comment': { color: '#6a737d', fontStyle: 'italic' },
-  '.cm-vrml-keyword': { color: '#a626a4' },
-  '.cm-vrml-def': { color: '#a626a4', fontWeight: '600' },
-  '.cm-vrml-use': { color: '#a626a4', fontWeight: '600' },
-  '.cm-vrml-route': { color: '#a626a4', fontWeight: '600' },
-  '.cm-vrml-proto': { color: '#a626a4', fontWeight: '600' },
-  '.cm-vrml-is': { color: '#a626a4' },
-  '.cm-vrml-null': { color: '#0184bc' },
-  '.cm-vrml-bool': { color: '#0184bc' },
-  '.cm-vrml-nodeType': { color: '#c18401', fontWeight: '600' },
-  '.cm-vrml-defName': { color: '#e45649', fontWeight: '600' },
-  '.cm-vrml-useName': { color: '#e45649' },
-  '.cm-vrml-fieldName': { color: '#4078f2' },
-  '.cm-vrml-number': { color: '#986801' },
-  '.cm-vrml-string': { color: '#50a14f' },
-  '.cm-vrml-invalid': { color: '#e45649', textDecoration: 'underline wavy #e45649' },
-  '.cm-vrml-bracket': { color: '#383a42' },
-});
+// --- themes ------------------------------------------------------------------
+// Four built-in themes, each a self-contained palette. All colors are chosen for
+// strong text-on-background contrast (light foregrounds on dark backgrounds and
+// vice-versa; every token color sits well clear of its background). One builder
+// turns a palette into a full CodeMirror theme so the four never drift in
+// structure -- only their colors differ.
+const PALETTES = {
+  light: {
+    dark: false,
+    bg: '#fbfbfb', fg: '#282a36', caret: '#1f6feb', selection: '#cfe3ff',
+    gutterBg: '#f2f2f2', gutterFg: '#9aa0a6', activeLine: '#eef2f7', activeGutterFg: '#282a36',
+    panelBg: '#eef1f5', panelFg: '#282a36', border: '#d5d9de', matchBg: '#ffe08a',
+    header: '#5c6370', comment: '#5c6370', keyword: '#a626a4', is: '#a626a4', nullc: '#0b7285',
+    bool: '#0b7285', nodeType: '#8a5a00', defName: '#c1121f', useName: '#c1121f',
+    fieldName: '#1f5fd6', number: '#8a5a00', string: '#1f7a1f', invalid: '#c1121f', bracket: '#282a36',
+  },
+  dark: {
+    dark: true,
+    bg: '#1e2127', fg: '#e6e6e6', caret: '#7db3ff', selection: '#31405c',
+    gutterBg: '#1a1d23', gutterFg: '#7a828e', activeLine: '#262b33', activeGutterFg: '#e6e6e6',
+    panelBg: '#22262e', panelFg: '#e6e6e6', border: '#3a3f4a', matchBg: '#4a5568',
+    header: '#8a94a6', comment: '#8a94a6', keyword: '#d38fff', is: '#d38fff', nullc: '#56c5ff',
+    bool: '#56c5ff', nodeType: '#e5c07b', defName: '#ff7b72', useName: '#ff9d95',
+    fieldName: '#79b8ff', number: '#f0b072', string: '#8fdf8f', invalid: '#ff7b72', bracket: '#c8ccd4',
+  },
+  terminal: {
+    dark: true,
+    bg: '#000000', fg: '#33ff66', caret: '#33ff66', selection: '#0f5f2f',
+    gutterBg: '#000000', gutterFg: '#1f9f4f', activeLine: '#04140a', activeGutterFg: '#7dffa8',
+    panelBg: '#02160b', panelFg: '#7dffa8', border: '#0f5f2f', matchBg: '#0f7f3f',
+    header: '#3aa564', comment: '#3aa564', keyword: '#7dff9f', is: '#7dff9f', nullc: '#66ffd0',
+    bool: '#66ffd0', nodeType: '#d7ff5a', defName: '#ffd24a', useName: '#ffe08a',
+    fieldName: '#5affc8', number: '#ffd24a', string: '#a8ff7d', invalid: '#ff6b6b', bracket: '#33ff66',
+  },
+  tokyo: { // Tokyo Night
+    dark: true,
+    bg: '#1a1b26', fg: '#c0caf5', caret: '#7aa2f7', selection: '#2c3457',
+    gutterBg: '#16161e', gutterFg: '#565f89', activeLine: '#1f2233', activeGutterFg: '#c0caf5',
+    panelBg: '#1f2335', panelFg: '#c0caf5', border: '#2a2e42', matchBg: '#3d59a1',
+    header: '#565f89', comment: '#565f89', keyword: '#bb9af7', is: '#bb9af7', nullc: '#7dcfff',
+    bool: '#7dcfff', nodeType: '#7aa2f7', defName: '#f7768e', useName: '#ff9db4',
+    fieldName: '#7dcfff', number: '#ff9e64', string: '#9ece6a', invalid: '#f7768e', bracket: '#a9b1d6',
+  },
+};
+
+const THEMES = Object.keys(PALETTES);
+const DEFAULT_THEME = 'dark';
+
+function makeTheme(p) {
+  return EditorView.theme({
+    '&': { height: '100%', fontSize: '13px', backgroundColor: p.bg, color: p.fg },
+    '.cm-content': { caretColor: p.caret },
+    '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
+    '.cm-cursor, .cm-dropCursor': { borderLeftColor: p.caret },
+    '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': { backgroundColor: p.selection },
+    '.cm-gutters': { backgroundColor: p.gutterBg, color: p.gutterFg, border: 'none' },
+    '.cm-activeLine': { backgroundColor: p.activeLine },
+    '.cm-activeLineGutter': { backgroundColor: p.activeLine, color: p.activeGutterFg },
+    '.cm-selectionMatch': { backgroundColor: p.matchBg },
+    '.cm-panels': { backgroundColor: p.panelBg, color: p.panelFg },
+    '.cm-panels input, .cm-panels button': { backgroundColor: p.bg, color: p.fg, border: `1px solid ${p.border}` },
+    '.cm-searchMatch': { backgroundColor: p.matchBg },
+    '.cm-searchMatch.cm-searchMatch-selected': { outline: `1px solid ${p.caret}` },
+    '.cm-vrml-header': { color: p.header, fontStyle: 'italic' },
+    '.cm-vrml-comment': { color: p.comment, fontStyle: 'italic' },
+    '.cm-vrml-keyword': { color: p.keyword },
+    '.cm-vrml-def': { color: p.keyword, fontWeight: '600' },
+    '.cm-vrml-use': { color: p.keyword, fontWeight: '600' },
+    '.cm-vrml-route': { color: p.keyword, fontWeight: '600' },
+    '.cm-vrml-proto': { color: p.keyword, fontWeight: '600' },
+    '.cm-vrml-is': { color: p.is },
+    '.cm-vrml-null': { color: p.nullc },
+    '.cm-vrml-bool': { color: p.bool },
+    '.cm-vrml-nodeType': { color: p.nodeType, fontWeight: '600' },
+    '.cm-vrml-defName': { color: p.defName, fontWeight: '600' },
+    '.cm-vrml-useName': { color: p.useName },
+    '.cm-vrml-fieldName': { color: p.fieldName },
+    '.cm-vrml-number': { color: p.number },
+    '.cm-vrml-string': { color: p.string },
+    '.cm-vrml-invalid': { color: p.invalid, textDecoration: `underline wavy ${p.invalid}` },
+    '.cm-vrml-bracket': { color: p.bracket },
+  }, { dark: p.dark });
+}
+
+// Prebuild the four themes once (they are static).
+const THEME_EXT = {};
+for (const name of THEMES) THEME_EXT[name] = makeTheme(PALETTES[name]);
+function themeExtOf(name) { return THEME_EXT[name] || THEME_EXT[DEFAULT_THEME]; }
 
 // --- editor handle -----------------------------------------------------------
 function create(parent, opts = {}) {
@@ -75,6 +140,8 @@ function create(parent, opts = {}) {
   const profile = options.profile || 'generic';
   const debounceMs = Number.isFinite(options.debounceMs) ? options.debounceMs : 250;
   const editable = new Compartment();
+  const themeCompartment = new Compartment();
+  let currentTheme = THEMES.includes(options.theme) ? options.theme : DEFAULT_THEME;
 
   let version = 0; // monotonic; bumps on every doc change and every re-analyze
   let pending = null; // debounce timer
@@ -91,9 +158,11 @@ function create(parent, opts = {}) {
     if (update.docChanged) scheduleAnalyze();
   });
 
-  // Hoisted so setDoc can rebuild a fresh EditorState (which resets undo history)
-  // without re-listing the configuration.
-  const extensions = [
+  // A builder (not a hoisted const) so setDoc can rebuild a fresh EditorState
+  // (which resets undo history) while carrying the CURRENT theme forward -- the
+  // theme compartment's initial value must reflect a live setTheme, not the
+  // theme at first construction.
+  const buildExtensions = () => [
     lineNumbers(),
     highlightActiveLineGutter(),
     highlightActiveLine(),
@@ -107,13 +176,13 @@ function create(parent, opts = {}) {
     highlightSelectionMatches(),
     lintGutter(),
     highlightField,
-    vrmlTheme,
+    themeCompartment.of(themeExtOf(currentTheme)),
     editable.of(EditorView.editable.of(options.readOnly !== true)),
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
     listener,
   ];
 
-  const view = new EditorView({ state: EditorState.create({ doc: options.doc || '', extensions }), parent });
+  const view = new EditorView({ state: EditorState.create({ doc: options.doc || '', extensions: buildExtensions() }), parent });
 
   function scheduleAnalyze() {
     if (pending) clearTimeout(pending);
@@ -157,10 +226,17 @@ function create(parent, opts = {}) {
     getText: () => view.state.doc.toString(),
     setDoc(text) {
       // Fresh state -> resets undo history (a reload/open is not undoable back
-      // into the previous file), then re-analyze.
-      view.setState(EditorState.create({ doc: text, extensions }));
+      // into the previous file), carrying the current theme, then re-analyze.
+      view.setState(EditorState.create({ doc: text, extensions: buildExtensions() }));
       runAnalyze(++version);
     },
+    setTheme(name) {
+      if (!THEMES.includes(name)) return currentTheme;
+      currentTheme = name;
+      view.dispatch({ effects: themeCompartment.reconfigure(themeExtOf(name)) });
+      return currentTheme;
+    },
+    getTheme() { return currentTheme; },
     focus: () => view.focus(),
     setReadOnly(ro) { view.dispatch({ effects: editable.reconfigure(EditorView.editable.of(!ro)) }); },
     revealRange(from, to) {
@@ -186,4 +262,4 @@ function create(parent, opts = {}) {
   };
 }
 
-window.WrlEditor = { create };
+window.WrlEditor = { create, THEMES, DEFAULT_THEME };

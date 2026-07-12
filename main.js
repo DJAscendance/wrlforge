@@ -258,6 +258,108 @@ function createWindow() {
       }
       const payload = {};
 
+      // Native editor job (Phase 7B): drive the real editor lane in the SAME
+      // reused window. Main points its context (currentSession / worldSession) at
+      // a SCRATCH fixture confined to the OS temp dir, opens it through the real
+      // editorController, navigates to the editor page, optionally runs scripted
+      // steps (type/save/click-diagnostic/outline/external), stages an external
+      // change to raise the conflict dialog, then screenshots. Reachable only
+      // under WRL_FORGE_CAPTURE_SERVER; never touches a real project file.
+      if ('editor' in job) {
+        const e = job.editor || {};
+        const os = require('os');
+        const inTemp = (p) => path.resolve(String(p || '')).startsWith(path.resolve(os.tmpdir()));
+
+        // Establish the lane context so editorController resolves the source.
+        if (e.context === 'world') {
+          if (!inTemp(e.root)) throw new Error('editor world root must be under the OS temp dir');
+          if (typeof e.writeSource === 'string') {
+            if (!inTemp(e.primary)) throw new Error('editor writeSource refused outside the OS temp dir');
+            fs.writeFileSync(e.primary, e.writeSource, 'utf8');
+          }
+          worldSession.open({ root: e.root, primary: e.primary, candidates: [{ path: e.primary }] });
+          await worldSession.scan();
+          if (e.ref) editorController.openWorldReference(e.ref);
+          else editorController.openWorldPrimary();
+        } else {
+          if (!inTemp(e.mallPath)) throw new Error('editor mallPath must be under the OS temp dir');
+          if (typeof e.writeSource === 'string') {
+            const buf = e.gzip ? zlib.gzipSync(Buffer.from(e.writeSource, 'utf8'), { level: 9 }) : Buffer.from(e.writeSource, 'utf8');
+            fs.writeFileSync(e.mallPath, buf);
+          }
+          currentSession = { mallPath: e.mallPath, editFile: e.mallPath };
+          editorController.openMall();
+        }
+
+        // Force a FRESH load of the editor page every job (gotoPage would no-op
+        // when already on 'editor', leaving the previous job's document shown).
+        // Production never needs this -- a user always leaves the editor page
+        // before returning to it -- but the batch harness reopens it back-to-back.
+        await mainWindow.loadFile(path.join(__dirname, 'renderer', 'editor.html'));
+        currentPage = 'editor';
+        // Wait for the editor page to mount its CodeMirror surface (or show the
+        // no-document message), bounded so a stuck load can't hang the run.
+        await win.webContents.executeJavaScript(`(async () => {
+          for (let i = 0; i < 60; i++) {
+            if (window.__wrlEditor && window.__wrlEditor.ready()) return true;
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          return false;
+        })()`);
+        await new Promise((r) => setTimeout(r, SETTLE_MS));
+
+        // Optional theme selection (visual-QA showcase of the built-in themes).
+        if (e.theme) {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.setTheme(${JSON.stringify(e.theme)})`);
+          await new Promise((r) => setTimeout(r, 400));
+        }
+
+        // Optional scripted step, driven through the page's own QA hook.
+        if (e.step === 'type') {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.setText(${JSON.stringify(e.text || '')})`);
+          await new Promise((r) => setTimeout(r, SETTLE_MS));
+        } else if (e.step === 'save') {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.setText(${JSON.stringify(e.text || '')})`);
+          await new Promise((r) => setTimeout(r, 400));
+          await win.webContents.executeJavaScript(`window.__wrlEditor.click('saveBtn')`);
+          await new Promise((r) => setTimeout(r, SETTLE_MS));
+        } else if (e.step === 'diagnostic') {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.clickFirst('#diagList .row-item')`);
+          await new Promise((r) => setTimeout(r, 400));
+        } else if (e.step === 'outline') {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.clickFirst('#outlineList .row-item')`);
+          await new Promise((r) => setTimeout(r, 400));
+        } else if (e.step === 'external') {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.click('externalBtn')`);
+          await new Promise((r) => setTimeout(r, 400));
+        } else if (e.step === 'conflict') {
+          // Type an edit, stage an EXTERNAL change to the same scratch source,
+          // then attempt Save -> the renderer raises the Reload/Save As/Cancel dialog.
+          const target = e.context === 'world' ? (e.ref || e.primary) : e.mallPath;
+          await win.webContents.executeJavaScript(`window.__wrlEditor.setText(${JSON.stringify(e.text || '# mine\\n')})`);
+          await new Promise((r) => setTimeout(r, 300));
+          if (inTemp(target)) {
+            const raw = fs.readFileSync(target);
+            const isGz = raw[0] === 0x1f && raw[1] === 0x8b;
+            const bytes = Buffer.from('#VRML V2.0 utf8\n# externally changed\n', 'utf8');
+            fs.writeFileSync(target, isGz ? zlib.gzipSync(bytes, { level: 9 }) : bytes);
+          }
+          await win.webContents.executeJavaScript(`window.__wrlEditor.click('saveBtn')`);
+          await new Promise((r) => setTimeout(r, SETTLE_MS));
+        }
+
+        const status = await win.webContents.executeJavaScript(
+          '(window.__wrlEditor && window.__wrlEditor.status) ? JSON.stringify(window.__wrlEditor.status()) : "null"'
+        );
+        payload.editor = JSON.parse(status);
+        if (job.out) {
+          const img = await win.webContents.capturePage();
+          fs.writeFileSync(job.out, img.toPNG());
+          payload.out = job.out;
+        }
+        return payload;
+      }
+
       // World Project job (Phase 4A): drive the read-only World workspace across
       // a sequence of states in the SAME reused window. `world` may be null (the
       // empty-project state) or { root, primary } (a scratch project the trusted

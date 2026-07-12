@@ -19,7 +19,18 @@ const els = {
   diagCount: el('diagCount'), advCount: el('advCount'),
   stFile: el('stFile'), stFormat: el('stFormat'), stDirty: el('stDirty'), stSave: el('stSave'),
   stCursor: el('stCursor'), stDiag: el('stDiag'), stAdv: el('stAdv'),
+  themeSelect: el('themeSelect'),
 };
+
+// Theme preference persists across sessions in the renderer (a cosmetic setting;
+// losing it is harmless). localStorage on the app's local page is stable.
+const THEME_KEY = 'wrlforge.editor.theme';
+function savedTheme() {
+  try { return UI.resolveTheme(window.localStorage.getItem(THEME_KEY)); } catch (e) { return UI.DEFAULT_THEME; }
+}
+function persistTheme(id) {
+  try { window.localStorage.setItem(THEME_KEY, id); } catch (e) { /* best-effort */ }
+}
 
 // --- renderer-local editor state --------------------------------------------
 const S = {
@@ -345,10 +356,27 @@ function wireButtons() {
   });
 }
 
+function populateThemes() {
+  clearChildren(els.themeSelect);
+  for (const t of UI.THEMES) {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = t.label;
+    els.themeSelect.appendChild(opt);
+  }
+  els.themeSelect.value = savedTheme();
+  els.themeSelect.addEventListener('change', () => {
+    const id = UI.resolveTheme(els.themeSelect.value);
+    persistTheme(id);
+    if (S.handle) S.handle.setTheme(id);
+  });
+}
+
 function mountEditor(text, profile) {
   S.handle = window.WrlEditor.create(els.editor, {
     doc: text,
     profile,
+    theme: savedTheme(),
     onChange: () => { if (S.saveState !== UI.SAVE_STATE.CONFLICT) S.saveState = null; render(); },
     onCursor: (c) => { S.cursor = c; els.stCursor.textContent = UI.cursorLabel(c); },
     onAnalysis: (a) => {
@@ -362,6 +390,7 @@ function mountEditor(text, profile) {
 
 async function init() {
   wireButtons();
+  populateThemes();
   let d;
   try { d = await bridge.describe({ includeText: true }); } catch (e) { d = { open: false }; }
   // Cold start / direct navigation: try to restore the most-recent document.
@@ -384,6 +413,28 @@ async function init() {
   render();
   S.handle.focus();
 }
+
+// Exposed only for the serialized visual-QA capture harness (main.js editor
+// jobs). Each method wraps an action the page already performs through its own
+// buttons/handle -- it adds no capability or privilege beyond the DOM the editor
+// page already has, mirroring the __wrlForge* hooks on the Mall/World pages.
+window.__wrlEditor = {
+  ready: () => !!S.handle || els.msg.style.display === 'block',
+  setText: (t) => {
+    if (!S.handle) return false;
+    S.handle.view.dispatch({ changes: { from: 0, to: S.handle.getText().length, insert: t } });
+    return true;
+  },
+  click: (id) => { const n = el(id); if (n) n.click(); },
+  setTheme: (t) => { els.themeSelect.value = t; els.themeSelect.dispatchEvent(new Event('change')); },
+  clickFirst: (sel) => { const n = document.querySelector(sel); if (n) n.click(); return !!n; },
+  modalVisible: () => el('modalBackdrop').classList.contains('show'),
+  status: () => ({
+    file: els.stFile.textContent, format: els.stFormat.textContent, dirty: isDirty(),
+    save: els.stSave.textContent, diag: els.stDiag.textContent, adv: els.stAdv.textContent,
+    outlineRows: document.querySelectorAll('#outlineList .row-item').length,
+  }),
+};
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
