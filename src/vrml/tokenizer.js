@@ -64,11 +64,16 @@ function isControl(c) {
   const code = c.charCodeAt(0);
   return code <= 0x20 || code === 0x7f;
 }
+// VRML97 identifier grammar (ISO/IEC 14772-1 § 4.6.3 / grammar): the FIRST char
+// may not be a digit or `+`/`-` (those begin numbers); but `+` and `-` ARE valid
+// as NON-first characters -- real Cybertown corpora use hyphenated DEF/event names
+// like `phb_left-COORD` and `house3mini-ROT-INTERP`. So the two predicates differ
+// only in whether `+`/`-`/digits may lead.
 function isIdStart(c) {
   return c != null && !isControl(c) && !ID_DELIM.has(c) && !isDigit(c) && c !== '+' && c !== '-';
 }
 function isIdPart(c) {
-  return c != null && !isControl(c) && !ID_DELIM.has(c) && c !== '+' && c !== '-';
+  return c != null && !isControl(c) && !ID_DELIM.has(c);
 }
 
 function tokenize(source) {
@@ -201,10 +206,16 @@ function tokenize(source) {
         terminated = true;
         break;
       }
-      // VRML string literals are single-line here; a raw newline before the close
-      // quote is treated as an unterminated string so recovery resyncs on the next
-      // line rather than swallowing the rest of the file.
-      if (c === '\n' || c === '\r') break;
+      // VRML97 quoted strings MAY span multiple lines (notably inline Script source
+      // under `vrmlscript:`/`javascript:`). Newlines (LF, CRLF, lone CR) are kept in
+      // the string; the decoded value normalizes every line break to '\n' while the
+      // exact lexeme (which preserves CR) is sliced from the source. advance()
+      // handles the CRLF/CR counter bookkeeping, so line/column stay exact.
+      if (c === '\r' || c === '\n') {
+        value += '\n';
+        advance();
+        continue;
+      }
       value += c;
       advance();
     }
@@ -252,9 +263,14 @@ function tokenize(source) {
       if (numeric === 'float' && intDigits === 0 && !/\d/.test(lexeme(startOffset))) valid = false;
     }
 
-    // If an identifier character immediately follows (e.g. `12abc`, `0x`), the
-    // lexeme is a malformed number rather than two tokens.
-    if (isIdPart(peek()) && peek() !== '.') { valid = false; while (i < n && isIdPart(peek())) advance(); }
+    // If a NON-sign identifier character immediately follows (e.g. `12abc`, `0x`),
+    // the lexeme is a malformed number rather than two tokens. `+`/`-` are excluded
+    // here: `1-2` is two valid numbers (VRML has no operators), and a hyphen after a
+    // number begins a new signed literal or a separator, never number-identifier glue.
+    if (isIdPart(peek()) && peek() !== '.' && peek() !== '-' && peek() !== '+') {
+      valid = false;
+      while (i < n && isIdPart(peek()) && peek() !== '-' && peek() !== '+') advance();
+    }
 
     const text = lexeme(startOffset);
     const range = spanFrom(start);

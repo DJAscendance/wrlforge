@@ -51,11 +51,17 @@ test('parity with production extractUrlRefs across all real fixtures', () => {
     // production regex scanner (lexical) matches it. Asserted explicitly below.
     path.normalize('test/fixtures/vrml/comments.wrl'),
   ]);
+  // The AST decoder normalizes CR/CRLF inside string VALUES to '\n'; the production
+  // lexical scanner keeps raw bytes. That is a cosmetic value-encoding difference
+  // (same reference, same decoded text), so line endings are normalized on BOTH
+  // sides before comparison -- the only genuine "which refs" difference stays the
+  // url-in-comment case below.
+  const norm = (r) => ({ nodeType: r.nodeType, field: r.field, value: String(r.value).replace(/\r\n?/g, '\n') });
   for (const f of files) {
     let text;
     try { text = readWrlSource(f).text; } catch { continue; } // skip corrupt-gzip fixtures
-    const mine = extractUrlTriples(parse(text).tree);
-    const theirs = prod.extractUrlRefs(text).map((r) => ({ nodeType: r.nodeType, field: r.field, value: r.value }));
+    const mine = extractUrlTriples(parse(text).tree).map(norm);
+    const theirs = prod.extractUrlRefs(text).map(norm);
     if (knownDifferent.has(path.normalize(f))) {
       assert.notDeepEqual(mine, theirs, `${f} is expected to differ (url-in-comment)`);
       continue;

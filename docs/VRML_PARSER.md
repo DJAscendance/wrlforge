@@ -1,10 +1,28 @@
-# VRML97 Parser (Phase 7A)
+# VRML97 Parser (Phase 7A / 7A1)
 
 Status: **SHIPPED (parser-only lane).** A real, dependency-free VRML97 tokenizer +
 structural parser lives under `src/vrml/`. It ships **alongside** the existing
 production systems (`validator.js`, World Project scanners, X_ITE previews,
 packaging) and does **not** change any of them. No editor UI is part of this lane
 — that is Phase 7B (see `docs/NATIVE_EDITOR_ARCHITECTURE.md`).
+
+> **Phase 7A1 — Corpus Compatibility Corrections.** Independent real-corpus QA
+> (Gemini, ~2,124 Cybertown files) gave Phase 7A a CONDITIONAL GO and found three
+> valid VRML97 forms the tokenizer/parser rejected. All three are now fixed
+> (details inline below):
+> 1. **Identifier characters** — internal `-`/`+` (e.g. `phb_left-COORD`,
+>    `house3mini-ROT-INTERP`) are valid non-leading identifier chars.
+> 2. **Multiline strings** — quoted strings (notably inline Script source) may span
+>    LF/CRLF/lone-CR line breaks.
+> 3. **Header encoding case** — `#VRML V2.0 utf8` is now validated case-SENSITIVELY
+>    (`UTF8` is flagged, non-fatally).
+>
+> A fourth, pervasive **Cybertown/Blaxxun** pattern was also identified and
+> accepted leniently: **ROUTE/PROTO/EXTERNPROTO statements embedded inside an MFNode
+> `children [ ... ]` array** (not strict VRML97, but ubiquitous in real worlds).
+> Measured corpus diagnostics fell **98.1%** (926,063 → 17,201); clean parses rose
+> from 961 to 1,745 of 2,124. The remaining bulk is the **flat-scope duplicate-DEF**
+> limitation (see "Semantic limitations"), which is intentionally NOT fixed here.
 
 ## Module layout
 
@@ -57,6 +75,22 @@ leading/trailing dot, and signs; the parser coerces per position (no field-type
 schema in 7A). `.` disambiguates: `.5` is a float, `a.b` is `id period id` (for
 `ROUTE`).
 
+**Identifier grammar (7A1).** Per ISO/IEC 14772-1, an identifier may not *start*
+with a digit or `+`/`-` (those begin numbers), but `+`/`-` ARE valid as
+non-leading characters — so `phb_left-COORD`, `house3mini-ROT-INTERP`, and
+`name+suffix` are single identifiers. Numeric literals are unaffected: `-1`,
+`+2e-3` lex as numbers, and `1-2` / `foo -1` split correctly (a hyphen after a
+number begins a new signed literal, never number-identifier glue); `12abc` / `2x3`
+are still flagged invalid numbers. Whitespace separates tokens, so `foo-1` (no
+space) is deliberately one identifier per the greedy grammar.
+
+**Multiline strings (7A1).** Quoted strings MAY span multiple lines (LF, CRLF, or
+lone CR) — inline Script bodies frequently do. The decoded string **value**
+normalizes every line break to `\n`; the exact **lexeme** slices from source
+(preserving CR); `\"`/`\\` escapes work across line breaks; and line/column stay
+exact after the string. An unterminated string runs to EOF and emits exactly
+**one** bounded `UNTERMINATED_STRING` diagnostic (no cascade).
+
 ## AST shape
 
 Plain objects with a `type` discriminator (`NODE.*`) and a `range` on **every**
@@ -95,7 +129,7 @@ duplicate `DEF`. **Codes are stable** (never renumbered):
 | Code | Meaning |
 |---|---|
 | `VRML001` | Missing `#VRML V2.0 utf8` header (error, non-fatal) |
-| `VRML002` | Non-standard header (warning) |
+| `VRML002` | Non-canonical header — wrong version/encoding, incl. wrong-case `UTF8` (warning, non-fatal) |
 | `VRML010` | Unterminated string |
 | `VRML011` | Invalid number literal |
 | `VRML012` | Unexpected character |
@@ -125,6 +159,15 @@ start (`syncInBody`) — so one malformed field or node does not destroy the res
 the file. Every loop is guaranteed to make progress (a no-consume iteration
 force-advances one token), so malformed input can never cascade into dozens of
 meaningless diagnostics or hang.
+
+**Cybertown/Blaxxun leniency (7A1).** Strict VRML97 permits only nodeStatements
+inside an MFNode `[ ... ]`, but real Cybertown worlds embed
+`ROUTE`/`PROTO`/`EXTERNPROTO` statements directly inside `children [ ... ]`. Rather
+than desync the array (which cascaded tens of thousands of diagnostics across the
+corpus), `parseArray` accepts these by delegating to the same handlers used in a
+node body — the embedded ROUTE is still indexed and resolved by the semantic pass.
+This is a deliberate real-content compatibility choice, documented as a lenient
+extension, not strict-spec behavior.
 
 ## Safety limits
 
@@ -184,8 +227,10 @@ World-shaped samples; nested nodes; `DEF`/`USE`; `ROUTE`; `PROTO`; `EXTERNPROTO`
 `IS`; Script interfaces + inline code; MFString URL arrays; comments (incl.
 url-in-comment); escaped strings; CRLF; hex + exponent numbers; `NULL`; malformed
 brace/bracket; unterminated string; invalid number; duplicate `DEF`; unresolved
-`USE`; invalid `ROUTE`; and recovery-with-valid-content-after-an-error. Real
-production fixtures under `test/fixtures/{,preview/,world/}` are also parsed.
+`USE`; invalid `ROUTE`; recovery-with-valid-content-after-an-error; and (7A1)
+hyphenated identifiers, multiline inline Script source (`multiline-script.wrl` +
+its CRLF twin), and header-case checks. Real production fixtures under
+`test/fixtures/{,preview/,world/}` are also parsed.
 
 ## Performance (indicative, one dev machine)
 
@@ -202,19 +247,48 @@ production fixtures under `test/fixtures/{,preview/,world/}` are also parsed.
 Scaling is linear-ish (8× input ≈ 8× time in the test harness); no quadratic
 behavior. No aggressive optimization was applied — that is deferred.
 
+## Real-corpus results (7A1)
+
+Read-only audit over the available Cybertown corpus (`/home/ryan/Projects/cybertown`,
+excluding `wrlforge*` worktrees), 3 MB/file cap, gzip-transparent — using Gemini's
+exact discovery logic for comparability:
+
+- Discovered: **2,129** `.wrl`/`.wrz`; skipped **5** (4 over 3 MB, 1 gzip-inflate
+  error, 0 read errors); **attempted 2,124** (plain **486** + gzip **1,638** = 2,124).
+- Total diagnostics **926,063 → 17,201** (**−98.1%**); files with diagnostics
+  **1,163 → 379**; clean parses **961 → 1,745**. No depth/node-limit hits; parse
+  memory bounded (per-file, GC between batches). Slowest ~284 ms / largest ~1.29 MB.
+- **Count reconciliation** of the Gemini report's arithmetic (total 2,124; plain
+  486; gzip 1,639; plain+gzip = 2,125): the "2,124" is the *attempted-parse* count,
+  not discovery (2,129). The 1-file gap is the single **gzip-inflate-error** file —
+  it is gzip by magic bytes (so Gemini's 1,639) but never parsed (so attempted =
+  2,124, and this audit's parsed-only gzip count = 1,638). Reconciled; the measured
+  reduction is **98.1%**, not the projected "95%+".
+- **Remaining diagnostics** are dominated by `VRML040` duplicate-`DEF` (**15,638**,
+  ~91%) — the flat-scope limitation below, deliberately not "fixed" in 7A1 — plus
+  small residual `VRML021/020/022` from genuinely malformed/unusual files.
+
 ## Known unsupported semantics / limitations
 
 - **No field-type schema.** Bare numeric runs are captured as `Numbers` with no
   arity check (`SFVec3f` vs `SFRotation` vs `MFFloat` are not distinguished
   syntactically). Per-field type/arity validation is Phase 7B+.
-- **Flat document scope.** `DEF`/`USE`/`ROUTE` resolve against a single
-  whole-document table; `PROTO`-body scopes and strict `USE`-after-`DEF` ordering
-  are not yet enforced.
-- **Single-line string literals.** A raw newline before the closing quote is
-  treated as an unterminated string (aids recovery); multi-line string literals
-  are not supported. Inline Script bodies in real worlds are single-line.
+- **Semantic scope is FLAT and NOT authoritative (retained in 7A1).** `DEF`/`USE`/
+  `ROUTE` resolve against a single whole-document table. Consequences the editor
+  must NOT present as authoritative until scope-aware analysis lands:
+  - **PROTO-body DEF leakage** — a `DEF` inside a `PROTO` body is visible document-wide.
+  - **False duplicate-DEF** across separate `PROTO` scopes (the dominant remaining
+    corpus diagnostic — real worlds legitimately reuse names per scope).
+  - **USE-before-DEF** resolves (order not enforced).
+  - **Context-insensitive `IS`** — `IS` is accepted syntactically without checking it
+    occurs inside a `PROTO`/Script interface context.
+  These are intentionally out of 7A1 scope (no PROTO-scope rewrite); a later
+  scope-aware analysis lane addresses them. Until then, `VRML040`/`VRML041`/
+  `VRML044` are advisory.
 - **No runtime/type validation, no rendering.** The parser produces a syntax tree
   only; X_ITE remains the sole renderer.
+- **Cybertown/Blaxxun lenient extension.** ROUTE/PROTO inside MFNode arrays is
+  accepted (see Recovery) — a real-content compatibility choice, not strict VRML97.
 
 ## Recommended Phase 7B editor-integration boundary
 

@@ -36,5 +36,12 @@ fs.writeFileSync(path.join(DIR, 'crlf.wrl'), Buffer.from(LF_SOURCE.replace(/\n/g
 // Plain (LF) twin of the same content, for a direct plain-vs-gzip equality test.
 fs.writeFileSync(path.join(DIR, 'plain-twin.wrl'), Buffer.from(LF_SOURCE, 'utf8'));
 
+// CRLF twin of the multiline-script fixture (Phase 7A1): proves a quoted string
+// that spans CRLF line breaks -- inline Script source -- parses, and that content
+// after it is unaffected. The LF original is committed as multiline-script.wrl.
+const MULTILINE_LF = fs.readFileSync(path.join(DIR, 'multiline-script.wrl'), 'utf8');
+fs.writeFileSync(path.join(DIR, 'multiline-script-crlf.wrl'),
+  Buffer.from(MULTILINE_LF.replace(/\n/g, '\r\n'), 'utf8'));
+
 // eslint-disable-next-line no-console
-console.log('Generated valid-gzip.wrl, crlf.wrl, plain-twin.wrl');
+console.log('Generated valid-gzip.wrl, crlf.wrl, plain-twin.wrl, multiline-script-crlf.wrl');

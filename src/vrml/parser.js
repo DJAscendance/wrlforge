@@ -77,9 +77,13 @@ class Parser {
     if (this.at(TT.HEADER)) {
       const t = this.next();
       header = ast.header(t.version, t.encoding, t.lexeme, t.range);
-      if (!t.version || !/^V2\.0$/i.test(t.version) || !/^utf8$/i.test(t.encoding || '')) {
+      // Canonical VRML97 header is exactly `#VRML V2.0 utf8` -- the version and
+      // encoding tokens are case-SENSITIVE per spec, so `UTF8`/`Utf8` is flagged.
+      // This is a NON-FATAL warning: a usable partial tree is still produced (we do
+      // not turn harmless historical header variation into a catastrophic failure).
+      if (t.version !== 'V2.0' || t.encoding !== 'utf8') {
         this.diagnostics.push(warning(CODE.INVALID_HEADER,
-          `Non-standard VRML header '${t.lexeme.trim()}' (expected '#VRML V2.0 utf8')`, t.range));
+          `Non-canonical VRML header '${t.lexeme.trim()}' (expected '#VRML V2.0 utf8')`, t.range));
       }
     } else {
       this.diagnostics.push(error(CODE.MISSING_HEADER,
@@ -291,6 +295,14 @@ class Parser {
       else if (t.type === TT.KEYWORD && t.keyword === 'NULL') { this.next(); items.push(ast.nullVal(t.range)); }
       else if (t.type === TT.KEYWORD && t.keyword === 'USE') { const u = this.parseUse(); if (u) items.push(u); }
       else if (t.type === TT.KEYWORD && t.keyword === 'DEF') { const nd = this.parseNodeStatement(depth + 1); if (nd) items.push(nd); }
+      // Lenient Cybertown/Blaxxun compatibility: strict VRML97 allows only
+      // nodeStatements inside an MFNode `[ ... ]`, but real Cybertown worlds embed
+      // ROUTE/PROTO/EXTERNPROTO statements directly inside `children [ ... ]`. Accept
+      // them by delegating to the same handlers used in a node body, rather than
+      // desyncing the whole array (which cascaded thousands of diagnostics).
+      else if (t.type === TT.KEYWORD && t.keyword === 'ROUTE') { const r = this.parseRoute(); if (r) items.push(r); }
+      else if (t.type === TT.KEYWORD && t.keyword === 'PROTO') { const p = this.parseProto(depth + 1); if (p) items.push(p); }
+      else if (t.type === TT.KEYWORD && t.keyword === 'EXTERNPROTO') { const e = this.parseExternProto(depth + 1); if (e) items.push(e); }
       else {
         this.diagnostics.push(error(CODE.UNEXPECTED_TOKEN,
           `Unexpected ${describe(t)} in array`, t.range));
@@ -416,12 +428,28 @@ class Parser {
     const typeTok = this.expect(TT.ID, 'a field type (e.g. SFFloat)');
     const nameTok = this.expect(TT.ID, 'an interface field name');
     let defaultValue = null;
-    const hasDefault = access === 'field' || access === 'exposedField';
-    if (hasDefault && !externNoDefaults) defaultValue = this.parseValue(1);
+    let isName = null;
+    let isRange = null;
+    if (this.atKeyword('IS')) {
+      // A Script (or PROTO-nested node) interface member IS-mapped to the enclosing
+      // PROTO's interface: `field SFBool local IS local`, `eventIn SFBool x IS x`.
+      // Valid for every access type; no default value follows.
+      this.next();
+      const idTok = this.at(TT.ID) ? this.next() : null;
+      if (!idTok) {
+        this.diagnostics.push(error(CODE.EXPECTED_IDENTIFIER,
+          'Expected an interface name after IS', this.peek().range, { expected: 'name' }));
+      } else {
+        isName = idTok.name;
+        isRange = idTok.range;
+      }
+    } else if ((access === 'field' || access === 'exposedField') && !externNoDefaults) {
+      defaultValue = this.parseValue(1);
+    }
     return { type: NODE.INTERFACE, access,
       fieldType: typeTok ? typeTok.name : null, fieldTypeRange: typeTok ? typeTok.range : null,
       name: nameTok ? nameTok.name : null, nameRange: nameTok ? nameTok.range : null,
-      default: defaultValue, range: this.spanTo(t) };
+      default: defaultValue, is: isName, isRange, range: this.spanTo(t) };
   }
 
   // --- recovery helpers ---

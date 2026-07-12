@@ -36,7 +36,7 @@ requirement**. X_ITE remains the ONLY renderer — this plan adds a *parser* and
 
 ---
 
-## Part A — VRML97 Parser  ✅ SHIPPED (Phase 7A)
+## Part A — VRML97 Parser  ✅ SHIPPED (Phase 7A + 7A1)
 
 **Status: implemented as a parser-only lane.** The design below was built out under
 `src/vrml/` with zero new dependencies; see **`docs/VRML_PARSER.md`** for the
@@ -46,6 +46,17 @@ limitations, and the recommended Phase 7B editor-integration boundary. Part B
 (the native editor) remains **PLAN ONLY**. Nothing in Part A changed any existing
 production system (`validator.js`, World scanning, previews, packaging, VSCodium,
 UI, save).
+
+**Phase 7A1 corrected three real-corpus incompatibilities** found by independent QA
+— internal `-`/`+` in identifiers, multiline strings (inline Script source), and
+case-sensitive header encoding — and leniently accepts the pervasive
+Cybertown/Blaxxun `ROUTE`/`PROTO`-inside-MFNode-array pattern (98.1% corpus
+diagnostic reduction). **The flat, non-authoritative semantic scope is retained and
+documented**: the future editor (7B+) must NOT surface `DEF`/`USE`/`ROUTE`
+duplicate/unresolved diagnostics as authoritative until a scope-aware analysis lane
+replaces the flat document scope (PROTO-body DEF leakage, cross-PROTO false
+duplicates, USE-before-DEF, context-insensitive `IS`). See `docs/VRML_PARSER.md`
+§ "Known unsupported semantics / limitations".
 
 A real **tokenizer + structural parser**, not a regex approximation. Lives in a new
 dependency-free module tree, e.g. `src/vrml/`:

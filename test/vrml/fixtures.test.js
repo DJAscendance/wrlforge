@@ -50,6 +50,24 @@ test('gzip and plain sources parse to identical trees', () => {
   assert.equal(syntaxErrs(gz).length, 0);
 });
 
+test('multiline inline Script fixture (LF and CRLF twin) parse identically and clean', () => {
+  const lf = parse(readWrlSource(F('vrml/multiline-script.wrl')).text);
+  const crlf = parse(readWrlSource(F('vrml/multiline-script-crlf.wrl')).text);
+  assert.equal(syntaxErrs(lf).length, 0, JSON.stringify(syntaxErrs(lf)));
+  assert.equal(syntaxErrs(crlf).length, 0, JSON.stringify(syntaxErrs(crlf)));
+  // Byte offsets legitimately differ (CRLF adds a byte per line), but the decoded
+  // content must be identical: same DEF names, routes, and asset refs.
+  assert.deepEqual(lf.defs.map((d) => d.name), crlf.defs.map((d) => d.name));
+  const refs = (r) => require('../../src/vrml/asset-refs').classifyAssetRefs(r.tree);
+  assert.deepEqual(refs(lf), refs(crlf));
+  assert.equal(lf.routes.length, crlf.routes.length);
+  // Inline script is classified as inline code, not a local asset.
+  const c = require('../../src/vrml/asset-refs').classifyAssetRefs(lf.tree);
+  assert.equal(c.inlineScripts.length, 1);
+  assert.deepEqual(c.local, ['after.png']);
+  assert.ok(lf.routes.length === 1 && lf.routes[0].resolvedFrom && lf.routes[0].resolvedTo);
+});
+
 test('CRLF fixture parses with correct DEF/USE + asset ref', () => {
   const r = parse(readWrlSource(F('vrml/crlf.wrl')).text);
   assert.equal(syntaxErrs(r).length, 0);

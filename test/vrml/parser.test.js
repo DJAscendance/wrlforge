@@ -29,6 +29,38 @@ test('non-standard header is a warning, not an error', () => {
   assert.equal(errCodes(r).length, 0);
 });
 
+test('canonical header encoding is case-sensitive (utf8 accepted, UTF8 flagged)', () => {
+  const ok = parse('#VRML V2.0 utf8\nWorldInfo {}');
+  assert.ok(!codes(ok).includes(CODE.INVALID_HEADER));
+
+  const upper = parse('#VRML V2.0 UTF8\nWorldInfo {}');
+  assert.ok(codes(upper).includes(CODE.INVALID_HEADER));
+  // Non-fatal: a usable partial tree is still produced.
+  assert.equal(errCodes(upper).length, 0);
+  assert.equal(upper.tree.statements[0].nodeType, 'WorldInfo');
+});
+
+test('hyphenated DEF/event names parse and route correctly (Phase 7A1)', () => {
+  const r = parse('#VRML V2.0 utf8\nDEF phb_left-COORD Coordinate {}\nDEF house3mini-ROT-INTERP OrientationInterpolator {}\nROUTE house3mini-ROT-INTERP.value_changed TO phb_left-COORD.set_point');
+  assert.equal(errCodes(r).length, 0, JSON.stringify(errCodes(r)));
+  assert.ok(r.tree.statements.some((s) => s.def === 'phb_left-COORD'));
+  const route = r.tree.statements.find((s) => s.type === NODE.ROUTE);
+  assert.equal(route.from.node, 'house3mini-ROT-INTERP');
+  assert.equal(route.to.node, 'phb_left-COORD');
+});
+
+test('multiline inline Script source parses; content after is unaffected (Phase 7A1)', () => {
+  const src = '#VRML V2.0 utf8\nDEF S Script {\n  eventOut SFVec3f out\n  url "vrmlscript:\n    function f(){ out = new SFVec3f(0,1,0); }\n  "\n}\nDEF After Transform { translation 5 0 0 }';
+  const r = parse(src);
+  assert.equal(errCodes(r).length, 0, JSON.stringify(errCodes(r)));
+  const script = r.tree.statements.find((s) => s.def === 'S');
+  const url = script.fields.find((f) => f.name === 'url');
+  assert.match(url.value.value, /^vrmlscript:/);
+  assert.ok(url.value.value.includes('\n'));
+  // Valid content after the multiline string still parses.
+  assert.ok(r.tree.statements.some((s) => s.def === 'After'));
+});
+
 test('node with fields and nested SFNode', () => {
   const r = parse('#VRML V2.0 utf8\nShape { appearance Appearance { material Material {} } geometry Box { size 1 2 3 } }');
   const shape = r.tree.statements[0];
@@ -101,6 +133,35 @@ test('Script interface + inline code + url', () => {
   assert.equal(script.interfaces.length, 3);
   const url = script.fields.find((f) => f.name === 'url');
   assert.match(url.value.value, /^vrmlscript:/);
+});
+
+test('ROUTE/PROTO embedded in an MFNode array parse (Cybertown lenient, Phase 7A1)', () => {
+  // Real Cybertown worlds put ROUTE/PROTO statements directly inside children[...].
+  const r = parse('#VRML V2.0 utf8\nGroup { children [\n  DEF C TimeSensor { loop TRUE }\n  DEF M Material {}\n  ROUTE C.fraction_changed TO M.set_transparency\n  DEF S Shape { geometry Box {} }\n] }');
+  assert.equal(errCodes(r).length, 0, JSON.stringify(errCodes(r)));
+  const items = r.tree.statements[0].fields[0].value.items;
+  const route = items.find((i) => i.type === NODE.ROUTE);
+  assert.ok(route, 'embedded ROUTE is an array item');
+  assert.equal(route.from.node, 'C');
+  assert.equal(route.to.node, 'M');
+  assert.ok(items.some((i) => i.def === 'S'));
+  // The embedded ROUTE is still indexed and resolved by the semantic pass.
+  const idx = require('../../src/vrml').parse('#VRML V2.0 utf8\nGroup { children [\n  DEF C TimeSensor { loop TRUE }\n  DEF M Material {}\n  ROUTE C.fraction_changed TO M.set_transparency\n  DEF S Shape { geometry Box {} }\n] }');
+  assert.equal(idx.routes.length, 1);
+  assert.equal(idx.routes[0].resolvedFrom, true);
+  assert.equal(idx.routes[0].resolvedTo, true);
+});
+
+test('Script interface members can be IS-mapped (Phase 7A1)', () => {
+  const r = parse('#VRML V2.0 utf8\nPROTO Net [ eventIn SFBool wire ] {\n  DEF S Script {\n    eventIn SFBool boolFromServer IS wire\n    field SFInt32 counter 0\n    url "vrmlscript: function boolFromServer(v){}"\n  }\n}');
+  assert.equal(errCodes(r).length, 0, JSON.stringify(errCodes(r)));
+  const script = r.tree.statements[0].body.find((s) => s.def === 'S');
+  const mapped = script.interfaces.find((i) => i.name === 'boolFromServer');
+  assert.equal(mapped.access, 'eventIn');
+  assert.equal(mapped.is, 'wire');
+  const plain = script.interfaces.find((i) => i.name === 'counter');
+  assert.equal(plain.is, null);
+  assert.equal(plain.default.type, NODE.NUMBERS);
 });
 
 test('NULL as an SFNode value', () => {

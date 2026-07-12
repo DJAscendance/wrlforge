@@ -446,6 +446,16 @@ Mall Fit / X_ITE preview / packaging / VSCodium / UI / save. See
 safety limits, parity status, known limitations, and the Phase 7B integration
 boundary. Design in `docs/NATIVE_EDITOR_ARCHITECTURE.md` (§ "Phase 7A scope").
 
+**Phase 7A1 — Corpus Compatibility Corrections ✅.** Independent real-corpus QA
+(Gemini, 2,124 Cybertown files) gave 7A a CONDITIONAL GO. Fixed three rejected
+valid VRML97 forms — internal `-`/`+` in identifiers, multiline (LF/CRLF/CR)
+strings incl. inline Script source, and case-sensitive header encoding — plus
+lenient acceptance of the pervasive Cybertown/Blaxxun `ROUTE`/`PROTO`-inside-MFNode-
+array pattern. Read-only corpus re-audit: diagnostics **−98.1%** (926,063 →
+17,201), clean parses 961 → 1,745 of 2,124; remaining bulk is the documented
+flat-scope duplicate-`DEF` limitation (NOT fixed — no PROTO-scope rewrite in this
+lane). Parser-only; no production system changed. See `docs/VRML_PARSER.md`.
+
 ### Phase 7B — Native Editor
 Editor component (plain HTML/CSS/JS, no framework — see `AGENTS.md`): line numbers,
 undo/redo, search & replace, selection/keyboard navigation, bracket/brace matching,

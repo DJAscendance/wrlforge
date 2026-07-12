@@ -101,10 +101,16 @@ A read-only asset resolver and workspace now ships (`src/world-project/`,
 **Will not be built** (locked product decision): **direct upload**, authentication,
 networking/submission code. **Not** implemented and each its own future approved
 lane: automatic path repair, copy, rename, delete, Apply/Bake. The **VRML97 parser**
-foundation is now **built** (Phase 7A) — a dependency-free, token-driven tokenizer +
-structural parser under `src/vrml/` (see `docs/VRML_PARSER.md`) that ships
-*alongside* existing systems and changes none of them; it is not yet wired into any
-production path. The **native editor** on top of it remains a planned beta
+foundation is now **built** (Phase 7A, corpus-hardened in 7A1) — a dependency-free,
+token-driven tokenizer + structural parser under `src/vrml/` (see
+`docs/VRML_PARSER.md`) that ships *alongside* existing systems and changes none of
+them; it is not yet wired into any production path. 7A1 fixed three real-corpus
+rejections (hyphen/plus identifiers, multiline strings, header encoding case) and
+leniently accepts Cybertown/Blaxxun `ROUTE`/`PROTO`-in-MFNode-array (98.1% corpus
+diagnostic reduction). Its semantic scope is **flat and NOT authoritative** (PROTO
+DEF leakage, cross-PROTO false duplicate-DEF, USE-before-DEF, context-insensitive
+`IS`) — a future scope-aware lane fixes that; the editor must not present those
+semantic diagnostics as authoritative yet. The **native editor** on top of it remains a planned beta
 requirement (Phase 7B, see `docs/NATIVE_EDITOR_ARCHITECTURE.md`). Everything except the single Build-World-
 Project-Bundle action is read-only; that action writes only a portable bundle to a
 caller-chosen destination and never mutates the source project. See
