@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WRL Forge — Mall Item lane</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 16px; background: #1b1b1b; color: #ddd;
+    font-family: -apple-system, "Segoe UI", sans-serif; font-size: 14px;
+  }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .sub { color: #888; margin-bottom: 16px; }
+  button {
+    background: #2d6ae0; color: #fff; border: none; border-radius: 4px;
+    padding: 8px 14px; font-size: 13px; cursor: pointer; margin-right: 8px;
+  }
+  button:hover { background: #3a78ee; }
+  button.secondary { background: #333; }
+  button.secondary:hover { background: #444; }
+  button:disabled { background: #333; color: #777; cursor: not-allowed; }
+  .row { margin: 10px 0; }
+  .paths { background: #111; border-radius: 6px; padding: 10px 12px; font-family: monospace; font-size: 12px; }
+  .paths div { margin: 2px 0; word-break: break-all; }
+  .paths .label { color: #888; display: inline-block; width: 90px; }
+  .sizes { display: flex; gap: 20px; margin: 10px 0; }
+  .sizes .stat { background: #111; border-radius: 6px; padding: 8px 14px; }
+  .sizes .stat .n { font-size: 18px; font-weight: 600; }
+  .sizes .stat.over .n { color: #ff6161; }
+  .sizes .stat .l { color: #888; font-size: 11px; text-transform: uppercase; }
+  #results { margin-top: 14px; }
+  .check { padding: 6px 10px; border-radius: 4px; margin-bottom: 4px; font-size: 13px; display: flex; gap: 8px; }
+  .check.pass { background: #123; }
+  .check.fail.hard { background: #401414; }
+  .check.fail.soft { background: #3a2f10; }
+  .badge { font-weight: 700; width: 42px; flex: none; }
+  .check.pass .badge { color: #5fd06a; }
+  .check.fail .badge { color: #ff8b3d; }
+  .check .detail { color: #999; }
+  .placeholder { color: #666; font-style: italic; margin-top: 20px; }
+  #toggleGzip { margin-right: 6px; }
+  label.inline { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; }
+</style>
+</head>
+<body>
+  <h1>WRL Forge <span style="color:#888; font-weight:400; font-size:12px;">— Mall Item lane</span></h1>
+  <div class="sub">Build. Preview. Validate. Package. — gzip-transparent editing and Cybertown Mall validation; editing/preview happens in VSCodium.</div>
+
+  <div class="row">
+    <button id="openBtn">Open mall .wrl…</button>
+    <button id="checkBtn" class="secondary" disabled>Re-check</button>
+    <label class="inline"><input type="checkbox" id="toggleGzip" checked> Save as gzip (mall format)</label>
+    <button id="repackBtn" disabled>Repack &amp; Save to mall .wrl</button>
+  </div>
+
+  <div id="empty" class="placeholder">No file open. Click "Open mall .wrl…" to pick a .wrl (gzip or plain).</div>
+
+  <div id="loaded" style="display:none">
+    <div class="paths">
+      <div><span class="label">mall file:</span><span id="mallPath"></span> <a href="#" id="revealMall" class="link">reveal</a></div>
+      <div><span class="label">editing:</span><span id="editFile"></span> <a href="#" id="revealEdit" class="link">reveal</a> (opened in VSCodium)</div>
+    </div>
+
+    <div class="sizes">
+      <div class="stat" id="rawStat"><div class="n" id="rawSize">-</div><div class="l">raw bytes</div></div>
+      <div class="stat" id="gzStat"><div class="n" id="gzSize">-</div><div class="l">gzip bytes (mall cap 80KB)</div></div>
+    </div>
+
+    <div id="results"></div>
+  </div>
+
+<script src="renderer.js"></script>
+</body>
+</html>

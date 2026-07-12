@@ -1,0 +1,21 @@
+node_modules/
+scratch-test/
+
+# Electron / packaging output
+dist/
+out/
+build/
+release/
+
+# Disposable working copies and backups (never source of truth)
+*.edit.wrl
+*.bak-*
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp

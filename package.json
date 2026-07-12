@@ -1,0 +1,16 @@
+{
+  "name": "wrl-forge",
+  "version": "1.0.0",
+  "description": "A modern VRML97 creation, inspection, validation, and packaging workbench for Cybertown items and worlds.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "electron": "^41.7.1"
+  }
+}
