@@ -1,6 +1,6 @@
 {
   "name": "wrl-forge",
-  "version": "1.0.0",
+  "version": "1.1.0-beta.1",
   "description": "A modern VRML97 creation, inspection, validation, and packaging workbench for Cybertown items and worlds.",
   "main": "main.js",
   "scripts": {
@@ -10,9 +10,9 @@
     "qa:visual": "node qa/visual-qa/cli.js",
     "recon:world": "node qa/world-recon/cli.js",
     "make-icon": "node assets/_make-icon.js",
-    "build:win": "electron-builder --win --publish never",
-    "build:win:portable": "electron-builder --win portable --publish never",
-    "check": "npm test && node --check main.js && node --check preload.js && node --check validator.js && node --check src/preview/bbox-traversal.js && node --check src/preview/extrusion-bounds.js && node --check src/preview/fit-math.js && node --check src/preview/guides.js && node --check src/preview/texture-base.js && node --check src/preview/url-policy.js && node --check src/preview/wrl-source.js && node --check renderer/renderer.js && node --check renderer/preview.js && node --check qa/visual-qa/lock.js && node --check qa/visual-qa/runner.js && node --check qa/visual-qa/cli.js && node --check qa/world-recon/url-fields.js && node --check qa/world-recon/asset-graph.js && node --check qa/world-recon/cli.js && node --check src/world-project/url-fields.js && node --check src/world-project/path-policy.js && node --check src/world-project/image-size.js && node --check src/world-project/asset-graph.js && node --check src/world-project/project-stats.js && node --check src/world-project/profile.js && node --check src/world-project/project-loader.js && node --check src/world-project/session.js && node --check src/world-project/preview-source.js && node --check src/world-project/zip-writer.js && node --check src/world-project/package-plan.js && node --check src/world-project/bundle-builder.js && node --check src/editor/editor-locator.js && node --check src/settings/app-settings.js && node --check src/settings/window-state.js && node --check renderer/world.js && node --check renderer/world-preview.js && node --check renderer/world-packaging.js"
+    "build:win": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --publish never",
+    "build:win:portable": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable --publish never",
+    "check": "npm test && node --check main.js && node --check preload.js && node --check validator.js && node --check src/preview/bbox-traversal.js && node --check src/preview/extrusion-bounds.js && node --check src/preview/fit-math.js && node --check src/preview/guides.js && node --check src/preview/texture-base.js && node --check src/preview/url-policy.js && node --check src/preview/wrl-source.js && node --check renderer/renderer.js && node --check renderer/preview.js && node --check qa/visual-qa/lock.js && node --check qa/visual-qa/runner.js && node --check qa/visual-qa/cli.js && node --check qa/world-recon/url-fields.js && node --check qa/world-recon/asset-graph.js && node --check qa/world-recon/cli.js && node --check src/world-project/url-fields.js && node --check src/world-project/path-policy.js && node --check src/world-project/image-size.js && node --check src/world-project/asset-graph.js && node --check src/world-project/project-stats.js && node --check src/world-project/profile.js && node --check src/world-project/project-loader.js && node --check src/world-project/session.js && node --check src/world-project/preview-source.js && node --check src/world-project/zip-writer.js && node --check src/world-project/package-plan.js && node --check src/world-project/bundle-builder.js && node --check src/editor/editor-locator.js && node --check src/settings/app-settings.js && node --check src/settings/window-state.js && node --check renderer/world.js && node --check renderer/world-preview.js && node --check renderer/world-packaging.js && node --check qa/phase-6b-windows/win-selftest.js"
   },
   "keywords": [],
   "author": "",
@@ -29,7 +29,7 @@
     "appId": "com.wrlforge.app",
     "productName": "WRL Forge",
     "copyright": "WRL Forge",
-    "artifactName": "${productName}-${version}-${arch}-PrivateTestBuild-Unsigned.${ext}",
+    "artifactName": "${productName}-${version}-${arch}-PrivateBeta-Unsigned.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "assets"
@@ -55,13 +55,13 @@
       ]
     },
     "portable": {
-      "artifactName": "${productName}-${version}-x64-PrivateTestBuild-Unsigned-portable.${ext}"
+      "artifactName": "${productName}-${version}-x64-PrivateBeta-Unsigned-portable.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "${productName}-${version}-x64-PrivateTestBuild-Unsigned-setup.${ext}"
+      "artifactName": "${productName}-${version}-x64-PrivateBeta-Unsigned-setup.${ext}"
     },
     "compression": "normal",
     "npmRebuild": false

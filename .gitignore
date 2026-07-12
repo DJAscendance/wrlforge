@@ -20,6 +20,9 @@ npm-debug.log*
 qa/phase-4b-world-preview/RESULTS.json
 qa/phase-5a-world-packaging/RESULTS.json
 
+# graphify knowledge-graph output (machine-generated, regenerated via `graphify update .`)
+graphify-out/
+
 # OS / editor junk
 .DS_Store
 Thumbs.db
