@@ -40,6 +40,12 @@ class VisualQaRunner {
     this.sleep = opts.sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.now = opts.now || (() => Date.now());
     this.isAlive = opts.isAlive || require('./lock').defaultIsAlive;
+    // Escalation primitive for _forceCleanup. Platform-aware by default: POSIX
+    // gets the original single-pid SIGTERM; Windows gets a targeted process-TREE
+    // kill (taskkill /PID <pid> /T /F), since Electron spawns helper/renderer
+    // children that a bare TerminateProcess on the main pid would orphan.
+    // Still never process-name-wide (no /IM) -- only the one tracked pid's tree.
+    this.killChild = opts.killChild || killerFor(process.platform);
     this.cfg = { ...DEFAULTS, ...pick(opts, Object.keys(DEFAULTS)) };
 
     this._active = false;      // concurrency==1 guard
@@ -156,11 +162,12 @@ class VisualQaRunner {
     }
   }
 
-  // Escalation, never process-name-wide: SIGTERM the ONE tracked pid, await exit.
+  // Escalation, never process-name-wide: kill the ONE tracked pid (and, on
+  // Windows, its process tree), await exit.
   async _forceCleanup(child, pid) {
     if (!this.isAlive(pid)) return;
-    this._emit('terminate', { pid, signal: 'SIGTERM' });
-    try { child.kill('SIGTERM'); } catch { /* already dead */ }
+    this._emit('terminate', { pid });
+    this.killChild(child, pid);
     const exited = await this._awaitExit(child, this.cfg.killGraceMs);
     this._emit(exited ? 'exit' : 'terminate:timeout', { pid, code: child.exitCode, graceful: false });
   }
@@ -238,4 +245,18 @@ function pick(obj, keys) {
 }
 function safeJson(s) { try { return JSON.parse(s); } catch { return {}; } }
 
-module.exports = { VisualQaRunner, DEFAULTS, READY, OK, ERR };
+// Pure factory so the platform choice is unit-testable without touching the
+// real process.platform: pass a platform string explicitly to get the kill
+// function that platform would use. `spawnSync` is injectable for tests.
+function killerFor(platform, spawnSync = require('child_process').spawnSync) {
+  if (platform === 'win32') {
+    return (_child, pid) => {
+      try { spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* best effort */ }
+    };
+  }
+  return (child) => {
+    try { child.kill('SIGTERM'); } catch { /* already dead */ }
+  };
+}
+
+module.exports = { VisualQaRunner, DEFAULTS, READY, OK, ERR, killerFor };

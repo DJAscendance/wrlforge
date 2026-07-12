@@ -148,3 +148,43 @@ Abort immediately (and do not retry in a loop) if: multiple windows appear,
 rapid retries begin, a child does not exit, `journalctl` shows new
 `Can't update stage views actor … needs an allocation` / `GNOME Shell crashed`
 lines, or `survivors` is non-empty.
+
+## Windows (Phase 7C4)
+
+All seven hard rules above hold unchanged on Windows. Two host assumptions are
+platform-parameterized rather than Linux-only (see `docs/WINDOWS_NATIVE_QA_PLAN.md`):
+
+- **No `DISPLAY`/`WAYLAND_DISPLAY` concept.** `cli.js` and the `qa:windows`
+  orchestrator instead require an explicit `--allow-headed` flag on `win32` --
+  pass it to confirm an interactive session is present before Electron launches.
+- **Escalation kill.** `runner.js`'s `_forceCleanup` uses an injectable
+  `killChild` (see `killerFor(platform)`). On POSIX it's still the original
+  single-pid `SIGTERM`. On `win32` it's `taskkill /PID <pid> /T /F` -- scoped to
+  the one tracked pid's **tree** (never `/IM`, never process-name-wide), because
+  a bare `TerminateProcess` on Electron's main pid orphans its renderer/GPU
+  helper children.
+
+New flags on `cli.js` (and the same flags on `qa:windows`'s orchestrator):
+`--target=source|win-unpacked|portable|installed` selects what gets spawned
+(`source` still launches `electron .`; the packaged targets spawn
+`release\win-unpacked\WRL Forge.exe`, a `release\*portable*.exe`, or an
+installed exe via `--exe=<path>` directly, over the same
+`WRL_FORGE_CAPTURE_SERVER` stdin/stdout protocol).
+
+Windows equivalents for the guardrails checklist: use `tasklist` (or Task
+Manager) instead of `pgrep -af electron`/`systemctl --user list-units` to
+confirm no survivor remains; the lock file still lives under `os.tmpdir()`
+(`%TEMP%\wrl-forge-visual-qa.lock`).
+
+`qa:windows` (`qa/phase-7c-windows/orchestrate.js`) drives Tier 1 (the
+committed `qa/phase-6b-windows/win-selftest.js`, run as node under whichever
+Electron binary the target resolves to) and Tier 2 (this same `VisualQaRunner`)
+back-to-back, then writes an evidence run directory (`RESULTS.md`,
+`results.json`, `environment.json`, `processes-before/after.txt`,
+`fixture-hashes-before/after.json`) via `qa/visual-qa/evidence.js` -- a GO
+verdict requires Tier 1 to pass, Tier 2 to report zero survivors, and no
+committed fixture hash to have changed. Tier 3 (NSIS install/uninstall,
+Start-Menu shortcut, capture-server smoke against the installed exe) is
+`qa/phase-7c-windows/tier3-smoke.ps1`, run deliberately by a maintainer --
+it installs and uninstalls the app, so it is not wired into any unattended
+pipeline. SmartScreen and native-dialog checks remain maintainer-manual.

@@ -5,10 +5,17 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { VisualQaRunner } = require('../../qa/visual-qa/runner');
+const { VisualQaRunner, killerFor } = require('../../qa/visual-qa/runner');
 const { makeRegistry, scriptedSpawn } = require('./_fake');
 
 // Fast, deterministic config: tiny timeouts, instant sleeps that record delays.
+//
+// killChild defaults to calling the fake child's own .kill() directly, NOT the
+// real platform default (killerFor(process.platform)) -- these fixtures are
+// fake children with a JS-level alive registry, not real OS processes, so a
+// real `taskkill`/SIGTERM against their (fake) pid would never flip the
+// registry and every test would misreport a leak when run ON Windows. The
+// platform-selection logic itself (killerFor) has its own dedicated tests below.
 function fastRunner(spawn, registry, over = {}) {
   const cooldowns = [];
   const logs = [];
@@ -17,6 +24,7 @@ function fastRunner(spawn, registry, over = {}) {
     isAlive: registry.isAlive,
     sleep: (ms) => { cooldowns.push(ms); return Promise.resolve(); },
     log: (r) => logs.push(r),
+    killChild: (child) => child.kill('SIGTERM'),
     readyTimeoutMs: 50,
     captureTimeoutMs: 50,
     shutdownGraceMs: 50,
@@ -110,4 +118,37 @@ test('never spawns for an empty job list', async () => {
   const { runner } = fastRunner(spawn, reg);
   await assert.rejects(() => runner.run([]), /at least one job/);
   assert.equal(spawn.spawned.length, 0);
+});
+
+// --- Windows fake-process path (no real Electron) -----------------------
+// Proves the escalation primitive is platform-selectable and, on win32,
+// never becomes a process-name-wide kill: it must call taskkill scoped to
+// the single tracked pid's tree (/PID <pid> /T /F), not /IM.
+test('killerFor(win32) escalates via a pid-scoped, tree-scoped taskkill, never /IM', () => {
+  const calls = [];
+  const fakeSpawnSync = (cmd, args) => { calls.push({ cmd, args }); return { status: 0 }; };
+  const kill = killerFor('win32', fakeSpawnSync);
+  kill({ kill() { throw new Error('must not be called on win32'); } }, 4242);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].cmd, 'taskkill');
+  assert.deepEqual(calls[0].args, ['/PID', '4242', '/T', '/F']);
+  assert.ok(!calls[0].args.includes('/IM'), 'never process-name-wide');
+});
+
+test('killerFor(non-win32) still uses SIGTERM on the child directly', () => {
+  const seen = [];
+  const kill = killerFor('linux');
+  kill({ kill: (sig) => seen.push(sig) }, 4242);
+  assert.deepEqual(seen, ['SIGTERM']);
+});
+
+test('runner uses an injected killChild (e.g. Windows taskkill) during forced cleanup', async () => {
+  const reg = makeRegistry();
+  const spawn = scriptedSpawn(reg, [{ neverReady: true, dieOnKill: true }]);
+  const killCalls = [];
+  const killChild = (child, pid) => { killCalls.push(pid); child.kill(); };
+  const { runner } = fastRunner(spawn, reg, { retriesPerLaunch: 0, killChild });
+  await assert.rejects(() => runner.run(jobs(1)), /timeout waiting for ready/);
+  assert.deepEqual(killCalls, [spawn.spawned[0].pid], 'the injected killChild must be used, not a hardcoded SIGTERM path');
+  assert.deepEqual(runner.survivors(), []);
 });

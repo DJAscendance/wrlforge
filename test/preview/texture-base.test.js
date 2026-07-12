@@ -8,7 +8,11 @@ const assert = require('node:assert/strict');
 const path = require('path');
 const { safeResolve, dirUrl, fileDirUrl } = require('../../src/preview/texture-base');
 
-const BASE = path.join(path.sep, 'srv', 'wrl', 'fixtures');
+// Use path.resolve (not path.join) so BASE carries a drive letter on Windows,
+// matching what the product's safeResolve() -> path.resolve() produces. With a
+// bare path.join path (no drive), the expected path.join(BASE, name) below would
+// never equal the product's drive-qualified result on win32.
+const BASE = path.resolve(path.sep, 'srv', 'wrl', 'fixtures');
 
 test('safeResolve accepts a plain name in the base directory', () => {
   assert.equal(safeResolve(BASE, 'stone.wrl'), path.join(BASE, 'stone.wrl'));
