@@ -79,6 +79,32 @@ A JSON array; each job runs in order through the same process:
   anything else), so world `root/primary` may point at any readable project; use
   scratch copies anyway to keep runs hermetic.
 
+**World preview jobs (Phase 4B).** A world job may also drive the embedded X_ITE
+world preview through the real read-only `world:previewLoad` path + the confined
+`wrlworld://` handler:
+
+```json
+[
+  { "id": "nested",  "world": { "root": "/abs/fx/nested", "primary": "/abs/fx/nested/world.wrl" }, "preview": true, "size": "1000x760", "out": "/abs/out/nested.png" },
+  { "id": "multi-vp","world": { "root": "/abs/fx/nested", "primary": "/abs/fx/nested/world.wrl" }, "preview": true, "viewpoint": 2, "out": "/abs/out/vp.png" }
+]
+```
+
+- `preview: true` → after the read-only scan, drive `world:previewLoad` and the
+  scheme handler and render in X_ITE; the job result carries a `preview` debug
+  object (status, discovered viewpoints, counts, warnings). Read-only.
+- `viewpoint: <index>` → bind that discovered viewpoint before capture.
+  `reset: true` → Reset View before capture.
+- `writePrimary: <text>` → **QA-only** scratch-primary swap used to drive the
+  parse-fail→recover sequence inside ONE reused process. It is refused unless the
+  primary path is under the OS temp dir, and is reachable only under
+  `WRL_FORGE_CAPTURE_SERVER` — it never touches a real project file.
+
+The full Phase 4B run (all 10 required states, one launch, graceful exit, no
+leak) lives at `qa/phase-4b-world-preview/orchestrate.js`
+(`RESULTS.md` / `RESULTS.json`), driven by `VisualQaRunner` directly — the same
+harness the visual tests use.
+
 ## Lifecycle logging
 
 `cli.js` emits one JSON line per event: `run:start`, `launch` (with count + PID),

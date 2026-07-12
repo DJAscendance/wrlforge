@@ -151,7 +151,8 @@ read-only `qa/world-recon/` analyzer (`npm run recon:world`). Evidence gathered 
 `src/world-project/` (single source of truth; `qa/world-recon/*` re-export it),
 wired behind confined read-only `world:*` IPC, and rendered in a dedicated
 `renderer/world.html` workspace (summary, filterable asset table, dependency
-view). No world preview yet (that is **Phase 4B**, below); no packaging/upload.
+view). The embedded world preview followed in **Phase 4B** (below); still no
+packaging/upload.
 
 - [x] Open a project folder (not just a single file), with primary-file
   detection (ambiguity surfaced, never guessed) — plus direct primary-file open
@@ -179,12 +180,38 @@ assets in a real multi-texture project (`test/fixtures/world/mini`, 25 textures)
 and flags deliberately-broken references (`test/fixtures/world/broken`: missing,
 case mismatch, unsafe, remote).
 
-### Phase 4B — World Preview ⏳ (not yet approved)
+### Phase 4B — World Preview ✅
 
-The embedded X_ITE **world** preview (render a complete world, honouring the
-gzip/nested-Inline asset graph the Phase 4A resolver produces). Highest blast
-radius; must route exclusively through `npm run qa:visual` / `VisualQaRunner`
-and keep the current isolation discipline. Requires its own approved lane.
+The embedded X_ITE **world** preview landed — it renders a complete world,
+honouring the gzip/nested-Inline asset graph the Phase 4A resolver produces. See
+`docs/WORLD_PROJECT_ARCHITECTURE.md` and `docs/PREVIEW_ARCHITECTURE.md`.
+
+- [x] Read-only preview loaded from decompressed text (`world:previewLoad`),
+  taking **no** renderer-supplied path — main owns every project path.
+- [x] Controlled local dependency resolution: X_ITE resolves nested Inline /
+  textures through a privileged, standard, LOCAL-only `wrlworld://` scheme whose
+  handler serves **only** asset-graph-authorized files (readable WRL nodes +
+  present exact-case assets), gzip-decompressed, confined to the project root.
+  Each nested WRL resolves relative URLs from its **own** directory.
+- [x] Plain/gzip primary **and** plain/gzip nested Inline; >20 and ≥70 textures
+  with no truncation; repeated deps; bounded dependency cycles; per-file bases;
+  filenames with spaces.
+- [x] Viewpoint discovery + selection (including viewpoints authored inside
+  nested Inlines, via `EnableInlineViewpoints`), Reset View, navigation modes,
+  loading / warning / stale / failure states, loaded-vs-missing counts, and an
+  explicit **Refresh Preview**. Temporary parse error keeps the last valid scene
+  (flagged stale).
+- [x] Missing / case-mismatch / remote / unsafe references surfaced but never
+  loaded; inline scripts never executed (CSP blocks eval). No project mutation
+  (fixtures byte-identical before/after; parse-fail/recover writes only a scratch
+  project under the OS temp dir). No Mall Item rules applied in World mode.
+- [x] One serialized `VisualQaRunner` run of all 10 states
+  (`qa/phase-4b-world-preview/`): one launch, graceful exit, no leak.
+
+**Explicitly not implemented in this lane** (unchanged from Phase 4A): asset
+repair, file copy/rename/delete, packaging, direct upload, Apply/Bake transforms,
+Windows packaging. World preview is **analysis + display only**; it never marks a
+project upload-ready.
 
 ## Phase 5 — Embedded X_ITE Preview ⏳
 

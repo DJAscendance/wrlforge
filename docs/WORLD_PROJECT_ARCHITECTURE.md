@@ -8,9 +8,10 @@ behind confined main-process IPC, and renders it in a dedicated workspace page.
 It is a **sibling** of the Mall Item lane, not an extension of it: World Project
 analysis never applies Mall Item rules, and the Mall Item lane is unchanged.
 
-**This lane is read-only.** It opens, scans, and reports. It does not repair
-paths, copy/rename/delete assets, package, upload, or preview. World preview
-(embedded X_ITE) is a later lane (Phase 4B), not part of this one.
+**This lane is read-only.** It opens, scans, reports, and (Phase 4B) previews.
+It does not repair paths, copy/rename/delete assets, package, or upload. The
+embedded X_ITE world preview added in Phase 4B is itself read-only, local-only,
+and asset-graph-authorized — see "World preview (Phase 4B)" below.
 
 ## Module layout (`src/world-project/`)
 
@@ -28,6 +29,7 @@ graph touch is injectable, so the whole set is unit-tested without a real tree.
 | `project-stats.js` | Summarizes a scan into the Project Summary counts. | no |
 | `project-loader.js` | Detects the primary world file in a folder; runs a scan with real fs (sizes + texture dimensions). | **yes** (main) |
 | `session.js` | Holds the open project; enforces single-flight scanning, keep-last-good-on-error, candidate-validated primary selection. | no |
+| `preview-source.js` | (Phase 4B) Read-authorization + serving for the embedded X_ITE preview: `wrlworld://` URL builders, `buildAuthorizedSet`, `resolveWorldRequest` (confine + allow-list + gzip-decompress), `buildPreviewPayload`. | injected |
 
 `qa/world-recon/url-fields.js` and `qa/world-recon/asset-graph.js` are now thin
 re-exports of the production modules (single source of truth); `npm run
@@ -94,15 +96,67 @@ detected.
 | `world:openPrimaryFile` | Dialog → open a single primary `.wrl`/`.wrz` (its folder is the root). |
 | `world:choosePrimary` | Resolve ambiguity by choosing a **detected** candidate (validated). |
 | `world:scan` / `world:refresh` | Scan/rescan the held project (single-flight). |
+| `world:previewLoad` | (Phase 4B) Ensure a scan, install the asset-graph read-authorization set into the `wrlworld://` handler, and return the decompressed primary text + base URL + advisory counts/warnings. **No** renderer path. |
 | `world:describe` | Report the open project (for restoring the view). |
 | `world:reveal` / `world:revealRoot` | Reveal a path in the OS file manager, **confined to the project root** and only if it exists. |
 | `world:openPrimaryInEditor` | Explicit-only VSCodium launch on the primary (opening a project never auto-launches the editor). |
 
 There is **no write-capable World Project IPC**. `contextIsolation: true` /
-`nodeIntegration: false` are unchanged; the `world.html` page carries a strict
-CSP with no remote origin and no wasm (no preview engine loads here). The
-`session.webRequest` remote-request guard from the Mall lane remains installed
-process-wide.
+`nodeIntegration: false` are unchanged. As of Phase 4B the `world.html` page
+carries a strict CSP that permits X_ITE's LOCAL needs only — `'wasm-unsafe-eval'`
+for its WASM decoders, `blob:` workers, and the LOCAL-only `wrlworld:` preview
+scheme in `img-src`/`media-src`/`connect-src` — with **no** remote origin
+anywhere. The `session.webRequest` remote-request guard from the Mall lane
+remains installed process-wide.
+
+## World preview (Phase 4B)
+
+A read-only embedded X_ITE preview renders the whole world. It is a **separate
+profile** from the Mall Item preview (`renderer/world-preview.js`, not
+`renderer/preview.js`): **no** Cybertown Fit, fit-math, guides, bounds
+compliance, 80KB cap, or forbidden-node rules apply to a world.
+
+**Why a custom scheme.** X_ITE resolves nested `Inline` and textures itself. To
+keep that resolution (a) gzip-transparent, (b) per-file (each WRL resolves
+relatives from its own directory), and (c) inside the asset graph, the preview
+points X_ITE at a privileged, standard, LOCAL-only `wrlworld://project/<relpath>`
+scheme instead of `file://`. Because it is hierarchical, `../` clamps at the
+authority root (the project root) at the URL layer, and a nested WRL's relatives
+resolve against its own `wrlworld://` URL. App resources (the X_ITE bundle, WASM,
+`world.html`) stay on the default `file://` handler; only world **content**
+routes through the authorized handler.
+
+**Authorization (`src/world-project/preview-source.js`).** `buildAuthorizedSet()`
+derives the read allow-list from the production asset graph: readable WRL nodes +
+present (exact-case) local assets **only**. `resolveWorldRequest()` maps a request
+URL to an absolute path, confines it to the project root (defense in depth on top
+of the scheme's own clamping), checks the allow-list, and serves gzip-decompressed
+text for WRL nodes / raw bytes for assets. Missing, case-mismatched, absolute,
+traversal, and remote references are **not** authorized → X_ITE gets a `Not Found`
+and surfaces a runtime warning; inline `vrmlscript:` never evaluates (the CSP has
+no `unsafe-eval`). The module is pure/injectable and unit-tested
+(`test/world-project/preview-source.test.js`) without Electron or X_ITE.
+
+**Process boundary.** `world:previewLoad` (main) reads only `worldSession`'s held
+primary — never a renderer path — decompresses it, installs the authorized set
+into the scheme handler, and returns the primary text + `wrlworld://` base URL +
+advisory counts/warnings. The renderer sets `browser.baseURL` and
+`createX3DFromString(text)`; X_ITE then fetches every dependency through the
+confined scheme. Nothing is written.
+
+**UX.** Preview canvas, loading/status line, viewpoint selector (discovers
+nested-Inline viewpoints via `EnableInlineViewpoints`), Reset View, navigation
+mode, explicit **Refresh Preview**, loaded-vs-missing counts, remote/unsafe/
+missing/case warnings, and a stale badge. A temporary parse error keeps the last
+valid scene (does not clear the canvas) and flags it stale until a successful
+Refresh. The existing summary / filters / asset table / dependency view are
+unchanged; the preview sits above them and reflows to a usable single column at
+narrow widths.
+
+Verified by `test/world-project/preview-source.test.js` (authorization/serving,
+non-mutation, no-Mall-rules), the opt-in `test/visual/electron-world-preview.test.js`,
+and one serialized `VisualQaRunner` run of all 10 states
+(`qa/phase-4b-world-preview/`, `RESULTS.md`).
 
 ## Workspace UI (`renderer/world.html` + `world.js`)
 
@@ -122,9 +176,11 @@ A separate page sharing the one BrowserWindow and preload (so it gets the same
 - **States** — no project / scanning / ambiguous-primary chooser / loaded /
   error, with text status wording (`Present`/`Missing`/`Warning`/`Blocked`/
   `Unknown`/`Needs review`).
+- **World preview** (Phase 4B) — embedded X_ITE canvas with viewpoint selector,
+  Reset View, navigation mode, Refresh Preview, loaded-vs-missing counts, and a
+  stale badge (see "World preview (Phase 4B)" above).
 - **Actions** — Refresh Scan, Reveal Project Folder, Open Primary WRL in
-  VSCodium, ← Mall Item workspace. No repair/delete/copy/rename/package/upload/
-  preview.
+  VSCodium, ← Mall Item workspace. No repair/delete/copy/rename/package/upload.
 
 ## Refresh
 
@@ -135,6 +191,7 @@ overlapping scan); a transient parse error keeps the last good result visible
 
 ## Not in this lane
 
-World X_ITE preview, automatic path repair, asset copy/rename/delete,
-packaging, direct upload, Apply/Bake transforms, Windows packaging — each needs
-its own approved lane. World preview is the proposed **Phase 4B**.
+Automatic path repair, asset copy/rename/delete, packaging, direct upload,
+Apply/Bake transforms, Windows packaging — each needs its own approved lane. The
+Phase 4B world preview is **analysis + display only**; it never repairs, copies,
+packages, uploads, edits, or marks a project upload-ready.
