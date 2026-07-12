@@ -17,9 +17,26 @@ It does **not** implement its own text editor, syntax highlighter, or (today) a 
 1. **Gzip transparency** — the mall's actual upload files are gzip-compressed `.wrl` (a real VRML text file inside, but the bytes on disk are binary). VSCodium can't usefully open that. WRL Forge decompresses to a plain sibling file for editing and recompresses on save.
 2. **Cybertown Mall validation** — the upload rules from `../new-items/CLAUDE.md` (80KB gzip cap, required `WorldInfo`, forbidden nodes, texture rules, DEF/USE integrity, placement bounds) are mall-item-specific and not something a generic VRML/X3D extension checks. These rules apply to the **Mall Item** profile only — do not apply them to World Project or Generic VRML97 validation.
 
+### Platform
+
+Linux is the first supported platform and must be thoroughly tested — every lane's validation happens on Linux first. Windows support is planned in the very near future, not a distant hypothetical: reusable core logic (paths, process launching, project/validation/packaging code) must stay cross-platform-conscious now (use `path.join`, avoid hardcoded separators or `/home/<user>`-style paths in anything reusable) rather than deferring that discipline to a future rewrite. Do not delay Linux implementation work to speculatively build Windows support first. See `docs/PLATFORM_NOTES.md` for the concrete platform-sensitive behaviors and the current test matrix.
+
+### Open-source components
+
+Prefer open-source components; the current stack is:
+
+- **Electron** — application shell.
+- **VSCodium** — external editor for all lanes today (not bundled; the user's existing installation, with the `create3000.x-ite-vscode` / `create3000.x3d-vscode-syntax-highlighting` extensions).
+- **X_ITE** (MIT) — the approved VRML/X3D rendering and preview engine, both for VSCodium's live-preview extension today and for the embedded-preview direction below. See `spikes/xite-mall-fit/` for the Phase 2A technical spike and `spikes/xite-mall-fit/NOTES.md` for what was verified about its API.
+- **Node.js built-ins** — `zlib`, `fs`, `path`, `child_process`, `node:test` — preferred over adding a dependency where they suffice (e.g. no external test framework; see `package.json`'s `test`/`check` scripts).
+
+Do not build a custom VRML/X3D renderer under any circumstances — X_ITE is the approved engine for that.
+
 ### Future direction: embedded preview
 
 An embedded X_ITE preview is **approved for a future scoped phase** (see roadmap Phase 5) — this is no longer a permanent prohibition. When that phase happens: integrate X_ITE as the rendering engine (it is already maintained and used via the VSCodium extension), do not build a custom VRML/X3D renderer, and keep VSCodium available as an advanced "Open in Editor" action rather than removing it. Do not begin that work without a dedicated planning/approval pass — it is not in scope for incremental lanes unless explicitly requested.
+
+A narrowly-scoped **technical spike** at `spikes/xite-mall-fit/` (Phase 2A) is a deliberate exception to "don't begin that work without approval" — it was explicitly commissioned to de-risk Phase 5/2B by proving out X_ITE's bounding-box behavior and a preview-only fit calculation, in complete isolation from the production app (its own Electron main process, no shared IPC surface, no production code path touches it). It does **not** constitute the "dedicated planning/approval pass" Phase 5 itself still requires, and does not license further opportunistic X_ITE integration into `main.js`/`renderer/` outside of an explicitly approved lane.
 
 ### Unverified assumptions — do not encode as fact
 

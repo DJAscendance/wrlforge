@@ -17,12 +17,13 @@ The working `vrmlpad` tool, now the Mall Item lane of WRL Forge.
 
 **Completion criteria:** met — this phase is the shipped, working state as of the rename.
 
-## Phase 1 — Product Rename and Profile Foundation 🚧 (this lane)
+## Phase 1 — Product Rename and Profile Foundation ✅
 
 - Rename `vrmlpad` → **WRL Forge** across package metadata, branding, docs, and launchers
 - Introduce the explicit three-profile model (Mall Item / World Project / Generic VRML97) in documentation
 - Sketch a validation-profile architecture (separate validator modules per profile, no shared Cybertown-specific logic)
-- **No major feature implementation** — this phase is naming and documentation only
+- Git baseline established, automated test foundation added (`npm test` / `npm run check`)
+- **No major feature implementation** — this phase is naming, documentation, and infrastructure only
 
 **Prerequisites:** none beyond the Phase 0 foundation.
 
@@ -30,28 +31,49 @@ The working `vrmlpad` tool, now the Mall Item lane of WRL Forge.
 - Electron's `userData` path is derived from `package.json` `name`; renaming it silently loses saved window state without a migration fallback. *(Mitigated: `main.js` falls back to the old `~/.config/vrmlpad` path — see AGENTS.md "Rename note".)*
 - Over-renaming internal symbols (IPC channels, bridge object names) purely for cosmetic consistency adds risk without user-facing benefit. *(Mitigated: `mall:*` channels and `window.vrmlpad` were deliberately retained.)*
 
-**Completion criteria:**
+**Completion criteria:** met.
 - All user-facing branding (window title, panel UI, desktop launcher, package description) reads "WRL Forge"
 - Existing Mall Item functionality verified unregressed (open/edit/validate/repack/backup/window-state)
 - `AGENTS.md`, `CLAUDE.md`, `README.md`, and this roadmap reflect the expanded mission
+- A git repository with a clean baseline commit exists, and a `node:test` suite covers the extracted pure modules plus `validator.js`
 
-## Phase 2 — Mall Item Fit and Placement ⏳
+## Phase 2A — Fit Engine and X_ITE Technical Spike 🚧 (this lane)
 
-- Cybertown bounds visualization (beyond the current advisory local-bbox text)
-- Calculated offset and scale suggestions for placing items within mall bounds
-- Clear separation of preview-only reporting versus any future apply-transform action
-- Deterministic reporting format for placement checks
+- A pure, independently-tested fit-math module encoding the Cybertown Mall Item fit rules (ground `Y=-1.75`, center `X=0`, max `Z<=+1`, max dims `10x10x10`, default requested scale `125%`), decoupled from how a bounding box is obtained
+- An isolated technical spike (`spikes/xite-mall-fit/`) proving out X_ITE as the bounds source: load a VRML97 item, derive a transform-aware world-space bounding box by walking the parsed scene graph (no regex/string scraping of geometry), and render a non-exported guide overlay (ground plane, center axis, Z-limit plane, 10m cage)
+- Explicitly **not** integrated into the production app — the spike has its own isolated Electron process, its own fixtures, no shared IPC surface with `main.js`
+- Explicitly display-only — no apply/bake/mutation path exists in the spike
 
 **Prerequisites:** Phase 1 complete.
 
 **Risks:**
-- Silent geometry mutation would violate the non-destructive convention — any transform suggestion must be preview-only unless a separate, explicit "apply" action is designed and approved.
-- Placement math must account for `Transform` translation/scale chains, which the current advisory check explicitly does not do (see `validator.js` bbox note) — getting this wrong produces confidently-wrong advice.
+- Silent geometry mutation would violate the non-destructive convention — mitigated by the spike having no write-capable code path at all, not just an unused one.
+- X_ITE might not expose a trustworthy, transform-aware bounding box — confirmed during this phase: it does not expose one publicly, so bounds are computed via manual `SFMatrix4` world-transform accumulation over the parsed scene graph instead (see `spikes/xite-mall-fit/NOTES.md`).
+
+**Completion criteria:** met.
+- Fit-math module has `node:test` coverage of the required edge cases (compliant, off-center, above/below ground, exceeds Z limit, exceeds 10m, zero-size axis, negative coordinates, nested-transform, rotated, custom rules)
+- Spike demonstrates transform-aware bbox extraction (verified against a nested-transform fixture and a rotated fixture by hand-calculation, plus a real Cybertown Mall item) and honestly documents where confidence is lower (Extrusion, DEF/USE, texture resolution — see NOTES.md)
+- Findings are recorded in `spikes/xite-mall-fit/NOTES.md` to inform Phase 2B scoping
+
+## Phase 2B — Mall Item Fit Production UI ⏳
+
+- Embedded X_ITE preview *inside the production app* — this is the first point X_ITE enters `main.js`/`renderer/`, gated on Phase 2A's findings (see also Phase 5, which this phase is a scoped subset of for the Mall Item profile specifically)
+- Original vs. fitted display (toggle or side-by-side)
+- Cybertown guide overlays (ground plane, center axis, Z-limit plane, 10m cage), reusing Phase 2A's guide-layer approach
+- Live bounds report using Phase 2A's fit-math module
+- Preview-only transform display — proposing a fit is not the same as applying one
+- **No silent mutation** — any future "apply" action is a separate, explicitly designed and approved feature, not implied by this phase
+
+**Prerequisites:** Phase 2A complete and reviewed; Phase 2A's open items (Extrusion accuracy, DEF/USE fixture coverage, local texture resolution) addressed or explicitly deferred with reasoning.
+
+**Risks:**
+- This is the first production integration of X_ITE — carries the same privilege-isolation risk called out in Phase 5 below, scoped narrowly to the Mall Item profile.
+- Placement math must account for `Transform` translation/scale chains, which the current advisory check in `validator.js` explicitly does not do — Phase 2A's fit-math module addresses this, but the production UI must actually use it rather than falling back to the old advisory check.
 
 **Completion criteria:**
-- Placement report shows both raw local bounds and a best-effort mall-space bounds estimate
+- Placement report shows both raw local bounds and the transform-aware mall-space bounds estimate
 - No geometry is ever mutated without an explicit, separate user action
-- Existing advisory placement check behavior is preserved for users who don't need the new detail
+- Security review confirms the embedded preview surface has no more Electron privilege than it needs (same discipline as Phase 5)
 
 ## Phase 3 — World Project Recon ⏳
 
@@ -95,7 +117,9 @@ The working `vrmlpad` tool, now the Mall Item lane of WRL Forge.
 - Preserve the external VSCodium workflow — "Open in Editor" remains available as an advanced action, it is not replaced
 - Support both Mall Item and World Project contexts
 
-**Prerequisites:** Phases 2 and 4 (placement math and asset resolution) provide the data the preview needs to be useful, though the embedded viewer itself could technically start earlier if scoped narrowly.
+See Phase 2A for the earlier, narrowly-scoped X_ITE technical spike that precedes this phase's embedded production integration, and Phase 2B for the Mall Item-specific slice of embedded preview that phase already covers — this phase is the full production integration across both Mall Item and World Project contexts, not the first place X_ITE is evaluated.
+
+**Prerequisites:** Phases 2 and 4 (placement math and asset resolution) provide the data the preview needs to be useful, though the embedded viewer itself could technically start earlier if scoped narrowly — Phase 2A/2B already exercise that option for the Mall Item profile specifically.
 
 **Risks:**
 - This is the highest-blast-radius phase — it's the one place a dependency (X_ITE, however it's integrated: bundled lib, iframe, etc.) enters the Electron app directly instead of running inside VSCodium's own extension host.
