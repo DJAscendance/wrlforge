@@ -155,22 +155,71 @@ not independently verified**.
   extremely rare in practice and never under-estimates the true bounds.
 - `Box`, `Sphere`, `Cylinder`, `Cone` — exact, from their size/radius/height
   fields.
-- `Extrusion` — **approximate, not an exact sweep**: the spine's bbox
-  expanded by the cross-section's local (X,Z) radius at every spine point.
-  This over-estimates for any spine segment with significant curvature
-  between sample points, and doesn't model cross-section orientation
-  changes along the spine. No `Extrusion` fixture was tested in this
-  spike — flagged as **not implemented to production quality**, tracked as
-  an open item for Phase 2B.
+- `Extrusion` — **corrected in Phase 2B0 to an exact VRML97 cross-section
+  sweep** (see "Extrusion bounds — corrected" below). The earlier
+  approximation ignored `scale`/`orientation` and dangerously
+  under-estimated width/depth; that is fixed and verified against X_ITE's
+  own generated mesh.
 
-## Local texture resolution
+## Extrusion bounds — corrected (Phase 2B0)
 
-Not exercised in this spike (the fixtures used are untextured or the real
-item's textures weren't loaded relative to the fixture's original
-directory). `real-smartcar-lite.wrl` was copied standalone into
-`fixtures/`, so any relative texture URLs it references would not resolve
-in this harness. This is a real gap for Phase 2B, where texture loading
-needs to work relative to the actual mall item's directory.
+The independent Phase 2A QA flagged a **blocker**: the Extrusion handling
+ignored the `scale` and `orientation` fields, so a scaled extrusion's
+width/depth were dangerously under-estimated (a 12 m item could pass the
+10 m Cybertown rule). Fixed in `extrusion-bounds.js` (pure, node:test-able):
+it builds each spine point's spine-aligned cross-section (SCP) frame,
+applies the per-spine `scale` then `orientation` to every cross-section
+vertex, maps it into the SCP frame, and unions the swept points. Caps add
+no vertices beyond the end cross-sections. Field-length rules (0/1/N values)
+follow the spec. Ambiguous/degenerate spine points fall back to a
+conservative bounding ball (overestimate, never smaller) and report
+`confidence: 'conservative'`.
+
+**Verified**: every untransformed extrusion fixture's analytic bounds match
+**X_ITE's own generated-mesh bounds** (`geometry.getValue().getMin()/getMax()`)
+EXACTLY — a real ground-truth oracle, not a hand-wave. Transformed extrusions
+match hand-derived world bounds. A fit-math integration test proves the fix
+turns a former false-compliance (oversized extrusion passing at 125 %) into a
+correctly capped scale. Full evidence:
+`qa/phase-2b0-extrusion-loading/RESULTS.md`.
+
+**Discovery worth keeping**: although X_ITE exposes no *public* aggregate
+bbox API (the Phase 2A finding stands), each underlying geometry node —
+reached via `geometry.getValue()` — does have `getBBox()/getMin()/getMax()/
+getVertices()` on its generated mesh. That is an internal (non-proxy) surface,
+so it is used here only as a verification oracle, not as the production bounds
+source; the deterministic, node-testable analytic sweep remains authoritative.
+
+## Local texture resolution — implemented (Phase 2B0)
+
+Relative texture URLs now resolve against the **source .wrl's own directory**.
+The main process supplies that directory as a `file://` base URL (see
+`texture-base.js` `fileDirUrl`), and the renderer sets `browser.baseURL`
+before `createX3DFromString`. Verified end-to-end: same-dir, nested
+(`tex/wood.png`), `./tex.png`, and space-containing (`my stone.png`, percent-
+encoded) textures all load; a missing texture yields a clear
+`Couldn't load URL '…/fixtures/nope.png'` warning **without** breaking bounds
+extraction; a filename case mismatch (`Stone.PNG` vs `stone.png`) is surfaced
+clearly on Linux (case-sensitive fs). See RESULTS.md §4.
+
+## Gzip → X_ITE loading — implemented (Phase 2B0)
+
+X_ITE now receives **decompressed text only**. A read-only main-process IPC
+channel (`wrl:load`) reads the source, detects gzip with the **production**
+`isGzip` helper (reused from `src/files/vrml-file.js`, not duplicated),
+decompresses via `zlib`, and returns the text; X_ITE never fetches/parses gzip
+bytes. Malformed gzip yields a clear, prefixed error. `wrl-source.test.js`
+covers plain→text, gzip→identical-text, corrupt→error, and source non-mutation.
+
+## Security posture after Phase 2B0
+
+The spike gained exactly one narrow, **read-only** IPC channel (`wrl:load`) —
+still `contextIsolation:true`, `nodeIntegration:false`, no write-capable IPC,
+no Node/fs handed to the renderer, no remote URL loading. Renderer-supplied
+names are confined to the `fixtures/` directory by `texture-base.safeResolve`
+(rejects `../`, absolute paths, drive letters). The base-URL helper only ever
+produces local `file://` URLs, so a malicious texture URL cannot trigger a
+remote fetch through it.
 
 ## Security boundary — how this spike avoids privileged access
 
@@ -252,9 +301,10 @@ in this spike — see "DEF/USE representation" above).
 | Deeply nested rotation | Medium (inferred, not directly tested) | Same code path as verified cases, but no dedicated fixture |
 | Primitives (Box/Sphere/Cylinder/Cone) | High | Simple, exact formulas from real field data |
 | IndexedFaceSet-family via Coordinate.point | High | Verified via `real-smartcar-lite.wrl`'s plausible real bounds |
-| Extrusion | Low | Approximated, not tested against any fixture |
-| DEF/USE bbox correctness | Medium (inferred from confirmed node-sharing semantics, not fixture-tested) | Traversal design is correct by construction; no test |
-| Local texture resolution | Not assessed | Out of scope for this spike's fixtures |
+| Extrusion (scale/orientation/caps/transforms) | High | Exact match to X_ITE generated-mesh oracle on 9 fixtures + hand-derived transformed cases; conservative fallback for degenerate spines (Phase 2B0) |
+| DEF/USE bbox correctness | Medium (inferred from confirmed node-sharing semantics; QA verified via qa-def-use.wrl in the QA clone, no fixture in this repo) | Traversal design correct by construction |
+| Local texture resolution (relative, nested, spaces, missing, case) | High | Verified end-to-end via source-directory baseURL (Phase 2B0) |
+| Gzip → X_ITE (decompressed-text loading) | High | node:test + end-to-end X_ITE render (Phase 2B0) |
 | Fit math (ground/center/Z/size/scale) | High | 11 unit tests + real-item end-to-end run |
 | Security boundary | High | No IPC surface exists to audit away |
 

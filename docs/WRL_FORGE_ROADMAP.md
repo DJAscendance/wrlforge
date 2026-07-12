@@ -55,6 +55,32 @@ The working `vrmlpad` tool, now the Mall Item lane of WRL Forge.
 - Spike demonstrates transform-aware bbox extraction (verified against a nested-transform fixture and a rotated fixture by hand-calculation, plus a real Cybertown Mall item) and honestly documents where confidence is lower (Extrusion, DEF/USE, texture resolution — see NOTES.md)
 - Findings are recorded in `spikes/xite-mall-fit/NOTES.md` to inform Phase 2B scoping
 
+## Phase 2B0 — Extrusion / Gzip / Texture Remediation ✅ (this lane)
+
+A narrow remediation lane required by the independent Phase 2A QA's
+**CONDITIONAL GO** before any Phase 2B production UI work. Kept inside the
+isolated spike — no production app code changed.
+
+- **Extrusion bounds corrected**: the QA blocker (scale/orientation ignored →
+  dangerous width/depth underestimate) is fixed with an exact VRML97
+  cross-section sweep (`spikes/xite-mall-fit/extrusion-bounds.js`), verified
+  EXACT against X_ITE's own generated-mesh bounds on 9 fixtures plus
+  hand-derived transformed cases, with a conservative (never-smaller) fallback
+  for ambiguous spines.
+- **Gzip → X_ITE**: X_ITE now receives decompressed text only, via a read-only
+  main-process channel reusing the production `isGzip` helper.
+- **Relative textures** resolve against the source `.wrl`'s directory
+  (`browser.baseURL`); missing/case-mismatch textures warn clearly without
+  breaking bounds.
+- Security posture preserved (`contextIsolation:true`, `nodeIntegration:false`,
+  read-only IPC confined to `fixtures/`, no write path).
+
+**Completion criteria:** met. Evidence:
+`qa/phase-2b0-extrusion-loading/RESULTS.md`; tests in
+`spikes/xite-mall-fit/*.test.js`. This closes Phase 2B's open items (Extrusion
+accuracy, local texture resolution, gzip-to-X_ITE), so **Phase 2B is now
+unblocked** pending its own approved lane.
+
 ## Phase 2B — Mall Item Fit Production UI ⏳
 
 - Embedded X_ITE preview *inside the production app* — this is the first point X_ITE enters `main.js`/`renderer/`, gated on Phase 2A's findings (see also Phase 5, which this phase is a scoped subset of for the Mall Item profile specifically)
@@ -64,7 +90,7 @@ The working `vrmlpad` tool, now the Mall Item lane of WRL Forge.
 - Preview-only transform display — proposing a fit is not the same as applying one
 - **No silent mutation** — any future "apply" action is a separate, explicitly designed and approved feature, not implied by this phase
 
-**Prerequisites:** Phase 2A complete and reviewed; Phase 2A's open items (Extrusion accuracy, DEF/USE fixture coverage, local texture resolution) addressed or explicitly deferred with reasoning.
+**Prerequisites:** Phase 2A complete and reviewed; Phase 2A's open items addressed — Extrusion accuracy, local texture resolution, and gzip-to-X_ITE loading are all resolved in **Phase 2B0** (above). DEF/USE fixture coverage remains a lower-priority open item (correct by construction; QA verified it in their clone, no fixture landed in this repo).
 
 **Risks:**
 - This is the first production integration of X_ITE — carries the same privilege-isolation risk called out in Phase 5 below, scoped narrowly to the Mall Item profile.

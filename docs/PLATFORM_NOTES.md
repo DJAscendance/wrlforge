@@ -20,6 +20,8 @@ All path construction in this codebase uses `path.join`/`path.dirname`/`path.bas
 
 Linux (ext4) is case-sensitive; Windows (NTFS) is case-insensitive-but-case-preserving. This doesn't affect the current Mall Item lane (single-file, no cross-referenced local assets), but it's directly relevant to the planned Phase 4 World Asset Resolver, which will need to detect filename-case mismatches explicitly rather than relying on the local filesystem's behavior to catch them — a mismatch that's silently tolerated on a case-insensitive dev machine could be a hard failure on the actual target server. Flagged here as forward-looking context for that phase.
 
+**Empirically confirmed (Phase 2B0):** in the X_ITE spike, a texture referenced as `Stone.PNG` when the file on disk is `stone.png` fails to load on Linux and surfaces a clear `Couldn't load URL '…/Stone.PNG'` warning — i.e. the case mismatch is caught here because the filesystem is case-sensitive. On a case-insensitive Windows/macOS dev machine the same reference would load silently, masking a bug that breaks on a case-sensitive server. This is exactly why Phase 4 must detect case mismatches in code rather than leaning on the local fs, and it's an argument for authoring/testing on the case-sensitive (Linux) platform. The texture base-URL resolution itself (`spikes/xite-mall-fit/texture-base.js`) is written with `path` arithmetic and percent-encoding, so it is portable as-is; only the *observed* case behavior differs by platform.
+
 ## Desktop launcher vs. Windows shortcut
 
 `wrl-forge.desktop` is a Linux/XDG desktop-entry file (`Exec=`/`Path=` pointing at `launch.sh`), installed both in-repo and to `~/.local/share/applications/`. This mechanism doesn't exist on Windows — the equivalent would be a Start Menu shortcut (`.lnk`) or an installer-created entry, not implemented in this lane.
@@ -53,5 +55,6 @@ Not implemented in this lane. A future Windows packaging pass will need `electro
 | `npm test` (`node:test` suite: validator, vrml-file, backups, window-state) | ✅ verified this lane | Not yet run — pure `path`-based logic, expected to be portable, not independently confirmed |
 | Electron smoke test | ✅ verified this lane (real Electron launch, title/bridge/security-flag assertions) | Not yet run |
 | X_ITE spike (`spikes/xite-mall-fit/`) | ✅ verified this lane against 4 real fixtures | Not yet run; `x_ite` itself ships no native/platform-specific binaries, so no structural blocker is known |
+| X_ITE spike Phase 2B0 (extrusion sweep, gzip loading, relative textures) | ✅ verified on Linux (26 spike node:tests; extrusion bounds EXACT vs X_ITE mesh oracle; gzip + texture base-URL end-to-end; case-mismatch surfaced) | Not yet run; logic is `path`-portable and `zlib`/`isGzip` are cross-platform. Case-*mismatch* detection is platform-observable (see Case sensitivity) |
 | VSCodium launch (`spawn('codium', ...)`) | ✅ working | Known gap — executable name differs, not yet handled |
 | Desktop launcher | ✅ working (corrected path this lane) | N/A — no Windows equivalent implemented |
