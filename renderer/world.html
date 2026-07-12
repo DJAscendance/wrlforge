@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- Strict CSP: no remote origins anywhere. The World workspace does NOT render
+     a 3D preview (no X_ITE this lane), so no wasm is needed. Local schemes only,
+     for the app bundle and its own scripts/styles. This is a layered control on
+     top of the main-process network guard. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' file:;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' file: data:;
+  connect-src 'self' file:;
+  font-src 'self' file: data:;
+  object-src 'none';
+  base-uri 'none';
+">
+<title>WRL Forge — World Project lane</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 16px; background: #1b1b1b; color: #ddd;
+    font-family: -apple-system, "Segoe UI", sans-serif; font-size: 14px;
+  }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  h2 { font-size: 13px; margin: 14px 0 8px; color: #aaa; text-transform: uppercase; letter-spacing: 0.04em; }
+  .sub { color: #888; margin-bottom: 16px; }
+  button {
+    background: #2d6ae0; color: #fff; border: none; border-radius: 4px;
+    padding: 8px 14px; font-size: 13px; cursor: pointer; margin-right: 8px; margin-bottom: 6px;
+  }
+  button:hover { background: #3a78ee; }
+  button.secondary { background: #333; }
+  button.secondary:hover { background: #444; }
+  button:disabled { background: #333; color: #777; cursor: not-allowed; }
+  button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid #7db3ff; outline-offset: 2px; }
+  .row { margin: 8px 0; }
+  .status-line { font-size: 12.5px; color: #9ab; margin: 8px 0; min-height: 1.2em; }
+  .placeholder { color: #666; font-style: italic; margin-top: 20px; }
+  .panel { background: #111; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+  .paths { background: #111; border-radius: 6px; padding: 10px 12px; font-family: monospace; font-size: 12px; }
+  .paths div { margin: 2px 0; word-break: break-all; }
+  .paths .label { color: #888; display: inline-block; width: 96px; }
+
+  /* Summary grid */
+  .summary { display: flex; gap: 12px; flex-wrap: wrap; }
+  .summary .stat { background: #111; border-radius: 6px; padding: 8px 12px; min-width: 92px; }
+  .summary .stat .n { font-size: 18px; font-weight: 600; }
+  .summary .stat .l { color: #888; font-size: 11px; text-transform: uppercase; }
+  .summary .stat.warn .n { color: #ffce6a; }
+  .summary .stat.err .n { color: #ff6161; }
+
+  /* Findings */
+  .finding { padding: 6px 10px; border-radius: 4px; margin: 4px 0; font-size: 12.5px; display: flex; gap: 8px; align-items: baseline; }
+  .finding .sev { font-weight: 700; flex: none; width: 74px; }
+  .finding.error { background: #401414; color: #ff9b9b; }
+  .finding.warning { background: #3a2f10; color: #ffce6a; }
+  .finding.info { background: #10233a; color: #9cc4ff; }
+  .conf { color: #888; font-size: 11px; margin-left: auto; }
+
+  /* Filters */
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .filters button { background: #222; color: #bbb; padding: 5px 10px; font-size: 12px; margin: 0; }
+  .filters button.active { background: #2d6ae0; color: #fff; }
+
+  /* Asset table */
+  .tablewrap { overflow-x: auto; }
+  table.assets { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.assets th, table.assets td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #222; vertical-align: top; }
+  table.assets th { color: #888; font-weight: 500; position: sticky; top: 0; background: #1b1b1b; }
+  table.assets td.num { font-family: monospace; text-align: right; white-space: nowrap; }
+  .st { font-weight: 700; white-space: nowrap; }
+  .st-present { color: #5fd06a; }
+  .st-missing { color: #ff6161; }
+  .st-case { color: #ffce6a; }
+  .st-remote, .st-unsafe { color: #ff9b6a; }
+  .st-script, .st-malformed { color: #9aa; }
+  .mono { font-family: monospace; word-break: break-all; }
+  .note { color: #999; }
+
+  /* Dependency tree */
+  .tree { font-size: 12.5px; }
+  .tree .wrl { margin: 8px 0 2px; color: #9cc4ff; font-family: monospace; }
+  .tree ul { margin: 2px 0 6px 18px; padding: 0; list-style: none; }
+  .tree li { margin: 1px 0; }
+  .cycle { color: #ffce6a; }
+  .hint { color: #777; font-size: 11.5px; }
+</style>
+</head>
+<body>
+  <h1>WRL Forge <span style="color:#888; font-weight:400; font-size:12px;">— World Project lane</span></h1>
+  <div class="sub">Read-only asset resolver: open a world project, inspect every referenced texture, nested WRL, and URL asset — no arbitrary texture limit, no file mutation, no preview yet.</div>
+
+  <div class="row">
+    <button id="openFolderBtn">Open Project Folder…</button>
+    <button id="openFileBtn" class="secondary">Open Primary WRL…</button>
+    <button id="refreshBtn" class="secondary" disabled>Refresh Scan</button>
+    <button id="revealBtn" class="secondary" disabled>Reveal Project Folder</button>
+    <button id="editorBtn" class="secondary" disabled>Open Primary WRL in VSCodium</button>
+    <button id="mallBtn" class="secondary">← Mall Item workspace</button>
+  </div>
+
+  <div class="status-line" id="status" role="status" aria-live="polite">No project open.</div>
+
+  <!-- Empty state -->
+  <div id="empty" class="placeholder">
+    No World Project open. Choose <em>Open Project Folder…</em> (WRL Forge detects the primary world) or <em>Open Primary WRL…</em> to pick one directly.
+  </div>
+
+  <!-- Ambiguous-primary chooser -->
+  <div id="ambiguous" class="panel" style="display:none">
+    <h2 style="margin-top:0">Which file is the primary world?</h2>
+    <div class="hint">More than one candidate world file was found and none clearly contains the others. Pick the primary — WRL Forge will not guess.</div>
+    <div id="candidates"></div>
+  </div>
+
+  <!-- Loaded project -->
+  <div id="loaded" style="display:none">
+    <div class="paths">
+      <div><span class="label">project root:</span><span id="rootPath" class="mono"></span></div>
+      <div><span class="label">primary WRL:</span><span id="primaryPath" class="mono"></span> <span id="primarySrc" class="hint"></span></div>
+      <div><span class="label">scan:</span><span id="scanInfo" class="hint"></span></div>
+    </div>
+
+    <h2>Project summary</h2>
+    <div class="summary" id="summary"></div>
+
+    <div id="findings"></div>
+
+    <h2>Assets</h2>
+    <div class="filters" id="filters"></div>
+    <div class="tablewrap">
+      <table class="assets">
+        <thead>
+          <tr><th>Status</th><th>Asset</th><th>Type</th><th>Referenced by</th><th class="num">Size</th><th class="num">Depth</th><th>Notes</th></tr>
+        </thead>
+        <tbody id="assetRows"></tbody>
+      </table>
+    </div>
+    <div class="hint" id="tableEmpty" style="display:none">No references match this filter.</div>
+
+    <h2>Dependency view</h2>
+    <div class="tree" id="tree"></div>
+  </div>
+
+<script defer src="world.js"></script>
+</body>
+</html>

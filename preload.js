@@ -12,4 +12,22 @@ contextBridge.exposeInMainWorld('vrmlpad', {
   // an arbitrary path. No write-capable preview channel is exposed.
   loadPreview: (role) => ipcRenderer.invoke('preview:load', role),
   openInEditor: () => ipcRenderer.invoke('mall:openInEditor'),
+  // Navigate the single window between the Mall and World workspaces. The page
+  // name is whitelisted in the main process; the renderer cannot navigate to an
+  // arbitrary URL.
+  goto: (page) => ipcRenderer.invoke('app:goto', page),
+  // World Project lane (Phase 4A) -- strictly READ-ONLY. No method mutates,
+  // repairs, copies, renames, deletes, uploads, or fetches. The main process
+  // owns all project paths; scanProject/refresh act only on the open project.
+  world: {
+    openFolder: () => ipcRenderer.invoke('world:openFolder'),
+    openPrimaryFile: () => ipcRenderer.invoke('world:openPrimaryFile'),
+    choosePrimary: (primaryPath) => ipcRenderer.invoke('world:choosePrimary', primaryPath),
+    scanProject: () => ipcRenderer.invoke('world:scan'),
+    refreshProject: () => ipcRenderer.invoke('world:refresh'),
+    describe: () => ipcRenderer.invoke('world:describe'),
+    reveal: (targetPath) => ipcRenderer.invoke('world:reveal', targetPath),
+    revealRoot: () => ipcRenderer.invoke('world:revealRoot'),
+    openPrimaryInEditor: () => ipcRenderer.invoke('world:openPrimaryInEditor'),
+  },
 });

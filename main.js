@@ -10,6 +10,9 @@ const { backupPath } = require('./src/files/backups');
 const { readWrlSource } = require('./src/preview/wrl-source');
 const { fileDirUrl } = require('./src/preview/texture-base');
 const { isBlockedPreviewUrl, scanRemoteUrls } = require('./src/preview/url-policy');
+const { detectPrimaries } = require('./src/world-project/project-loader');
+const { summarize } = require('./src/world-project/project-stats');
+const { ProjectSession } = require('./src/world-project/session');
 
 // Which file the embedded preview is allowed to read. Set only by openMallFile
 // (which itself is reached only via the user's Open dialog or an explicit path),
@@ -17,6 +20,61 @@ const { isBlockedPreviewUrl, scanRemoteUrls } = require('./src/preview/url-polic
 // path by the renderer -- it may read only the currently-open item or its
 // .edit.wrl sibling, never a renderer-supplied path.
 let currentSession = null; // { mallPath, editFile }
+
+// The single open World Project (Phase 4A). The main process owns the project
+// root and detected primary candidates; the renderer never supplies an arbitrary
+// scan path -- it can only pick among candidates the main process detected. The
+// world surface is strictly READ-ONLY: there is no write-capable world IPC.
+const worldSession = new ProjectSession();
+
+// The main window, used for Mall<->World page navigation (main keeps control of
+// which local page loads; the renderer cannot navigate to an arbitrary URL).
+let mainWindow = null;
+
+// Renderer pages the app may navigate between (whitelist -- never a path from
+// the renderer). Both share the one BrowserWindow, preload, and security config.
+const APP_PAGES = { mall: 'index.html', world: 'world.html' };
+let currentPage = 'mall';
+
+// Navigate the one window to a whitelisted local page and await its load. Used
+// by both the interactive nav buttons and the capture-server QA harness so the
+// same reused window can screenshot either workspace.
+async function gotoPage(page) {
+  const file = APP_PAGES[page];
+  if (!file || !mainWindow) return;
+  if (currentPage === page) return;
+  await mainWindow.loadFile(path.join(__dirname, 'renderer', file));
+  currentPage = page;
+}
+
+// Flatten a session scan result into a JSON-safe payload for the renderer. The
+// graph is already free of Sets (referencedBy arrays); this trims wrlNodes to
+// display fields and attaches the derived summary. Read-only data only.
+function serializeScan(scan) {
+  const g = scan.graph || { references: [], wrlNodes: [], assets: [], missing: [], caseMismatches: [], remoteRefs: [], unsafe: [], cycles: [] };
+  return {
+    ok: scan.status === 'ok',
+    status: scan.status,
+    error: scan.error || null,
+    stale: !!scan.stale,
+    superseded: !!scan.superseded,
+    root: scan.root,
+    primary: scan.primary,
+    primaryGzip: !!scan.primaryGzip,
+    scanMs: scan.scanMs,
+    summary: summarize(scan),
+    references: g.references,
+    wrlNodes: g.wrlNodes.map((n) => ({ path: n.path, depth: n.depth, parent: n.parent || null, bytes: n.bytes, unreadable: n.unreadable || null, refs: n.refs || [] })),
+    assets: g.assets,
+    missing: g.missing,
+    caseMismatches: g.caseMismatches,
+    remoteRefs: g.remoteRefs,
+    unsafe: g.unsafe,
+    cycles: g.cycles,
+    truncated: !!g.truncated,
+    depthCapped: !!g.depthCapped,
+  };
+}
 
 // Hard network gate for the embedded X_ITE preview: cancel every request whose
 // scheme is remote/network-capable (http/https/ws/ftp/protocol-relative), so an
@@ -79,6 +137,7 @@ function createWindow() {
     },
   });
   if (state.isMaximized) win.maximize();
+  mainWindow = win;
 
   let saveTimer = null;
   const scheduleSave = () => {
@@ -150,6 +209,32 @@ function createWindow() {
         if (w && h) win.setSize(w, h);
       }
       const payload = {};
+
+      // World Project job (Phase 4A): drive the read-only World workspace across
+      // a sequence of states in the SAME reused window. `world` may be null (the
+      // empty-project state) or { root, primary } (a scratch project the trusted
+      // main process points the confined scan at -- the renderer never supplies
+      // this). No mutation: scanning only reads.
+      if ('world' in job) {
+        await gotoPage('world');
+        if (job.world) {
+          worldSession.open({ root: job.world.root, primary: job.world.primary, candidates: [{ path: job.world.primary }] });
+          const scan = await worldSession.scan();
+          const ser = serializeScan(scan);
+          await win.webContents.executeJavaScript(`window.__wrlForgeApplyWorld(${JSON.stringify(ser)})`);
+          payload.summary = ser.summary;
+        } else {
+          worldSession.open({ root: null, primary: null, candidates: [], empty: true });
+          await win.webContents.executeJavaScript('window.__wrlForgeResetWorld && window.__wrlForgeResetWorld()');
+        }
+        await new Promise((r) => setTimeout(r, SETTLE_MS));
+        if (job.out) {
+          const img = await win.webContents.capturePage();
+          fs.writeFileSync(job.out, img.toPNG());
+          payload.out = job.out;
+        }
+        return payload;
+      }
 
       // JSON-only job: authoritative bounds/fit debug via the READ-ONLY preview
       // channel -- identical to the WRL_FORGE_PREVIEW_FIXTURE harness (points
@@ -393,3 +478,111 @@ ipcMain.handle('mall:repack', async (_evt, { mallPath, editFile, asGzip }) => {
 ipcMain.handle('shell:revealInFolder', async (_evt, filePath) => {
   shell.showItemInFolder(filePath);
 });
+
+// ---------------------------------------------------------------------------
+// World Project lane (Phase 4A) -- READ-ONLY. No handler writes, repairs, copies,
+// renames, deletes, uploads, or fetches. The main process owns every project
+// path; the renderer can only pick among detected candidates and read results.
+// ---------------------------------------------------------------------------
+
+// Switch the one window between the Mall and World workspaces (whitelisted page).
+ipcMain.handle('app:goto', async (_evt, page) => {
+  if (!APP_PAGES[page]) throw new Error(`Unknown page '${page}'.`);
+  await gotoPage(page);
+  return { page };
+});
+
+// Open a project FOLDER: detect the primary world file(s) within it. Ambiguity is
+// reported (candidates returned) rather than silently guessed.
+ipcMain.handle('world:openFolder', async () => {
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open a World Project folder',
+    properties: ['openDirectory'],
+  });
+  if (res.canceled || res.filePaths.length === 0) return null;
+  const root = res.filePaths[0];
+  const detection = detectPrimaries(root);
+  return worldSession.open({ root, ...detection });
+});
+
+// Open a single primary WORLD FILE directly; its folder becomes the project root.
+ipcMain.handle('world:openPrimaryFile', async () => {
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open a primary world .wrl / .wrz',
+    properties: ['openFile'],
+    filters: [
+      { name: 'VRML worlds', extensions: ['wrl', 'wrz'] },
+      { name: 'All files', extensions: ['*'] },
+    ],
+  });
+  if (res.canceled || res.filePaths.length === 0) return null;
+  const primary = res.filePaths[0];
+  const root = path.dirname(primary);
+  return worldSession.open({
+    root,
+    primary,
+    candidates: [{ path: primary, relative: path.basename(primary), bytes: safeSize(primary), depth: 0, referenced: false, preferred: true }],
+    ambiguous: false,
+    empty: false,
+  });
+});
+
+// Resolve an ambiguous project: choose one detected candidate as the primary.
+ipcMain.handle('world:choosePrimary', async (_evt, primaryPath) => {
+  return worldSession.choosePrimary(primaryPath);
+});
+
+// Scan the currently-open project (held root + selected primary). Overlapping
+// scans are refused by the session; a transient failure keeps the last result.
+ipcMain.handle('world:scan', async () => {
+  try {
+    const scan = await worldSession.scan();
+    return serializeScan(scan);
+  } catch (err) {
+    return { ok: false, status: err.code === 'EBUSY' ? 'busy' : 'error', error: String(err.message || err) };
+  }
+});
+
+// Refresh == rescan the same primary (external edits picked up on demand only).
+ipcMain.handle('world:refresh', async () => {
+  try {
+    const scan = await worldSession.scan();
+    return serializeScan(scan);
+  } catch (err) {
+    return { ok: false, status: err.code === 'EBUSY' ? 'busy' : 'error', error: String(err.message || err) };
+  }
+});
+
+ipcMain.handle('world:describe', async () => worldSession.describe());
+
+// Reveal a path in the OS file manager, confined to the open project's root and
+// only if it actually exists on disk (never a renderer-chosen arbitrary path).
+ipcMain.handle('world:reveal', async (_evt, targetPath) => {
+  if (!worldSession.root) throw new Error('No World Project is open.');
+  const root = path.resolve(worldSession.root);
+  const target = path.resolve(String(targetPath || ''));
+  const rel = path.relative(root, target);
+  const inside = target === root || (!rel.startsWith('..') && !path.isAbsolute(rel));
+  if (!inside) throw new Error('Refusing to reveal a path outside the project root.');
+  if (!fs.existsSync(target)) throw new Error('That path no longer exists.');
+  shell.showItemInFolder(target);
+  return { revealed: target };
+});
+
+ipcMain.handle('world:revealRoot', async () => {
+  if (!worldSession.root || !fs.existsSync(worldSession.root)) throw new Error('No World Project root available.');
+  shell.showItemInFolder(worldSession.root);
+  return { revealed: worldSession.root };
+});
+
+// Explicit-only: launch VSCodium on the primary world file. Opening a World
+// Project never auto-launches the editor.
+ipcMain.handle('world:openPrimaryInEditor', async () => {
+  if (!worldSession.primary) throw new Error('No primary world is selected.');
+  launchEditor(worldSession.primary);
+  return { primary: worldSession.primary };
+});
+
+function safeSize(p) {
+  try { return fs.statSync(p).size; } catch { return null; }
+}

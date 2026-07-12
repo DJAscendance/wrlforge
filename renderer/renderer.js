@@ -81,6 +81,11 @@ els.openBtn.addEventListener('click', async () => {
   if (data) applyState(data);
 });
 
+// Switch to the World Project workspace (separate page, same window). The Mall
+// Item lane is unchanged; this is a sibling workspace.
+const worldBtn = document.getElementById('worldBtn');
+if (worldBtn) worldBtn.addEventListener('click', () => window.vrmlpad.goto('world'));
+
 els.checkBtn.addEventListener('click', async () => {
   if (!state) return;
   const data = await window.vrmlpad.check(state.editFile);
