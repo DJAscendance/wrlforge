@@ -5,46 +5,25 @@ const fs = require('fs');
 const zlib = require('zlib');
 const { spawn } = require('child_process');
 const { validate } = require('./validator');
-
-const GZIP_MAGIC = Buffer.from([0x1f, 0x8b]);
-const WINDOW_STATE_FILENAME = 'window-state.json';
-const WINDOW_STATE_PATH = () => path.join(app.getPath('userData'), WINDOW_STATE_FILENAME);
-// This app was previously named "vrmlpad" -- Electron derives userData from
-// the package.json "name" field, so the rename to "wrl-forge" moved that
-// directory. Fall back to the old sibling directory (appData/vrmlpad) so
-// existing users don't lose their saved window position.
-const LEGACY_WINDOW_STATE_PATH = () =>
-  path.join(path.dirname(app.getPath('userData')), 'vrmlpad', WINDOW_STATE_FILENAME);
-const DEFAULT_WINDOW_STATE = { width: 900, height: 700 };
-
-function isGzip(buf) {
-  return buf.length >= 2 && buf[0] === GZIP_MAGIC[0] && buf[1] === GZIP_MAGIC[1];
-}
-
-// Plain-text working copy lives next to the mall .wrl as "<name>.edit.wrl",
-// so VSCodium's existing X3D/VRML extensions (syntax highlighting + live
-// preview) can open it directly -- they can't render/edit inside a gzip file.
-function editPathFor(mallPath) {
-  const dir = path.dirname(mallPath);
-  const base = path.basename(mallPath, path.extname(mallPath));
-  return path.join(dir, `${base}.edit.wrl`);
-}
-
-function backupPath(filePath) {
-  const ts = new Date().toISOString().replace(/[:.]/g, '-');
-  return `${filePath}.bak-${ts}`;
-}
+const { isGzip, editPathFor } = require('./src/files/vrml-file');
+const { backupPath } = require('./src/files/backups');
+const {
+  DEFAULT_WINDOW_STATE,
+  windowStatePath,
+  legacyWindowStatePath,
+  isVisibleOnAnyDisplay,
+} = require('./src/settings/window-state');
 
 function loadWindowState() {
   try {
-    const saved = JSON.parse(fs.readFileSync(WINDOW_STATE_PATH(), 'utf8'));
-    if (saved.x != null && saved.y != null && isVisibleOnAnyDisplay(saved)) return saved;
+    const saved = JSON.parse(fs.readFileSync(windowStatePath(app.getPath('userData')), 'utf8'));
+    if (saved.x != null && saved.y != null && isVisibleOnAnyDisplay(saved, screen.getAllDisplays())) return saved;
   } catch {
     // No saved state at the new (wrl-forge) path -- check the pre-rename
     // vrmlpad location before falling back to defaults.
     try {
-      const legacy = JSON.parse(fs.readFileSync(LEGACY_WINDOW_STATE_PATH(), 'utf8'));
-      if (legacy.x != null && legacy.y != null && isVisibleOnAnyDisplay(legacy)) return legacy;
+      const legacy = JSON.parse(fs.readFileSync(legacyWindowStatePath(app.getPath('userData')), 'utf8'));
+      if (legacy.x != null && legacy.y != null && isVisibleOnAnyDisplay(legacy, screen.getAllDisplays())) return legacy;
     } catch {
       // No legacy state either -- fall through to default.
     }
@@ -52,28 +31,14 @@ function loadWindowState() {
   return { ...DEFAULT_WINDOW_STATE };
 }
 
-// A saved position is only usable if it lands on a display that's actually
-// connected right now -- otherwise (unplugged monitor, or an RDP session
-// only forwarding one display) fall back to whatever display is visible.
-function isVisibleOnAnyDisplay(bounds) {
-  return screen.getAllDisplays().some((display) => {
-    const area = display.workArea;
-    return (
-      bounds.x < area.x + area.width &&
-      bounds.x + bounds.width > area.x &&
-      bounds.y < area.y + area.height &&
-      bounds.y + bounds.height > area.y
-    );
-  });
-}
-
 function saveWindowState(win) {
   const isMaximized = win.isMaximized();
   const bounds = isMaximized ? win.getNormalBounds() : win.getBounds();
   const state = { ...bounds, isMaximized };
   try {
-    fs.mkdirSync(path.dirname(WINDOW_STATE_PATH()), { recursive: true });
-    fs.writeFileSync(WINDOW_STATE_PATH(), JSON.stringify(state));
+    const statePath = windowStatePath(app.getPath('userData'));
+    fs.mkdirSync(path.dirname(statePath), { recursive: true });
+    fs.writeFileSync(statePath, JSON.stringify(state));
   } catch {
     // Best-effort -- losing saved window position isn't fatal.
   }
