@@ -110,6 +110,28 @@ function writeGzip(rel, text) { write(rel, zlib.gzipSync(Buffer.from(text, 'utf8
     'Shape { appearance Appearance { texture ImageTexture { url "../../img/floor.png" } } geometry Sphere {} }\n');
 })();
 
+// --- unused: a clean world plus stray files that are NOT referenced -------------
+// Proves the packaging audit REPORTS unused files under the project root without
+// auto-including them: world.wrl references img/used.png and props.wrl (which
+// references img/used.png again -- a repeat), while img/orphan.png, notes.txt, and
+// old/backup.wrl sit on disk unreferenced.
+(function unused() {
+  write('unused/img/used.png', png1x1(60, 160, 90));
+  write('unused/img/orphan.png', png1x1(200, 40, 40));   // present on disk, referenced by nothing
+  writeText('unused/notes.txt', 'author scratch notes -- not part of the world\n');
+  writeText('unused/old/backup.wrl',
+    '#VRML V2.0 utf8\nWorldInfo { title "old backup" }\n' +
+    'Shape { appearance Appearance { texture ImageTexture { url "../img/orphan.png" } } geometry Box {} }\n');
+  writeText('unused/props.wrl',
+    '#VRML V2.0 utf8\n' +
+    'Shape { appearance Appearance { texture ImageTexture { url "img/used.png" } } geometry Cone {} }\n');
+  writeText('unused/world.wrl',
+    '#VRML V2.0 utf8\nWorldInfo { title "Unused-file World" }\n' +
+    'Viewpoint { description "Entry" position 0 1 8 }\n' +
+    'Shape { appearance Appearance { texture ImageTexture { url "img/used.png" } } geometry Box {} }\n' +
+    'Inline { url "props.wrl" }\n');
+})();
+
 // --- small: a minimal single-file world (a couple of textures, one viewpoint) --
 (function small() {
   write('small/img/floor.png', png1x1(90, 90, 110));

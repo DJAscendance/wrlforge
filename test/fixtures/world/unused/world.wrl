@@ -1,0 +1,5 @@
+#VRML V2.0 utf8
+WorldInfo { title "Unused-file World" }
+Viewpoint { description "Entry" position 0 1 8 }
+Shape { appearance Appearance { texture ImageTexture { url "img/used.png" } } geometry Box {} }
+Inline { url "props.wrl" }
