@@ -28,7 +28,7 @@ built-in Phase 7A VRML97 parser as the **sole** language authority:
 
 Security is unchanged: `contextIsolation:true`, `nodeIntegration:false`, the
 narrow `window.vrmlpad` bridge (with an `editor` sub-object), and main-process
-path ownership (the renderer never supplies a write path). Verified by 388
+path ownership (the renderer never supplies a write path). Verified by 382
 non-visual tests, serialized Linux visual QA (15/15), and a perf gate; the
 editor's non-GUI logic is also in the Windows self-test. Excludes (Phase 7C):
 unsaved-buffer X_ITE preview.

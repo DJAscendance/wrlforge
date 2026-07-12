@@ -483,7 +483,7 @@ checked, persisted). Security preserved: `contextIsolation:true`,
 **main-process path ownership** (the renderer sends text + intent + an opaque
 sessionId, never a write path; Save As targets only a main-owned dialog path).
 
-Verification: **388** non-visual tests; serialized **Linux visual QA 15/15**
+Verification: **382** non-visual tests; serialized **Linux visual QA 15/15**
 (one Electron process via `VisualQaRunner`); a pure-Node **perf gate** (analyze()
 < the 250 ms debounce across small/world/327 KB/1.3 MB/script-heavy/many-errors);
 private unsigned **Windows x64** build with the editor packed in `app.asar` and 6
