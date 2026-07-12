@@ -1,0 +1,5 @@
+#VRML V2.0 utf8
+WorldInfo { title "Cycle A" }
+Viewpoint { description "A" position 0 0 10 }
+Shape { appearance Appearance { texture ImageTexture { url "img/a.png" } } geometry Box {} }
+Inline { url "b.wrl" }
