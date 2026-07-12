@@ -122,13 +122,17 @@ the fit is preview-only. Apply/Bake Transform remains **not** implemented
 **Explicitly not implemented in this lane:** Apply Transform, Bake Transform,
 coordinate rewriting, wrapper insertion, automatic fitted-file saving.
 
-## Phase 3 — World Project Recon ⏳
+## Phase 3 — World Project Recon 🔄
 
-- Collect known-good world `.wrl`/project samples for reference
-- Document the current CTR (Cybertown Revival) world-submission workflow as it actually exists today
-- Determine actual texture-count and package-size limits for worlds (do not assume the old web form's ~20-texture limit is a real server constraint)
-- Inspect Scott99's `worlduploader`/`itemuploader` tools (https://www.3dgrove.com) as historical workflow references only — no code or asset copying without established licensing/permission
-- Define a world-specific validation rules profile, kept separate from `validator.js`'s Mall Item rules
+**Phase 3A (recon + asset graph) landed** — see `docs/WORLD_PROJECT_RECON.md` and the
+read-only `qa/world-recon/` analyzer (`npm run recon:world`). Evidence gathered over
+71 archived places + the CTR bundled world.
+
+- [x] Collect known-good world `.wrl`/project samples for reference (campuscolony archive of 71 places; CTR `hitek_col`)
+- [x] Determine actual texture-count limits — **the ~20-texture web-form figure is NOT a server constraint** (18/60 places exceed 20; max 70 unique in hi-tek). Package **size** limit remains unresolved (flagged).
+- [x] Draft a world-specific validation rules profile, kept separate from `validator.js`'s Mall Item rules (documented, **not enforced**)
+- [ ] Document the current CTR (Cybertown Revival) world-submission workflow as it actually exists today — *open (needs operator/process input)*
+- [ ] Inspect Scott99's `worlduploader`/`itemuploader` tools (https://www.3dgrove.com) as historical workflow references only — no code or asset copying without established licensing/permission — *open*
 
 **Prerequisites:** access to real-world sample files and/or documentation of the current submission process; Phase 1 complete.
 
