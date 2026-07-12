@@ -11,7 +11,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { extrusionLocalBounds } = require('./extrusion-bounds');
+const { extrusionLocalBounds } = require('../../src/preview/extrusion-bounds');
 
 const TOL = 1e-4;
 function assertBounds(res, emin, emax) {

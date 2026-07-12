@@ -6,7 +6,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
-const { safeResolve, dirUrl, fileDirUrl } = require('./texture-base');
+const { safeResolve, dirUrl, fileDirUrl } = require('../../src/preview/texture-base');
 
 const BASE = path.join(path.sep, 'srv', 'wrl', 'fixtures');
 

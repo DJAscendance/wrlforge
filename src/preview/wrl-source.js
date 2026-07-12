@@ -13,7 +13,7 @@ const fs = require('fs');
 const zlib = require('zlib');
 // Reuse the trusted gzip detection from the production file layer rather than
 // duplicating the magic-byte check here.
-const { isGzip } = require('../../src/files/vrml-file');
+const { isGzip } = require('../files/vrml-file');
 
 // Returns { text, wasGzipped, rawBytes }. Throws a clear, prefixed error if a
 // file that looks gzipped fails to inflate (truncated/corrupt archive).

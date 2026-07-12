@@ -8,8 +8,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { extrusionLocalBounds } = require('./extrusion-bounds');
-const { computeFit } = require('./fit-math');
+const { extrusionLocalBounds } = require('../../src/preview/extrusion-bounds');
+const { computeFit } = require('../../src/preview/fit-math');
 
 // The pre-fix approximation: raw cross-section half-diagonal expanded on all
 // axes, ignoring `scale` entirely. Reproduced here to compare against.

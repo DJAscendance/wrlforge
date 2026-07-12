@@ -10,9 +10,9 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { readWrlSource } = require('./wrl-source');
+const { readWrlSource } = require('../../src/preview/wrl-source');
 
-const FX = path.join(__dirname, 'fixtures');
+const FX = path.join(__dirname, '..', 'fixtures', 'preview');
 const md5 = (p) => crypto.createHash('md5').update(fs.readFileSync(p)).digest('hex');
 
 test('plain WRL is returned as-is, flagged not gzipped', () => {

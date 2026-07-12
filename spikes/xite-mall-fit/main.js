@@ -10,8 +10,10 @@
 // text -- there is NO write-capable IPC path anywhere in this file.
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const { readWrlSource } = require('./wrl-source');
-const { safeResolve, fileDirUrl } = require('./texture-base');
+// Shared preview modules moved to src/preview/ in Phase 2B1; the spike reuses
+// them from there rather than keeping duplicate copies.
+const { readWrlSource } = require('../../src/preview/wrl-source');
+const { safeResolve, fileDirUrl } = require('../../src/preview/texture-base');
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 

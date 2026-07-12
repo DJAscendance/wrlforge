@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { computeFit, DEFAULT_RULES } = require('./fit-math');
+const { computeFit, DEFAULT_RULES } = require('../../src/preview/fit-math');
 
 const EPS = 1e-6;
 const close = (actual, expected, eps = EPS) =>
