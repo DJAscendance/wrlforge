@@ -72,6 +72,32 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  // Non-interactive smoke-test hook (test/electron-smoke.test.js): report a
+  // single JSON line describing security-relevant window state, then quit.
+  // Only active when explicitly requested -- never runs during normal use.
+  if (process.env.WRL_FORGE_SMOKE_TEST) {
+    win.webContents.once('did-finish-load', async () => {
+      // Probe actual renderer-side behavior rather than reading back the options
+      // we passed to BrowserWindow -- this verifies what's really in effect.
+      const hasVrmlpadBridge = await win.webContents.executeJavaScript(
+        'typeof window.vrmlpad === "object" && window.vrmlpad !== null'
+      );
+      // contextIsolation:true means the renderer's main world has no access to the
+      // preload script's Node-derived `require`; nodeIntegration:false means the
+      // renderer has no global `process`/`require` at all.
+      const rendererHasRequire = await win.webContents.executeJavaScript('typeof require !== "undefined"');
+      const rendererHasProcess = await win.webContents.executeJavaScript('typeof process !== "undefined"');
+      const report = {
+        title: win.getTitle(),
+        hasVrmlpadBridge,
+        contextIsolation: !rendererHasRequire,
+        nodeIntegration: rendererHasProcess,
+      };
+      console.log('WRL_FORGE_SMOKE_TEST_RESULT ' + JSON.stringify(report));
+      app.quit();
+    });
+  }
 }
 
 app.whenReady().then(() => {

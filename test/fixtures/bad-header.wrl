@@ -1,0 +1,7 @@
+#VRML V1.0 ascii
+WorldInfo {
+  title "Bad Header"
+}
+Shape {
+  geometry Box { size 1 1 1 }
+}

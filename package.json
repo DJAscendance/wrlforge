@@ -4,7 +4,9 @@
   "description": "A modern VRML97 creation, inspection, validation, and packaging workbench for Cybertown items and worlds.",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "test": "node --test test/",
+    "check": "node --test test/ && node --check main.js && node --check preload.js && node --check validator.js"
   },
   "keywords": [],
   "author": "",
