@@ -8,6 +8,8 @@ platform-sensitive behavior; it does not implement Windows packaging.
 
 ## VSCodium executable discovery (cross-platform — Phase 6A)
 
+VSCodium (or VS Code) is an **optional external editor** (a native WRL editor +
+VRML97 parser are planned for Phase 7, `docs/NATIVE_EDITOR_ARCHITECTURE.md`).
 Editor discovery is resolved by `src/editor/editor-locator.js` (pure/injectable),
 wired into `main.js`'s `launchEditor`. Precedence on every platform:
 
@@ -92,7 +94,8 @@ The GTK file-open dialog's `Ctrl+L` + typed-path unreliability documented in `AG
 
 ## World Project review bundle (Phase 5A)
 
-The World Project packaging lane builds a portable **review bundle** as a
+The World Project packaging lane builds the portable **WRL Forge World Project
+Bundle** (a review + manual-upload package) as a
 deterministic ZIP using Node's built-in `zlib` only — a small in-repo writer
 (`src/world-project/zip-writer.js`), **no third-party archive dependency**. This
 is a deliberate portability + determinism choice: most archive libraries stamp the
@@ -123,8 +126,9 @@ in `release/` (git-ignored). See `docs/BUILD.md`.
 **Unsigned warning.** No Authenticode certificate is applied, so Windows
 SmartScreen shows the normal "Windows protected your PC" / unknown-publisher
 prompt on first run (**More info → Run anyway**). No signing, auto-update, store,
-or public release is configured. This is distinct from the Phase 5A World Project
-*review bundle* (a portable content ZIP, not an app installer).
+or public release is configured. This is distinct from the Phase 5A **WRL Forge
+World Project Bundle** (a portable content ZIP for review + manual upload, not an
+app installer).
 
 ## Windows beta hardening (Phase 6B)
 
@@ -202,9 +206,10 @@ Windows column verified on Windows 11 (x64) under WinBoat/dockur-KVM, Electron
   **not** eliminated — see `docs/SIGNING_READINESS.md`). Artifacts labelled
   **Private Beta — Unsigned**.
 - **x64 only**: no **Windows ARM64** build; no macOS build.
-- **Review Bundle is not upload-ready**: labelled "Not Confirmed for Direct
-  Cybertown Upload"; **CTR upload compatibility is unconfirmed**
-  (`docs/WORLD_PACKAGE_QUESTIONS.md`).
+- **WRL Forge World Project Bundle is a review + manual-upload package**: you
+  upload it through the Cybertown website by hand (WRL Forge does no direct upload,
+  by design); it is **not a server-certified format** and **CTR upload
+  compatibility is unconfirmed** (`docs/WORLD_PACKAGE_QUESTIONS.md`).
 - Not implemented (by design): code signing (readiness documented only),
   auto-update, Microsoft Store, public release.
 

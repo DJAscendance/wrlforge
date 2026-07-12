@@ -4,7 +4,7 @@
 
 **Build. Preview. Validate. Package.**
 
-WRL Forge is an Electron app for Linux. Today it covers the **Mall Item** lane: gzip-transparent editing of Cybertown Revival Mall `.wrl` files, with Cybertown Mall upload-rule validation, an **embedded X_ITE Mall Item Fit preview** (Original vs. Cybertown Fit modes, transform-aware bounds, placement guides — preview only), backup-before-overwrite repacking, and VSCodium (with the X_ITE extensions) as the external editor.
+WRL Forge is an Electron app for Linux. Today it covers the **Mall Item** lane: gzip-transparent editing of Cybertown Revival Mall `.wrl` files, with Cybertown Mall upload-rule validation, an **embedded X_ITE Mall Item Fit preview** (Original vs. Cybertown Fit modes, transform-aware bounds, placement guides — preview only), and backup-before-overwrite repacking. An external editor (VSCodium, with the X_ITE extensions) is supported as an **optional** integration; a native WRL editor and VRML97 parser are a planned beta requirement (Phase 7) so the app works on its own — see `docs/NATIVE_EDITOR_ARCHITECTURE.md`.
 
 The Mall Item Fit preview shows the item's authoritative, transform-aware world-space bounds and a proposed non-destructive fit (scale/offset) against the Cybertown rules (ground `Y=-1.75`, center `X=0`, max `Z<=+1`, max `10×10×10`, requested `125%`). It is **preview only** — it never rewrites your file; Apply/Bake is not implemented. Gzip-compressed items are decompressed in the main process and only local (`file://`) textures load — remote (http/https) URLs are blocked. See `docs/PREVIEW_ARCHITECTURE.md`.
 
@@ -12,7 +12,7 @@ A read-only **World Project** lane is now available alongside Mall Item (open it
 
 The World Project lane now also has an **embedded X_ITE world preview** (Phase 4B): it renders the whole world — primary plus nested `Inline` (plain or gzip, at any depth), with each WRL resolving its relative textures from its **own** directory — with a viewpoint selector (including viewpoints authored inside nested Inlines), Reset View, navigation modes, and an explicit **Refresh Preview**. It is **read-only, local-only, and asset-graph-authorized**: X_ITE resolves every dependency through a confined `wrlworld://` scheme that serves only files the asset graph approved, gzip-decompressed, confined to the project root — missing, case-mismatched, remote, and unsafe references are surfaced but never loaded. A temporary parse error keeps the last valid scene (flagged stale) instead of clearing it. The world preview is **analysis + display only** — not an upload validator, packaging, or editor. See `docs/WORLD_PROJECT_ARCHITECTURE.md` and `docs/PREVIEW_ARCHITECTURE.md`.
 
-The World Project lane now also has a **packaging audit + review bundle** (Phase 5A). A read-only **Package Audit** shows exactly what a portable bundle would contain — the primary WRL, nested local WRL, and referenced local assets, each with project-relative path, type, byte size, content hash, referencing files, and dependency depth — plus totals, missing/case/unsafe/remote/cycle/repeated findings, and any **unused** files under the project root (reported, never auto-included). **Build Review Bundle** is an explicit action that writes a **deterministic ZIP** (built with Node's `zlib` only — no third-party archive dependency) to a destination **outside** the project, containing the referenced files (byte-for-byte, structure preserved) plus a machine-readable `MANIFEST.json` and human-readable `REPORT.md`. Packaging is **blocked** when a required asset is missing, case-mismatched, absolute, escapes the root, or is remote; a dependency cycle is reported but does not block. It never repairs, renames, flattens, rewrites, or mutates the source, never overwrites an existing bundle, and is labelled **“Review Bundle — Not Confirmed for Direct Cybertown Upload.”** **Direct upload is not implemented** and no current-server compatibility is claimed — the open questions that gate a true upload-ready packager are in `docs/WORLD_PACKAGE_QUESTIONS.md`. See `docs/WORLD_PROJECT_ARCHITECTURE.md`.
+The World Project lane now also has a **packaging audit + World Project Bundle** (Phase 5A). A read-only **Package Audit** shows exactly what a portable bundle would contain — the primary WRL, nested local WRL, and referenced local assets, each with project-relative path, type, byte size, content hash, referencing files, and dependency depth — plus totals, missing/case/unsafe/remote/cycle/repeated findings, and any **unused** files under the project root (reported, never auto-included). **Build World Project Bundle** is an explicit action that writes a **deterministic ZIP** (built with Node's `zlib` only — no third-party archive dependency) to a destination **outside** the project, containing the referenced files (byte-for-byte, structure preserved) plus a machine-readable `MANIFEST.json` and human-readable `REPORT.md`. Packaging is **blocked** when a required asset is missing, case-mismatched, absolute, escapes the root, or is remote; a dependency cycle is reported but does not block. It never repairs, renames, flattens, rewrites, or mutates the source, and never overwrites an existing bundle. The output is labelled **“WRL Forge World Project Bundle”** — a review + hand-off package that helps you inspect a world and prepare its files for **manual upload through the Cybertown website**. WRL Forge does not upload anything and by design never will (a locked product decision); it is not a server-certified upload format, and the exact CTR submission requirements are tracked as open questions in `docs/WORLD_PACKAGE_QUESTIONS.md`. See `docs/WORLD_PROJECT_ARCHITECTURE.md`.
 
 The **Generic VRML97** lane is still planned.
 
@@ -40,8 +40,8 @@ real GUI workflows were driven end-to-end on Windows 11: native file/folder
 dialogs, the **X_ITE Mall + World preview render**, `.edit.wrl` generation, Package
 Audit + Review Bundle (ZIP hashes verified), NSIS install → Start-menu launch →
 uninstall, and window-state persistence — plus a committed **37/37** packaged-
-runtime self-test. The **VSCodium "Open in Editor" launch is verified on Windows 11**
-(Phase 6B1): real VSCodium auto-discovered and launched on a space/non-ASCII
+runtime self-test. The optional **VSCodium "Open in External Editor" launch is
+verified on Windows 11** (Phase 6B1): real VSCodium auto-discovered and launched on a space/non-ASCII
 `.edit.wrl`, both overrides + invalid-override fallback, single instance, clean
 exit, sources unmutated (13/13, `qa/phase-6b1-vscodium/RESULTS.md`). See
 `docs/PLATFORM_NOTES.md` for the platform-sensitive behavior and test matrix,
@@ -61,8 +61,9 @@ they are **unsigned**, Windows SmartScreen shows the normal "Windows protected y
 PC" / unknown-publisher warning on first launch — click **More info → Run anyway**
 (signing does **not** eliminate this — see `docs/SIGNING_READINESS.md`). No code
 signing, auto-update, Microsoft Store, or public release is configured; **Windows
-ARM64 is unsupported** and **direct Cybertown (CTR) upload compatibility is
-unconfirmed**. Building the Windows target from Linux needs `wine`. See
+ARM64 is unsupported**. World Project Bundles are for review + **manual upload
+through the Cybertown website** (not a server-certified upload format; WRL Forge
+performs no direct upload). Building the Windows target from Linux needs `wine`. See
 `docs/BUILD.md` for details and the dependency/license notes.
 
 ## Inspiration and Acknowledgments

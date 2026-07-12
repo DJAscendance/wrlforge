@@ -14,8 +14,10 @@ action writes **only** a portable review bundle to a caller-chosen destination
 outside the project. It never repairs paths, copies/renames/deletes assets,
 rewrites source, uploads, or mutates the source project. The embedded X_ITE world
 preview (Phase 4B) is read-only, local-only, and asset-graph-authorized; the
-packaging audit (Phase 5A) is read-only and produces a review bundle that is
-explicitly **not** confirmed for direct upload — see "World preview (Phase 4B)"
+packaging audit (Phase 5A) is read-only and produces the **WRL Forge World Project
+Bundle** — a review + manual-upload package (the user uploads it through the
+Cybertown website by hand; WRL Forge performs no direct upload, by design), not a
+server-certified format — see "World preview (Phase 4B)"
 and "Packaging (Phase 5A)" below.
 
 ## Module layout (`src/world-project/`)
@@ -107,7 +109,7 @@ detected.
 | `world:previewLoad` | (Phase 4B) Ensure a scan, install the asset-graph read-authorization set into the `wrlworld://` handler, and return the decompressed primary text + base URL + advisory counts/warnings. **No** renderer path. |
 | `world:describe` | Report the open project (for restoring the view). |
 | `world:reveal` / `world:revealRoot` | Reveal a path in the OS file manager, **confined to the project root** and only if it exists. |
-| `world:openPrimaryInEditor` | Explicit-only VSCodium launch on the primary (opening a project never auto-launches the editor). |
+| `world:openPrimaryInEditor` | Explicit-only launch of the optional external editor (VSCodium/VS Code) on the primary (opening a project never auto-launches the editor). A native WRL editor + VRML97 parser are planned (Phase 7, `docs/NATIVE_EDITOR_ARCHITECTURE.md`). |
 | `world:packageAudit` | (Phase 5A) Read-only: derive the deterministic package plan and return status/totals/blocking/unused/manifest. **No** write, **no** renderer path. |
 | `world:buildReviewBundle` | (Phase 5A) Explicit action: main prompts (Save dialog, default OUTSIDE the project) and writes a deterministic ZIP via `bundle-builder`. Refuses blocked/in-project/overwrite. Not an upload. |
 
@@ -170,10 +172,12 @@ and one serialized `VisualQaRunner` run of all 10 states
 
 ## Packaging (Phase 5A)
 
-A read-only **package audit** plus one explicit **Build Review Bundle** action.
+A read-only **package audit** plus one explicit **Build World Project Bundle** action.
 Both are derived from the same production asset graph; neither ever repairs a URL,
 renames/flattens files, copies an external asset, rewrites WRL source, or mutates
-the source project. **Direct upload is NOT implemented** and no current-server
+the source project. The bundle is a **review + manual hand-off** artifact — the
+user uploads it through the Cybertown website by hand; **WRL Forge performs no
+direct upload, authentication, or networking (by design)** — and no current-server
 compatibility is claimed.
 
 **Package audit (`package-plan.js`, read-only).** Produces a DETERMINISTIC plan of
@@ -197,7 +201,7 @@ so the packaged set is finite and complete). Status is `ready` / `needs-review`
 project) and writes a **deterministic ZIP** containing `project/<relpath>` (the
 referenced files, byte-for-byte, structure preserved), `MANIFEST.json` (machine-
 readable), `REPORT.md` (human-readable), and `READ-ME-FIRST.txt` — every one
-carrying the label **“Review Bundle — Not Confirmed for Direct Cybertown Upload.”**
+carrying the label **“WRL Forge World Project Bundle.”**
 Write-time safety: it **refuses** to build a blocked project, to write inside the
 project root, or to overwrite an existing file, and it **re-hashes** every
 packaged file against the manifest so the archive and manifest can never disagree.
@@ -206,7 +210,8 @@ packaged file against the manifest so the archive and manifest can never disagre
 in-repo deterministic writer), so no third-party archive library enters the app.
 This is deliberate: most archive libs stamp the current wall-clock mtime and are
 non-deterministic. See `docs/PLATFORM_NOTES.md` (“Packaging”). The open questions
-that block a *true* upload-ready packager are tracked in
+that would have to be answered before the bundle could be treated as a *server-
+certified* format are tracked in
 `docs/WORLD_PACKAGE_QUESTIONS.md`.
 
 Verified by `test/world-project/{zip-writer,package-plan,bundle-builder}.test.js`
@@ -240,9 +245,10 @@ A separate page sharing the one BrowserWindow and preload (so it gets the same
 - **Packaging** (Phase 5A) — a status badge (Ready / Blocked / Needs Review),
   package totals, blocking findings, the unused-file list, a manifest preview, the
   written output location, a **Package Audit** button (analysis) and a **Build
-  Review Bundle…** button (explicit action, disabled when blocked).
-- **Actions** — Refresh Scan, Reveal Project Folder, Open Primary WRL in
-  VSCodium, ← Mall Item workspace. No repair/delete/copy/rename/upload.
+  World Project Bundle…** button (explicit action, disabled when blocked).
+- **Actions** — Refresh Scan, Reveal Project Folder, Open Primary WRL in the
+  optional external editor (VSCodium/VS Code), ← Mall Item workspace. No
+  repair/delete/copy/rename/upload.
 
 ## Refresh
 
@@ -253,11 +259,12 @@ overlapping scan); a transient parse error keeps the last good result visible
 
 ## Not in this lane
 
-Automatic path repair, asset copy/rename/delete, **direct upload**,
-authentication, Apply/Bake transforms, internal editing, Windows packaging — each
-needs its own approved lane. The Phase 4B world preview is **analysis + display
-only**. The Phase 5A packaging lane produces a **review bundle only** (a portable
-ZIP for a human to inspect); it never repairs, renames, flattens, rewrites, or
-uploads, and it never marks a project server-ready — it explicitly labels its
-output “Not Confirmed for Direct Cybertown Upload” and its blocking questions are
-in `docs/WORLD_PACKAGE_QUESTIONS.md`.
+Automatic path repair, asset copy/rename/delete, Apply/Bake transforms, internal
+editing, Windows packaging — each needs its own approved lane. **Direct upload,
+authentication, and networking are out of scope permanently, by design**: the
+bundle is uploaded through the Cybertown website by hand. The Phase 4B world
+preview is **analysis + display only**. The Phase 5A packaging lane produces the
+**WRL Forge World Project Bundle** (a portable ZIP for a human to inspect and then
+upload manually); it never repairs, renames, flattens, rewrites, or uploads, and it
+never marks a project server-certified. Its blocking questions are in
+`docs/WORLD_PACKAGE_QUESTIONS.md`.

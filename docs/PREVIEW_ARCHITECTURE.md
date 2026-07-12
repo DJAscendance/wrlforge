@@ -102,8 +102,10 @@ Remote URLs are surfaced as warnings and never fetched.
 
 ## Refresh & editing
 
-VSCodium remains the editor (auto-launched on open; re-launchable via **Open in
-VSCodium**). The preview updates on an explicit **Refresh Preview** button
+VSCodium (or VS Code) is the **optional external editor** (launched on open when
+present unless suppressed; re-launchable via **Open in Editor**); a native WRL
+editor + VRML97 parser are planned (Phase 7, `docs/NATIVE_EDITOR_ARCHITECTURE.md`).
+The preview updates on an explicit **Refresh Preview** button
 (no continuous reload/flicker). A temporary parse error keeps the last valid
 scene, shows a parse warning, and allows manual retry.
 

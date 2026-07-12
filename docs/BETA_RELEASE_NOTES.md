@@ -36,8 +36,10 @@ table empty — verified at build time). x64 only — **no Windows ARM64 build**
 
 - Windows 10/11 **x64**. (ARM64 unsupported this lane.)
 - ~250 MB free disk for the installed app.
-- **VSCodium** (or VS Code) only if you want to exercise "Open in Editor" — see
-  install notes below. The rest of the app works without it.
+- **VSCodium** (or VS Code) — an **optional external editor**, only if you want to
+  exercise "Open in Editor" — see install notes below. The rest of the app works
+  without it. (A native WRL editor + VRML97 parser are planned for Phase 7; see
+  `docs/NATIVE_EDITOR_ARCHITECTURE.md`.)
 
 ## Install / run
 
@@ -78,9 +80,11 @@ window position/size persists across restarts and the app exits cleanly. See
 
 - **Unsigned** — SmartScreen prompt on first run (expected; not a defect).
 - **x64 only** — no Windows ARM64, no macOS.
-- **Not upload-ready** — the Review Bundle is a *review* artifact labelled "Not
-  Confirmed for Direct Cybertown Upload." No direct upload, no auth, no CTR
-  server-format claim. Open questions in `docs/WORLD_PACKAGE_QUESTIONS.md`.
+- **Review + manual upload** — the **WRL Forge World Project Bundle** is a
+  *review* artifact you upload through the Cybertown website / Mall workflow **by
+  hand**. WRL Forge does no direct upload, auth, or networking (by design), and
+  makes no CTR server-format claim. Open questions in
+  `docs/WORLD_PACKAGE_QUESTIONS.md`.
 - No auto-update, no Microsoft Store packaging, no public release.
 - Placeholder app icon (not final branding).
 

@@ -1,12 +1,15 @@
 # World Package — Open Questions for Morning.star / CTR maintainers
 
-**Status: BLOCKING for any upload-ready packager.** The Phase 5A packaging lane
+**Status: BLOCKING for any server-certified packager.** The Phase 5A packaging lane
 produces a **review bundle** (a deterministic ZIP of the referenced project files
-plus a manifest and report) that is explicitly **“Not Confirmed for Direct
-Cybertown Upload.”** It intentionally does **not** implement direct upload,
-authentication, or a claim of current-server compatibility.
+plus a manifest and report), the **“WRL Forge World Project Bundle.”** It is a
+review + manual hand-off package: the user uploads it through the Cybertown
+website / Mall workflow **by hand**. WRL Forge performs no direct upload,
+authentication, or networking — that is a permanent design decision, not a missing
+feature — and it makes no claim of current-server compatibility.
 
-Before WRL Forge can build a *true* upload-ready package or submit a world, the
+Before the WRL Forge World Project Bundle could be treated as a *server-certified*
+package (rather than a review + manual-upload artifact), the
 following must be answered by Morning.star or the current Cybertown Revival (CTR)
 world maintainers. Each is a real unknown today — the Phase 5A bundle format is a
 **best-effort placeholder**, not a specification, and must not be presented to

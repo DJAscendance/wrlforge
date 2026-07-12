@@ -77,14 +77,15 @@ globs in `package.json`).
 
 - **electron-builder 26.15.3** (MIT) — dev dependency; the packaging tool. It
   pulls in its own MIT/BSD/ISC-licensed dependency tree (`app-builder-lib`, etc.).
-  No third-party archive library was added for the Review Bundle ZIP — that uses
-  Node's built-in `zlib` (`src/world-project/zip-writer.js`).
+  No third-party archive library was added for the WRL Forge World Project Bundle
+  ZIP — that uses Node's built-in `zlib` (`src/world-project/zip-writer.js`).
 - `electron` was moved from `dependencies` to `devDependencies` (it is the build
   runtime, provided by electron-builder in the packaged app — not an app-bundled
   npm dependency). `x_ite` remains the only runtime `dependency`.
 
 ## Cross-platform notes
 
-See `docs/PLATFORM_NOTES.md` for the platform-sensitive behaviors (VSCodium
-discovery, filename-case handling, userData/window-state paths, path separators)
+See `docs/PLATFORM_NOTES.md` for the platform-sensitive behaviors (optional
+external editor discovery, filename-case handling, userData/window-state paths,
+path separators)
 and the Linux/Windows test matrix.

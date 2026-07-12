@@ -228,12 +228,13 @@ kept read-only except for one explicit user action. See
   cycles / repeated); and **unused** files under the root (reported, never
   auto-included). Repeated references packaged once; plain + gzip WRL; >20 and ≥70
   textures.
-- [x] **Build Review Bundle** (explicit action, requires a destination): a
+- [x] **Build World Project Bundle** (explicit action, requires a destination): a
   **deterministic ZIP** (Node `zlib` only — **no** third-party archive
   dependency; fixed 1980 timestamps) containing `project/<relpath>` (byte-for-byte,
   structure preserved), `MANIFEST.json`, `REPORT.md`, and a
-  `READ-ME-FIRST.txt`, all labelled **“Review Bundle — Not Confirmed for Direct
-  Cybertown Upload.”**
+  `READ-ME-FIRST.txt`, all labelled **“WRL Forge World Project Bundle”** — a review +
+  manual hand-off package (uploaded by hand through the Cybertown website; not a
+  server-certified upload format).
 - [x] **Blocking rules**: missing / case-mismatch / absolute / traversal / remote
   / unreadable references block packaging; cycles are reported but do **not** block
   (local + bounded). Build refuses a blocked project, an in-project destination,
@@ -392,15 +393,72 @@ upload. Public release, signing, direct upload, and auto-update remain out of sc
 
 **Explicitly not implemented** (unchanged exclusions): direct upload, auth,
 upload-ready CTR packaging, auto-update, code signing (only readiness documented),
-public releases, Microsoft Store, Apply/Bake, internal editor, **Windows ARM64**,
-any new Mall/World features.
+public releases, Microsoft Store, Apply/Bake, **Windows ARM64**, any new Mall/World
+features beyond the Phase 7 editor/parser foundation below.
+
+## Product Direction (locked, 2026-07-12) 🔒
+
+Set after the Phase 6B1 closeout, before broader beta distribution:
+
+1. **No direct uploads to Cybertown.** WRL Forge will not add authentication,
+   networking, or submission code. Users upload through the Cybertown Mall or the
+   existing Cybertown **website** workflow, by hand.
+2. **No prototype / test-build / "unavailable feature" copy** in the user-facing
+   application. Do not advertise absent features or ship disabled buttons for
+   features that don't exist. Truthful runtime states (missing file, parse error,
+   blocked remote URL, case mismatch, unsaved changes, editor-not-found,
+   conservative bounds, unsupported syntax) stay. Automated tests, visual QA,
+   safety guardrails, and honest errors are **kept**, never removed.
+3. **VSCodium is an OPTIONAL external editor**, not a requirement. The integration
+   (Linux + Windows, verified in Phase 6B/6B1) is preserved; the "editor not found"
+   message appears only when the user requests the external-editor action. WRL
+   Forge must eventually function without any external editor — see Phase 7.
+4. The World review bundle is now labelled **"WRL Forge World Project Bundle"** — a
+   review + manual hand-off package, not a server-certified upload format.
+5. A **native WRL editor and a real VRML97 parser** are now a **beta requirement**
+   (Phase 7), so the app stands on its own without VSCodium.
+
+## Phase 7 — Native Editor and VRML97 Parser Foundation ⏳
+
+Delivers the last hard beta requirement: a native editing experience backed by a
+real tokenizer/structural parser, with the external editor demoted to optional.
+X_ITE remains the ONLY renderer — **do not build a renderer**. See
+`docs/NATIVE_EDITOR_ARCHITECTURE.md` for the full design; the parser produces a
+reusable syntax tree feeding diagnostics, scene outline, asset-reference discovery,
+`DEF`/`USE` validation, navigation, future formatting, safe targeted edits, and the
+Mall/World validation profiles.
+
+**This roadmap entry is a PLAN.** No production editor or parser code ships in the
+current lane unless separately approved after the architecture review.
+
+### Phase 7A — Parser Foundation
+Tokenizer, parser, syntax tree, line/column diagnostics with safe error recovery,
+and a fixture corpus drawn from real VRML97 files (Mall items + World projects,
+plain and gzip). No production editing UI yet. Recommended scope in
+`docs/NATIVE_EDITOR_ARCHITECTURE.md` (§ "Phase 7A scope").
+
+### Phase 7B — Native Editor
+Editor component (plain HTML/CSS/JS, no framework — see `AGENTS.md`): line numbers,
+undo/redo, search & replace, selection/keyboard navigation, bracket/brace matching,
+VRML97 syntax highlighting, parser diagnostics inline, safe save with backup, dirty
+tracking, plain + gzip `.wrl`. External editor remains optional ("Open in External
+Editor").
+
+### Phase 7C — Editor + Preview Integration
+Preview refresh from the unsaved editor buffer, debounced parsing, last-valid-scene
+behavior, Mall Item and World Project contexts, reload/conflict handling, and the
+safe save + backup workflow end-to-end.
+
+### Phase 7D — Beta Polish
+Keyboard accessibility, performance on large worlds, crash recovery, session
+restoration, Windows + Linux verification (through the sanctioned VisualQaRunner —
+no multi-process screenshot loops), and beta packaging.
 
 ## Deferred ⛔
 
 Not scheduled into any phase above; requires explicit future direction before any design work begins:
 
-- An internal text editor (Monaco/CodeMirror or custom) — VSCodium remains the editor indefinitely unless this is revisited
-- Authentication
-- Direct upload to any Cybertown server
+- **Direct upload / authentication / server submission — will NOT be built** (locked product decision). Upload stays a manual Cybertown-website workflow.
+- Upload-ready CTR packaging (gated on `docs/WORLD_PACKAGE_QUESTIONS.md`) — the World Project Bundle is review + manual hand-off only.
 - Automatic destructive rewrites of user content (all mutation stays backup-first and, where relevant, preview-before-apply)
 - Framework migration (e.g., introducing a UI framework/bundler to the renderer) — the current plain HTML/CSS/JS approach is intentional, see `AGENTS.md` Conventions
