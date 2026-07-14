@@ -118,6 +118,22 @@ test('the external editor is presented as optional', () => {
   assert.match(index, /optional/i);
 });
 
+test('the Windows build scripts are cross-platform (no POSIX inline-env syntax)', () => {
+  // Phase 7C5: `CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder ...` is bash-only
+  // and cmd.exe (npm's shell on Windows) fails with "not recognized", so a native
+  // Windows build broke. The scripts must route through node scripts/build-win.js,
+  // which sets the signing guard in-process on every platform.
+  const scripts = JSON.parse(read('package.json')).scripts;
+  for (const name of ['build:win', 'build:win:portable']) {
+    assert.doesNotMatch(scripts[name], /CSC_IDENTITY_AUTO_DISCOVERY=/, `${name} must not use POSIX inline-env syntax`);
+    assert.match(scripts[name], /node scripts\/build-win\.js/, `${name} must use the cross-platform wrapper`);
+  }
+  // The wrapper still enforces the unsigned-determinism guard.
+  const wrapper = read('scripts/build-win.js');
+  assert.match(wrapper, /CSC_IDENTITY_AUTO_DISCOVERY/, 'wrapper must set the signing guard');
+  assert.match(wrapper, /--publish['"\s,]+never/, 'wrapper must never publish');
+});
+
 test('opening a file does not passively surface an "editor not found" message', () => {
   // Part 3: the not-found message appears only on the explicit external-editor
   // action, never merely from opening a file. applyState() must not call
