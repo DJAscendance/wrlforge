@@ -25,8 +25,11 @@ req(linuxTargets.includes('tar.gz'), 'linux target tar.gz missing');
 req(b.appImage && /WRL-Forge-\$\{version\}-linux-x64\.AppImage/.test(b.appImage.artifactName || ''), 'appImage.artifactName not canonical');
 
 // --- Windows targets ---
+// The Windows ZIP is assembled from win-unpacked in the release workflow (the
+// electron-builder `zip` target collided with the `msi` output name), so only
+// nsis/msi/portable are declared here.
 const winTargets = (b.win && b.win.target || []).map((t) => t.target);
-for (const t of ['nsis', 'msi', 'portable', 'zip']) {
+for (const t of ['nsis', 'msi', 'portable']) {
   req(winTargets.includes(t), `windows target ${t} missing`);
 }
 req(/WRL-Forge-Setup-\$\{version\}-x64\.exe/.test((b.nsis || {}).artifactName || ''), 'nsis.artifactName not canonical');
