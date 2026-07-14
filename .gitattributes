@@ -1,0 +1,9 @@
+# Test fixtures are byte-exact oracles: gzipped .wrl (binary), plain/gzip twins
+# compared byte-for-byte, deliberate CRLF twins, and PNG textures. Git for
+# Windows defaults to core.autocrlf=true, which rewrites plain-text .wrl
+# fixtures to CRLF on checkout — that broke the "gzipped .wrl decompresses to
+# text identical to its plain twin" comparison on Windows (Phase 7C5). Mark the
+# whole fixture tree as -text so every fixture byte is identical on all
+# platforms regardless of a checkout's autocrlf setting.
+test/fixtures/** -text
+spikes/xite-mall-fit/fixtures/** -text
