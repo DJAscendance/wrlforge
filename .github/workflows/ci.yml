@@ -1,0 +1,60 @@
+name: CI
+
+# Non-visual continuous integration for WRL Forge.
+# Runs the node test suite, the syntax/check gate, deterministic icon
+# generation, product-posture checks, and packaging-config validation on both
+# Ubuntu and Windows. It deliberately does NOT launch any Electron visual QA
+# suite -- those run one process at a time under the sanctioned VisualQaRunner
+# locally, never concurrently in CI.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# One run per ref; cancel superseded runs so we never stack Electron-adjacent work.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate icons
+        run: npm run build:icons
+
+      - name: Verify icon generation is deterministic
+        run: git diff --exit-code -- assets/generated/icons
+        shell: bash
+
+      - name: Bundle native editor
+        run: npm run build:editor
+
+      - name: Tests + syntax/check gate (includes product-posture)
+        run: npm run check
+
+      - name: Validate packaging configuration
+        shell: bash
+        run: node .github/scripts/validate-build-config.js

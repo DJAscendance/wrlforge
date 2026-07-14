@@ -1,0 +1,135 @@
+name: Release
+
+# Builds the WRL Forge public-beta artifacts natively on Ubuntu (AppImage,
+# tar.gz) and Windows (NSIS EXE, MSI, portable EXE, ZIP) from the exact tag,
+# assembles a combined SHA-256 manifest, and creates a DRAFT PRERELEASE with
+# every asset attached. The draft is published (undrafted) only after Linux +
+# Windows verification passes -- this workflow never publishes on its own.
+#
+# Uses only official actions (checkout, setup-node, upload/download-artifact)
+# and the built-in GitHub CLI; no third-party release action. Unsigned by
+# design (build:win / build-dist force CSC_IDENTITY_AUTO_DISCOVERY=false).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v1.3.0-beta.2)'
+        required: true
+        default: 'v1.3.0-beta.2'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-linux:
+    name: Build Linux artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:icons
+      - run: npm run build:editor
+      - name: Build AppImage + tar.gz
+        run: npm run dist:linux
+      - name: List Linux artifacts
+        run: ls -la release/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          if-no-files-found: error
+          path: |
+            release/WRL-Forge-*-linux-x64.AppImage
+            release/WRL-Forge-*-linux-x64.tar.gz
+
+  build-windows:
+    name: Build Windows artifacts
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:icons
+      - run: npm run build:editor
+      - name: Build NSIS + MSI + portable + ZIP
+        run: npm run dist:windows
+      - name: List Windows artifacts
+        shell: bash
+        run: ls -la release/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          if-no-files-found: error
+          path: |
+            release/WRL-Forge-Setup-*-x64.exe
+            release/WRL-Forge-*-x64.msi
+            release/WRL-Forge-Portable-*-x64.exe
+            release/WRL-Forge-*-windows-x64.zip
+
+  draft-release:
+    name: Assemble draft prerelease
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: staged
+          merge-multiple: true
+      - name: Assemble asset set + checksum manifest
+        id: assemble
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          mkdir -p dist-assets
+          cp staged/WRL-Forge-* dist-assets/
+          cd dist-assets
+          echo "== assets =="
+          ls -la
+          sha256sum WRL-Forge-* > "SHA256SUMS-${VERSION}.txt"
+          echo "== checksums =="
+          cat "SHA256SUMS-${VERSION}.txt"
+          # Guard: all six required artifacts must be present.
+          for pat in "linux-x64.AppImage" "linux-x64.tar.gz" "Setup-${VERSION}-x64.exe" "${VERSION}-x64.msi" "Portable-${VERSION}-x64.exe" "windows-x64.zip"; do
+            ls WRL-Forge-*"$pat" >/dev/null || { echo "MISSING artifact: *$pat"; exit 1; }
+          done
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Create or update draft prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${{ steps.assemble.outputs.version }}"
+          NOTES="docs/RELEASES.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists -> uploading assets (clobber)"
+            gh release upload "$TAG" dist-assets/* --clobber
+          else
+            gh release create "$TAG" dist-assets/* \
+              --draft --prerelease \
+              --title "WRL Forge ${VERSION} — First Public Beta" \
+              --notes-file "$NOTES"
+          fi
+          echo "Draft prerelease $TAG assembled with $(ls dist-assets | wc -l) assets."
