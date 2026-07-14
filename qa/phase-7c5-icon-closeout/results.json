@@ -1,0 +1,40 @@
+{
+  "phase": "7C5.1",
+  "title": "App-icon integration + QA-record closeout",
+  "baseline": "c95b5a5",
+  "commits": { "iconIntegration": "1cbbb68", "gitattributes": "5c9af96" },
+  "version": "1.3.0-beta.1",
+  "verdict": "GO",
+  "linux": { "tests": "580/580", "testFiles": 55, "check": "exit 0", "node": "20.20.2" },
+  "windows": { "tests": "580/580", "check": "exit 0", "node": "24.18.0", "tier1SelfTest": "55/55 (accepted 7C5)" },
+  "icons": {
+    "rasterizer": "@resvg/resvg-js@2.6.2",
+    "primaryVariant": "cyan",
+    "determinismPerPlatform": "byte-identical (x2, both OSes)",
+    "determinismCrossPlatform": "byte-identical (Linux == Windows, 15 files incl MANIFEST)",
+    "sourcePreserved": "before==after; cross-platform byte-identical after -text",
+    "icoEntries": [16, 24, 32, 48, 64, 128, 256],
+    "pngSizes": [16, 24, 32, 48, 64, 128, 256, 512],
+    "embeddedInExe": "16..256 (win-unpacked + installed); 256px = cyan WRL",
+    "choosableIcosShipped": ["cyan", "cyan-transparent", "yellow", "yellow-transparent"]
+  },
+  "packaging": {
+    "portable": { "built": true, "bytes": 99417282, "sha256": "a2194ad983800b7c31708af3dea8d72517289380c4403953b431637e9bcba0a1" },
+    "nsisSetup": { "built": true, "bytes": 99635852, "sha256": "92bb0dd44dd27fbaae4a09aa058e578ff755b38244c21ea1199029ba51dddb2f" },
+    "signed": false
+  },
+  "registry": {
+    "hive": "HKCU",
+    "path": "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\5da646f8-3b5a-561c-9d2a-4470f9bb6657",
+    "DisplayName": "WRL Forge 1.3.0-beta.1",
+    "DisplayVersion": "1.3.0-beta.1",
+    "Publisher": "",
+    "InstallLocation": "",
+    "UninstallString": "\"%LOCALAPPDATA%\\Programs\\WRL Forge\\Uninstall WRL Forge.exe\" /currentuser",
+    "DisplayIcon": "%LOCALAPPDATA%\\Programs\\WRL Forge\\WRL Forge.exe,0"
+  },
+  "lifecycle": { "install": "clean", "launch": "boots+renders, self-quit", "uninstall": "dir+shortcut+registry removed", "survivors": 0 },
+  "fixtures": { "count": 172, "identicalBeforeAfter": true },
+  "portableHandshake": "unchanged known limitation (stub does not forward stdout); not an app failure",
+  "rogueDirs": { "archived": true, "deleted": ["C:\\wrl-qa", "C:\\wrl-gemini-qa"], "inventoryFiles": 73 }
+}

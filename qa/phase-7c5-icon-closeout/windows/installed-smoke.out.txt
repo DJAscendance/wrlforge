@@ -1,0 +1,2 @@
+
+WRL_FORGE_SMOKE_TEST_RESULT {"title":"WRL Forge — Mall Item lane","hasVrmlpadBridge":true,"contextIsolation":true,"nodeIntegration":false,"hasPreviewCanvas":true,"xiteLoaded":true,"hasModeControls":true,"hasCspMeta":true}

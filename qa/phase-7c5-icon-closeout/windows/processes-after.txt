@@ -1,0 +1,1 @@
+0 WRL Forge / electron processes running after all Windows icon testing (dev smoke, installed-app smoke, portable, uninstall) — no survivors.

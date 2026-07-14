@@ -1,4 +1,25 @@
-wrl-forge-cyan-transparent.ico: 7 entries: 16(16x16) 24(24x24) 32(32x32) 48(48x48) 64(64x64) 128(128x128) 256(256x256)
-wrl-forge-cyan.ico: 7 entries: 16(16x16) 24(24x24) 32(32x32) 48(48x48) 64(64x64) 128(128x128) 256(256x256)
-wrl-forge-yellow-transparent.ico: 7 entries: 16(16x16) 24(24x24) 32(32x32) 48(48x48) 64(64x64) 128(128x128) 256(256x256)
-wrl-forge-yellow.ico: 7 entries: 16(16x16) 24(24x24) 32(32x32) 48(48x48) 64(64x64) 128(128x128) 256(256x256)
+WRL Forge icon ICO entry report — Phase 7C5.1
+=============================================
+
+Generated .ico files (assets/generated/icons/windows/), validated on Linux via
+`file`, ImageMagick `identify`, and Python PIL; each entry a square PNG:
+
+  wrl-forge-cyan.ico              7 entries: 16 24 32 48 64 128 256
+  wrl-forge-cyan-transparent.ico  7 entries: 16 24 32 48 64 128 256
+  wrl-forge-yellow.ico            7 entries: 16 24 32 48 64 128 256
+  wrl-forge-yellow-transparent.ico 7 entries: 16 24 32 48 64 128 256
+
+Packaged executable (Windows, release/win-unpacked/WRL Forge.exe) — icon embedded
+by electron-builder, verified via Win32 PrivateExtractIcons (PE resource extraction):
+
+  icon groups in exe: 1
+  sizes extracted:    16x16 24x24 32x32 48x48 64x64 128x128 256x256
+  256px visual:       cyan "WRL" extruded artwork (screenshots/exe-embedded-icon-256.png)
+  ExtractAssociatedIcon (default small): 32x32
+
+Installed executable (%LOCALAPPDATA%\Programs\WRL Forge\WRL Forge.exe) — same binary:
+  sizes extracted:    16x16 32x32 48x48 256x256
+  256px visual:       identical to win-unpacked (byte-identical PNG)
+
+Registry DisplayIcon: ...\WRL Forge.exe,0  (cyan)
+Start Menu shortcut IconLocation: ...\WRL Forge.exe,0  (cyan)
