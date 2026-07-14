@@ -7,3 +7,12 @@
 # platforms regardless of a checkout's autocrlf setting.
 test/fixtures/** -text
 spikes/xite-mall-fit/fixtures/** -text
+
+# App-icon assets must be byte-identical on every platform. The four owner-approved
+# source SVGs are the owner's exact bytes (LF) and the deterministic generator
+# relies on identical input to reproduce identical output; the generated PNG/ICO
+# are binary. Marking them -text stops Git-for-Windows autocrlf from EOL-rewriting
+# the SVGs on checkout (which changes their on-disk bytes) and from ever touching
+# the binaries. See docs/ICONS.md.
+assets/wrl-forge-*.svg -text
+assets/generated/icons/** -text
