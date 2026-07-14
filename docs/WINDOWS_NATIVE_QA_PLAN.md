@@ -8,7 +8,7 @@ FreeRDP/noVNC click injection that has dogged every prior Windows pass.
 
 Companion: **`docs/PHASE_7C_PROPOSAL.md`** (the feature this harness must eventually
 verify). Reuses `docs/VISUAL_QA_SAFETY.md` (launch-storm guardrails), `docs/BUILD.md`
-(Windows build), the WinBoat environment (`\\host.lan\Data` share, `ELECTRON_RUN_AS_NODE`
+(Windows build), the WinBoat environment (`\\<host-share>\Data` share, `ELECTRON_RUN_AS_NODE`
 selftest), and the existing `qa/visual-qa/` runner.
 
 ---
@@ -48,9 +48,9 @@ Requirements:
 The above is now **enforced**, not just recommended. `qa/visual-qa/workspace-guard.js`
 refuses to run Windows QA / builds from a workspace that is not a local NTFS clone:
 
-- **Rejected on Windows:** UNC roots (`\\host.lan\Data\...`), mapped **network** drives
+- **Rejected on Windows:** UNC roots (`\\<host-share>\Data\...`), mapped **network** drives
   (`DriveInfo.DriveType == Network`), and any path containing a known host-share marker
-  (`host.lan`, extendable via `WRL_FORGE_HOST_SHARE`). Running `npm ci`/builds/fixture-
+  (`<host-share>`, extendable via `WRL_FORGE_HOST_SHARE`). Running `npm ci`/builds/fixture-
   writing QA from the SMB mount is what previously wiped `node_modules`.
 - **Accepted:** a local clone such as `C:\Projects\wrlforge` (a `Fixed` drive). **Linux
   paths are never blocked** (the guard is a no-op off Windows).
@@ -82,7 +82,7 @@ crosses to the share.
 2. The Windows QA clone `git fetch` + checks out the **exact commit**.
 3. The Windows agent performs **read-only QA plus evidence-only writes** (never edits
    production source while acting as QA).
-4. **Evidence is returned through the shared SMB folder `\\host.lan\Data`** — the Windows
+4. **Evidence is returned through the shared SMB folder `\\<host-share>\Data`** — the Windows
    agent writes a run directory there; the Linux side ingests it into
    `qa/runs/windows/<phase>/<timestamp>/` and commits it after redacting machine paths.
    (Chosen over a dedicated QA branch: it matches the existing WinBoat file-bridge
@@ -194,7 +194,7 @@ QA mode must (and, with the existing env-gate, does):
 
 ## 8. Evidence format
 
-A consistent run directory, written to `\\host.lan\Data\wrlforge-qa\...` on the VM and
+A consistent run directory, written to `\\<host-share>\Data\wrlforge-qa\...` on the VM and
 ingested to:
 
 ```
@@ -233,7 +233,7 @@ commits. Large binaries remain git-ignored.
 9. Run **serialized visual QA** (Tier 2, one reused process).
 10. Run **installer/portable smoke** (Tier 3) when requested.
 11. Confirm **no survivors**.
-12. Collect evidence → drop the run directory to `\\host.lan\Data\wrlforge-qa\`.
+12. Collect evidence → drop the run directory to `\\<host-share>\Data\wrlforge-qa\`.
 13. Restore or remove scratch data.
 14. Confirm **committed fixture hashes are unchanged**.
 15. Return a **GO / CONDITIONAL GO / NO-GO** report.

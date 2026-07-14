@@ -3,7 +3,7 @@
 How to reproduce the Windows-native acceptance. Companion to
 `docs/WINDOWS_NATIVE_QA_PLAN.md` (design) and `qa/phase-7c5-cross-platform/`
 (evidence). **Workspace safety: use only a local NTFS clone** (e.g.
-`C:\Projects\wrlforge`). Never install/build/test/write fixtures from `\\host.lan`,
+`C:\Projects\wrlforge`). Never install/build/test/write fixtures from `\\<host-share>`,
 an SMB share, or a host-mounted repo — the Phase 7C4.1 guard refuses UNC/network/
 host-share workspaces.
 

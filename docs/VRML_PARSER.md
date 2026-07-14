@@ -258,9 +258,9 @@ behavior. No aggressive optimization was applied — that is deferred.
 
 ## Real-corpus results (7A1)
 
-Read-only audit over the available Cybertown corpus (`/home/ryan/Projects/cybertown`,
-excluding `wrlforge*` worktrees), 3 MB/file cap, gzip-transparent — using Gemini's
-exact discovery logic for comparability:
+Read-only audit over the available local Cybertown corpus (the parent directory
+of the WRL Forge checkout, excluding `wrlforge*` worktrees), 3 MB/file cap,
+gzip-transparent — using an independent discovery pass for comparability:
 
 - Discovered: **2,129** `.wrl`/`.wrz`; skipped **5** (4 over 3 MB, 1 gzip-inflate
   error, 0 read errors); **attempted 2,124** (plain **486** + gzip **1,638** = 2,124).

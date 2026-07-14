@@ -540,7 +540,7 @@ automation, evidence format, shared 7C0–7C5 slices).
 
 **7C4.1 — Windows Workspace Isolation Guard ✅ built.** `qa/visual-qa/workspace-guard.js`
 refuses UNC / mapped-network-drive / host-share workspaces on Windows (the WinBoat
-`\\host.lan\Data` share that broke `node_modules`), wired into `qa:windows`,
+`\\<host-share>\Data` share that broke `node_modules`), wired into `qa:windows`,
 `qa:visual`, the Windows self-test, and the Windows build scripts; plus an
 evidence-export allowlist (share is export-only, never node_modules/.git/source/
 fixtures/backups/binaries). Linux paths are never blocked. See

@@ -200,7 +200,7 @@ app installer).
 
 Windows dev/QA/build commands must run from a **local NTFS clone** (e.g.
 `C:\Projects\wrlforge`), never from a UNC path, mapped **network** drive, or the
-WinBoat `\\host.lan\Data` SMB share — running `npm ci`/builds/fixture-writing QA
+WinBoat `\\<host-share>\Data` SMB share — running `npm ci`/builds/fixture-writing QA
 from the share previously wiped `node_modules`. `qa/visual-qa/workspace-guard.js`
 (pure/injectable — `platform`/`env`/`driveType` are all injected, so it unit-tests
 on any host) classifies the workspace and refuses UNC, `DriveType == Network`, and
