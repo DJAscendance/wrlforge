@@ -1,0 +1,21 @@
+WRL Forge — Copyright © 2026 Ryan Bundy. All rights reserved.
+
+This is NOT an open-source license.
+
+The WRL Forge source code is made publicly viewable and source-available for
+inspection only. No rights are granted under this notice: you may not copy, modify,
+adapt, redistribute, publish, sublicense, sell, host, or incorporate WRL Forge, in
+whole or in part and in source or compiled form, into any other work or product,
+except where separately authorized in writing by Ryan Bundy. All rights not expressly
+granted in writing are reserved.
+
+Third-party components bundled with or used to build WRL Forge remain under their own
+respective licenses and are not covered by this notice; see THIRD_PARTY_NOTICES.md for
+those attributions and license texts. See COPYRIGHT.md for the full notice.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR
+OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
