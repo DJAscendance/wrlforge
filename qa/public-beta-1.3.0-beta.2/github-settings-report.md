@@ -18,7 +18,7 @@ bug, needs-info, confirmed, windows, linux, installer, portable, native-editor, 
 
 ## Security
 - SECURITY.md routes vulnerability reports to GitHub **private vulnerability reporting** (Security tab → "Report a vulnerability"); no personal email advertised.
-- Private-vulnerability-reporting toggle: enabling via API returned 404 while the repo was private; retried after the visibility change (see below).
+- Private-vulnerability-reporting toggle: 404 while private; **enabled** after the visibility change (`PUT repos/DJAscendance/wrlforge/private-vulnerability-reporting` succeeded).
 
 ## Visibility
-Kept **private** through the audit, documentation, CI-green, and draft-artifact gates. Changed to **public** only after the pre-public audit passed (owner pre-authorized). Result recorded below.
+Kept **private** through the audit, documentation, CI-green, and draft-artifact gates. Changed to **public** (`PATCH repos/... visibility=public`, owner pre-authorized) only after the pre-public audit passed. Confirmed **PUBLIC**. The draft release was then published as a **prerelease** (not draft).
