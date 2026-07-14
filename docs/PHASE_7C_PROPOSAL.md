@@ -537,3 +537,15 @@ scene rendering, automatic formatting, scope-aware PROTO semantic rewrite, Apply
 Transform, Windows ARM64, signing, auto-update, Microsoft Store release, public release,
 and multiple simultaneous Electron visual processes are **out of scope** and not proposed
 here.
+
+## Phase 7C status — COMPLETE (7C0–7C5)
+
+All Phase 7C sub-phases are **built and accepted**: 7C0 (planning), 7C1 (buffer-
+overlay foundation), 7C2 (Mall unsaved-buffer live preview), 7C3 (World unsaved-buffer
+live preview), 7C4 (Windows-native QA harness), 7C4.1 (Windows workspace guard),
+Feature A (vision accommodations), and **7C5 (cross-platform acceptance + private beta
+refresh — `1.3.0-beta.1`)**. 7C5 accepted the full feature set on both Linux and
+native Windows 11, fixed three acceptance-found defects (`f3107af` CRLF
+`.gitattributes`, `0a9eca8` Windows file-based capture transport, `84fdcea`
+cross-platform `build:win`), and produced the refreshed unsigned Windows x64 beta.
+Evidence: `qa/phase-7c5-cross-platform/`.

@@ -1,8 +1,46 @@
-# WRL Forge 1.2.0-beta.2 — Private Windows Beta (Unsigned)
+# WRL Forge 1.3.0-beta.1 — Private Windows Beta (Unsigned)
 
 **Status:** Private beta candidate. **Do not distribute publicly.**
 **Signing:** **Unsigned** — SmartScreen shows the unknown-publisher prompt on first
 run (**More info → Run anyway**); it is **not** removed (see `docs/SIGNING_READINESS.md`).
+
+## What's new in 1.3.0-beta.1 — cross-platform acceptance (Phase 7C5)
+
+No new product features. This refresh is the **cross-platform acceptance** of the
+full Phase 7C feature set on **both Linux and native Windows 11**, plus three
+acceptance-found corrections:
+
+- **Vision accommodations, native editor, Mall + World unsaved-buffer live preview,
+  last-valid-scene & saved-version fallback, viewpoint & navigation preservation** —
+  all verified on native Windows 11 (not just Linux). Windows GUI visual suites:
+  vision 9/9, native editor 15/15, Mall preview 18/18, World preview 22/22 (chips
+  match Linux; cleanup to zero overlays/generations).
+- **Fix — cross-platform test fixtures.** A root `.gitattributes` keeps byte-exact
+  `.wrl` fixtures identical on Windows checkouts (Git `autocrlf`). No user impact.
+- **Fix — automated Windows visual QA.** A file-based capture-server transport
+  replaces stdin, which a GUI-subsystem `electron.exe` cannot read on Windows. QA
+  tooling only; no runtime change.
+- **Fix — native Windows build.** `npm run build:win` now runs on Windows itself
+  (was cross-build-on-Linux only). Artifacts remain unsigned.
+
+Full NSIS install → shortcuts → launch → uninstall lifecycle verified (user data
+untouched), and the explicit VSCodium launch (incl. space/Unicode paths). Evidence:
+`qa/phase-7c5-cross-platform/`.
+
+### Artifacts (x64, unsigned)
+
+| File | Size | SHA-256 |
+|---|---|---|
+| `WRL Forge-1.3.0-beta.1-x64-PrivateBeta-Unsigned-portable.exe` | _computed at final build_ | _computed at final build_ |
+| `WRL Forge-1.3.0-beta.1-x64-PrivateBeta-Unsigned-setup.exe` (NSIS installer) | _computed at final build_ | _computed at final build_ |
+
+Checksums in `release/SHA256SUMS-1.3.0-beta.1.txt` (git-ignored, like the artifacts).
+Both are **unsigned** (PE certificate table empty — verified at build time) and **x64
+only** (no ARM64). No auto-update, no store packaging, no public release.
+
+---
+
+## Previous: 1.2.0-beta.2 — native-editor closeout (Phase 7B1)
 
 ## What's new in 1.2.0-beta.2 — native-editor closeout (Phase 7B1)
 

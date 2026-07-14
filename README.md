@@ -34,7 +34,12 @@ See `AGENTS.md` for the full mission, architecture, and conventions, and `docs/W
 ## Platform
 
 Linux is the first supported platform and is tested thoroughly. **Windows** is now
-a **private beta** (Phase 6B, `1.1.0-beta.1`). Editor discovery is cross-platform
+a **private beta** — refreshed to `1.3.0-beta.1` (Phase 7C5), which accepted the
+full Phase 7C feature set (native editor, Mall + World unsaved-buffer live previews,
+vision accommodations) on **native Windows 11**: 567/567 tests, Tier-1 packed
+self-test 55/55, all four GUI visual suites (vision/native/Mall/World), a native
+unsigned `build:win`, the full NSIS install→uninstall lifecycle, and the explicit
+VSCodium launch — see `qa/phase-7c5-cross-platform/` and `docs/WINDOWS_QA_RUNBOOK.md`. Editor discovery is cross-platform
 (Linux `codium`/`code`; Windows install-location search + `WRL_FORGE_EDITOR` /
 `settings.json` override, with a clear "editor not found" message), filename-case
 mismatches are caught even on case-insensitive Windows/macOS filesystems, and the
@@ -58,7 +63,7 @@ npm run build:win:portable   # portable .exe only
 ```
 
 Output lands in `release/` (git-ignored) as **Private Beta — Unsigned** artifacts
-(`WRL Forge-1.2.0-beta.1-x64-PrivateBeta-Unsigned-*.exe` + `SHA256SUMS`). Because
+(`WRL Forge-1.3.0-beta.1-x64-PrivateBeta-Unsigned-*.exe` + `SHA256SUMS`). Because
 they are **unsigned**, Windows SmartScreen shows the normal "Windows protected your
 PC" / unknown-publisher warning on first launch — click **More info → Run anyway**
 (signing does **not** eliminate this — see `docs/SIGNING_READINESS.md`). No code

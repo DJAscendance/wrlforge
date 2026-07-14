@@ -477,3 +477,20 @@ in one shared scope to keep the dual-export const-collision class from returning
 **QA:** `qa/phase-7c-world-preview/` — 22 serialized states (one Electron process,
 zero survivors, per-state outcome gates) + a pure `stress.js` (coalescing, document
 and project switches, failed-then-repaired ordering, hash-verified no-write).
+
+## Phase 7C5 — cross-platform acceptance
+
+The Mall and World unsaved-buffer live previews are accepted on **both Linux and
+native Windows 11** (see `qa/phase-7c5-cross-platform/`). Every preview status chip
+on Windows matched the Linux run (Live / Updating / Large-file band / Showing last
+good version / Showing saved version / New-file-reference / Some parts missing), and
+the leak/cleanup states reached **zero overlays and zero generations** on both OSes.
+
+The visual-QA capture server (main.js under `WRL_FORGE_CAPTURE_SERVER`) gained a
+**file-based job transport** for Windows: a GUI-subsystem `electron.exe` there has an
+immediately-ended `process.stdin`, so jobs are read from `WRL_FORGE_CAPTURE_JOBS_FILE`
+and results are emitted on stdout (which works); the server self-quits after the last
+job. The POSIX stdin path is unchanged. Transport selection is in
+`qa/visual-qa/transport.js`; `VisualQaRunner` exposes `prepareJobs`/`writeJob`/
+`requestShutdown` hooks (stdin defaults). This is QA-only — the shipped preview
+behavior is identical on every platform.

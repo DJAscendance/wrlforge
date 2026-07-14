@@ -435,9 +435,10 @@ Workspace Isolation Guard) is **built**, **Feature A (Vision Accommodations)** i
 **built**, **7C1** (the pure buffer-overlay foundation) is **built**, **7C2** (the
 Mall unsaved-buffer live preview) is **built**, and **7C3** (the World unsaved-buffer
 live preview — primary + nested overrides, viewpoint preservation, Find new files) is
-**built** and shipped in the native editor; **7C5** (cross-platform acceptance)
-remains **unbuilt** — Windows coverage so far is the packaged-runtime self-test, not
-the full WinBoat GUI pass. Phase 7D (beta polish) remains a **plan**. Anything still
+**built** and shipped in the native editor; and **7C5** (cross-platform acceptance +
+private beta refresh) is **complete** — the full 7C feature set is accepted on both
+Linux and native Windows 11 (local NTFS), with the refreshed private unsigned Windows
+x64 beta `1.3.0-beta.1`. Phase 7D (beta polish) remains a **plan**. Anything still
 plan-only ships no code without separate approval.
 
 ### Phase 7A — Parser Foundation ✅
@@ -621,9 +622,21 @@ files, 1 MiB auto / 8 MiB hard bands, `Ctrl+Enter` / `Ctrl+Shift+Enter`, and the
 split / preview-max / editor-only layouts. See `docs/PREVIEW_ARCHITECTURE.md`
 §"Phase 7C3".
 
-**Unbuilt (still plan-only): 7C5** (cross-platform acceptance — the full
-Windows-native GUI pass over the 7C features via the 7C4 harness, plus the beta
-build refresh).
+**7C5 — Cross-platform acceptance + private beta refresh ✅ complete.** The full 7C
+feature set (vision accommodations, native editor, Mall + World unsaved-buffer
+previews, last-valid/saved-version fallback, viewpoint & nav preservation, the
+Windows-native QA harness) accepted on **both Linux and native Windows 11 Pro**
+(libvirt/QEMU guest, local NTFS `C:\Projects\wrlforge`, driven headlessly over SSH).
+567/567 tests + syntax gate on both OSes; Tier-1 packed self-test 55/55; all four
+Windows GUI visual suites pass via a new **file-based capture transport** (see below);
+`build:win` produces the unsigned portable + NSIS `1.3.0-beta.1`; full NSIS
+install/uninstall lifecycle + VSCodium launch verified. Three acceptance-found defects
+fixed (`f3107af` CRLF `.gitattributes`, `0a9eca8` Windows file transport, `84fdcea`
+cross-platform `build:win`). Evidence: `qa/phase-7c5-cross-platform/`. The file
+transport exists because a GUI-subsystem `electron.exe` on Windows has an
+immediately-ended `process.stdin`, so the capture server reads jobs from
+`WRL_FORGE_CAPTURE_JOBS_FILE` there (`qa/visual-qa/transport.js`); the POSIX stdin
+path is unchanged.
 
 ### Phase 7D — Beta Polish
 Keyboard accessibility, performance on large worlds, crash recovery, session

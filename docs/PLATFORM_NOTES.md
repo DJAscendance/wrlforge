@@ -305,3 +305,30 @@ VSCodium 1.126.04524 installed, auto-discovered, and launched via the production
 spawn path on a space/non-ASCII `.edit.wrl`, with both overrides, invalid-override
 fallback, single-instance, clean-exit, and non-mutation all confirmed (13/13,
 `qa/phase-6b1-vscodium/RESULTS.md`).
+
+## Phase 7C5 — cross-platform acceptance on native Windows 11
+
+The full Phase 7C feature set was accepted on a native **Windows 11 Pro 23H2**
+guest (`virt-manager`/QEMU libvirt domain `win11`, local NTFS `C:\Projects\wrlforge`,
+Node 24.18.0, electron 41.7.1), driven headlessly over SSH from the Linux host. Two
+Windows-specific platform findings drove corrections (both QA/build tooling — no
+runtime behavior change):
+
+- **GUI-subsystem `electron.exe` has a dead `process.stdin` on Windows.** A capture
+  server launched with a stdin pipe sees `readline` `close` at ~34 ms and never
+  receives piped jobs; stdout, WebGL 2.0, and `capturePage()` all work. The stdin
+  capture-server transport (and thus **all** automated Windows visual QA) was
+  therefore non-functional — latent since Phase 7C4, whose Windows GUI check was
+  done manually via noVNC. Fixed by a **file-based transport**
+  (`WRL_FORGE_CAPTURE_JOBS_FILE`, `qa/visual-qa/transport.js`); POSIX keeps stdin.
+- **cmd.exe cannot parse POSIX inline-env.** `CSC_IDENTITY_AUTO_DISCOVERY=false
+  electron-builder …` failed natively on Windows ("not recognized"), so `build:win`
+  only worked cross-building on Linux. Fixed by `scripts/build-win.js`.
+
+Results: 567/567 tests + `npm run check`; Tier-1 packed self-test 55/55 (dev +
+`win-unpacked`); vision 9/9, native editor 15/15, Mall 18/18, World 22/22 (chips
+match Linux, cleanup 0/0); unsigned portable + NSIS built natively; full NSIS
+install/uninstall lifecycle (user data intact); VSCodium explicit launch on
+space/Unicode paths. Evidence: `qa/phase-7c5-cross-platform/`. WebGL renders in this
+GPU-less guest via Chromium's default path (SwiftShader available as fallback);
+X_ITE exposes no first-frame metric.

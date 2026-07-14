@@ -283,3 +283,14 @@ preview is **analysis + display only**. The Phase 5A packaging lane produces the
 upload manually); it never repairs, renames, flattens, rewrites, or uploads, and it
 never marks a project server-certified. Its blocking questions are in
 `docs/WORLD_PACKAGE_QUESTIONS.md`.
+
+## Phase 7C5 — cross-platform acceptance
+
+The World unsaved-buffer live preview (primary string-swap + nested `overlayLookup`
+substitution, viewpoint/navigation preservation, Find-new-files, X_ITE
+pre-validation for nested buffers) is accepted on **both Linux and native Windows
+11** (World visual suite 22/22; 70-texture world and nested-gzip dependency render
+Live; cleanup to zero overlays/generations). The read-only World scanner, asset
+graph, Package Audit, and the deterministic zlib-only Bundle writer were confirmed
+**unregressed** and independent of the parser + 7C preview overlay. Evidence:
+`qa/phase-7c5-cross-platform/`.

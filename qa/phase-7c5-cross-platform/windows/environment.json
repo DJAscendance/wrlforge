@@ -1,0 +1,20 @@
+{
+  "windows_caption": "Microsoft Windows 11 Pro",
+  "windows_version": "10.0.22631",
+  "windows_build": "10.0.22631.6199 (23H2)",
+  "architecture": "AMD64",
+  "hostname": "DESKTOP-RMBG4E0",
+  "virtualization": "virt-manager / QEMU-KVM (libvirt domain 'win11'), local qcow2 disk",
+  "repo_path": "C:\\Projects\\wrlforge",
+  "repo_filesystem": "NTFS",
+  "repo_drivetype": "Fixed (local, not UNC/network/host-share)",
+  "git": "2.55.0.windows.2",
+  "node": "v24.18.0",
+  "npm": "11.16.0",
+  "vscodium": "1.126.04524",
+  "electron": "41.7.1",
+  "node_in_electron_selftest": "24.15.0",
+  "claude_code_cli": "N/A in guest — Windows work driven headlessly over SSH from the Linux host Claude Code session",
+  "access": "OpenSSH Server (port 22, host pubkey auth); interactive console via SPICE",
+  "notes": "Chromium version not separately recorded (electron 41.7.1 ships its own; X_ITE renders via WebGL 2.0, confirmed WEBGL_OK). Node 24.18.0 satisfies the documented 'Node 20+' requirement; Linux baseline is Node 20.20.2."
+}

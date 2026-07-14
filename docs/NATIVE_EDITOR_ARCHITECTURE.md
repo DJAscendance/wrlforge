@@ -393,3 +393,14 @@ shows viewpoint/navigation/Reset View/Find-new-files controls (no Mall fit UI);
 `test/editor/script-load-order.test.js` guards the shared-script-scope class.
 See `docs/PREVIEW_ARCHITECTURE.md` §"Phase 7C3". (**7C5** cross-platform acceptance
 is still open — Windows coverage so far is the packaged-runtime self-test.)
+
+## Phase 7C5 — cross-platform acceptance
+
+The native editor is accepted on **both Linux and native Windows 11** (Node 24,
+electron 41.7.1; `qa/phase-7c5-cross-platform/`): plain/gzip load+save, timestamped
+backups, dirty state, search/replace, undo/redo, go-to-line, diagnostics navigation,
+advisory separation, outline navigation, session restoration, external-change
+conflict handling, and the explicit (never passive) VSCodium launch — including
+`.edit.wrl` on space/Unicode paths. Windows editor visual suite 15/15; Tier-1 packed
+self-test 55/55 (incl. the editor cases). Vision accommodations (zoom, five themes
+incl. High Contrast, enlarged chrome) verified on Windows.

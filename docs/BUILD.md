@@ -38,10 +38,15 @@ npm run build:win            # portable .exe + NSIS installer (x64)
 npm run build:win:portable   # portable .exe only
 ```
 
-Both scripts set `CSC_IDENTITY_AUTO_DISCOVERY=false` so no ambient code-signing
-certificate on the build host is ever picked up — the labelled-unsigned build
-stays deterministically unsigned (the shipped artifacts were confirmed to have an
-empty PE certificate table). Output lands in `release/` (git-ignored):
+Both scripts route through the cross-platform wrapper `scripts/build-win.js`, which
+sets `CSC_IDENTITY_AUTO_DISCOVERY=false` **in-process** so no ambient code-signing
+certificate on the build host is ever picked up — the labelled-unsigned build stays
+deterministically unsigned (artifacts confirmed to have an empty PE certificate
+table). The wrapper replaces the old POSIX inline-env form
+(`CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder …`), which cmd.exe could not
+parse — so `npm run build:win` now works **both** cross-built on Linux (with wine)
+**and natively on Windows** (Phase 7C5; Node 20+ — verified on Windows 11 with Node
+24). Output lands in `release/` (git-ignored):
 
 - `WRL Forge-<version>-x64-PrivateBeta-Unsigned-portable.exe` — single-file
   portable app (no install; run directly).
