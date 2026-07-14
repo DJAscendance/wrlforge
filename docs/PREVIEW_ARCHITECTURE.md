@@ -31,6 +31,8 @@ spike now references them, no duplicate implementations):
 | `preview-state.js` | pure (Phase 7C1) | last-valid-scene state machine (idle/updating/current/failed/showing-last-valid/outdated/closed) |
 | `preview-scheduler.js` | pure (Phase 7C1) | clock-injected 700 ms debounce / coalescing coordinator (no real timer) |
 | `mall-preview-bridge.js` | pure/injectable (Phase 7C2) | main-process Mall authorizer: session→proof→overlay register + generation; renderer never supplies a path |
+| `world-preview-bridge.js` | pure/injectable (Phase 7C3) | main-process World authorizer: session→scan-graph membership→proof→overlay + the `wrlworld://` serving context; renderer never supplies a path |
+| `viewpoint-preserve.js` | pure (Phase 7C3) | viewpoint-restore resolver: DEF → unique description → index → first → default |
 
 Pure/browser modules keep no Electron or filesystem dependency, so they are
 unit-tested under `node:test` (`test/preview/*.test.js`) independent of the
@@ -242,8 +244,8 @@ The three pure `src/preview/` 7C1 modules are the **main-process-ready model** f
 previewing an unsaved editor buffer through X_ITE **without writing a temp file**.
 Phase 7C1 ships the model **only** — there is no editor preview UI, no X_ITE on the
 editor page, no CSP or scheme change, and nothing calls these modules from
-production yet. 7C2 (Mall) and 7C3 (World) wire them into `preview:load` /
-`world:previewLoad`.
+production yet. **Both integrations are now built**: 7C2 (Mall) and 7C3 (World)
+wire them into the native editor's `editor:preview*` IPC (see the sections below).
 
 ### The overlay is a byte substitution, never a new grant
 `buffer-overlay.js` holds at most **one override per editor session**, keyed by
@@ -330,10 +332,10 @@ registration stores nothing. Leak-assertion surface for QA: `size`,
 `activeGenerationCount`, `sessionIdsWithEntries()`, and text-free `describe()` — which
 **never** exposes buffer contents.
 
-### Phase 7C2 integration contract (for the next lane) — realized for Mall
-The Mall half of this contract is now **built** (see "Phase 7C2" below). The World
-half (a `resolve()` override at the top of `resolveWorldRequest`, a World primary
-buffer-source, viewpoint preservation, "Find new files") remains **7C3, unbuilt**.
+### Integration contract — realized for BOTH profiles
+The Mall half of this contract is **built** (see "Phase 7C2" below) and the World
+half — the `resolveWorldRequest` overlay lookup, the World primary buffer-source,
+viewpoint preservation, and "Find new files" — is **built too** (see "Phase 7C3").
 
 ## Phase 7C2 — Mall unsaved-buffer live preview (built)
 
@@ -369,8 +371,9 @@ through an injected `source` loader, so Original/Fit/guides parity is free and t
 is computed from the displayed unsaved scene. `editor.html` gains a `.preview-col` +
 draggable divider (role=separator, keyboard-accessible, clamped 20–80%); layout mode
 (`split`/`preview-max`/`editor-only`) and split fraction persist in localStorage. The
-CSP is widened to the **Mall X_ITE superset** (`index.html`'s), not the World one — no
-`wrlworld:` scheme. Status copy is release-quality via `ui-state.js` `previewStatusModel`
+CSP was widened in 7C2 to the **Mall X_ITE superset** (`index.html`'s); 7C3 later took
+it to the World superset (adds the LOCAL `wrlworld:` — still no new scheme, no remote
+origin). Status copy is release-quality via `ui-state.js` `previewStatusModel`
 (Live / Updating… / Outdated / Showing last good version / Showing saved version / Some
 parts missing / large-file / too-large) — no engineering jargon reaches the user.
 
@@ -387,5 +390,90 @@ lexical scope — so each uses a **module-unique** top-level const name
 (`PREVIEW_STATE_API` / `PREVIEW_SCHEDULER_API`); a generic `const API` collided with
 `ui-state.js` and silently rejected the whole script.
 
-**Not built (7C3):** World primary/nested buffer overrides, the `resolveWorldRequest`
-override, viewpoint preservation, and the "Find new files" rescan.
+## Phase 7C3 — World unsaved-buffer live preview (built)
+
+The World twin of 7C2: the native editor previews an **unsaved World document —
+the primary or any authorized nested WRL — inside the FULL world scene**, with no
+temp file and no new scheme. Everything else (other nested WRLs, textures, audio)
+keeps loading from the authorized project graph through the existing `wrlworld://`
+handler, gzip-transparently.
+
+**Trust boundary (main-process authorizer).** `src/preview/world-preview-bridge.js`
+is pure/injectable (fs only through injected deps, like `preview-source.js`). The
+renderer still sends only `{sessionId, text, bufferVersion}`. `load()`:
+1. resolves the editor session, requires OPEN + `sessionId` match + `context === 'world'`,
+2. requires an open World Project whose **current scan** root matches the session
+   root (a scan from another project — a stale scan — can never authorize),
+3. requires the held source to be lexically inside the root, a **WRL member of the
+   current graph's allow-list** (`buildAuthorizedSet` keys are resolved on-disk
+   exact-case paths, so a case-different or since-dropped document misses), and
+   **realpath-confined again at preview time** (symlink escapes re-refused),
+4. builds `worldAuthorization(heldPath, { inGraph:true })` from that membership,
+5. registers the bytes in its own 7C1 overlay, begins a generation, reads the text
+   back through `resolve()`, and installs the **serving context** — the same
+   `{ projectRoot, authorized }` the disk preview would install.
+
+**Primary vs nested override.**
+- *Primary*: the payload is `buildPreviewPayload(scan)` with the **buffer text
+  substituted as the root scene string** — same string-swap as the disk preview,
+  same `wrlworld://` base URL (the primary's own directory), so nested references
+  resolve through the authorized graph unchanged.
+- *Nested*: the root scene stays the **saved primary**; the override rides inside
+  `resolveWorldRequest` via an injectable `deps.overlayLookup`, consulted **only
+  after** scheme/root confinement and the graph allow-list, and **only for WRL
+  nodes** — overlay presence can never make a request valid, and assets always come
+  from disk. The hook is absent by default, so the World workspace's disk preview
+  is byte-identical to Phase 4B. The payload also carries `editedText`, which the
+  renderer **pre-validates through X_ITE** (`wrlWorldPreview.validateText`) before
+  replacing the world — X_ITE treats a failed Inline as an async warning, so
+  without this a broken nested buffer would silently render the world with that
+  piece missing instead of keeping the last good FULL scene.
+
+**Authorization order (locked):** session → world-project/scan root match → lexical
+root confinement → graph membership (exact-case) → realpath re-check → overlay
+registration; and at serve time: scheme/root confinement → allow-list → overlay.
+
+**New references & "Find new files".** Unsaved text never expands authorization.
+Buffer references are classified against the current allow-list (`buffer.newRefs`
+— exists at exact case but not in the graph; `missingRefs`; `caseRefs`;
+`remoteRefs`; `unsafeRefs`), surfaced in the warnings panel and the status chip
+(**"New file reference found — choose Find new files"**), and never loaded. The
+explicit **Find new files** action (`editor:previewRescan`) runs the **normal**
+`worldSession.scan()` on the held project — no path crosses IPC — and the next
+Update authorizes against the new graph only if the file is now a real, exact-case
+graph member. No automatic rescan ever runs while typing.
+
+**Viewpoint & navigation preservation.** Before a preserving refresh the renderer
+captures the bound viewpoint's identity; after a successful replacement the pure
+resolver `src/preview/viewpoint-preserve.js` picks the restore target: **exact DEF
+name → exact description (only when unique — duplicates are never relied on) →
+previous index if still valid → first viewpoint → X_ITE default view**. The user's
+explicit navigation-mode choice is re-applied after each preserving refresh. A
+failed update never replaces the scene, so viewpoint state is untouched; stale
+completions are discarded by the serial pipeline + generation guard. Reset View
+remains an intentional, explicit reset. (Preservation is **opt-in** via
+`load({ preserveView:true })` — the editor lane passes it; the World workspace's
+Refresh keeps its Phase 4B behavior.)
+
+**Saved fallback.** `saved()` renders the full world **entirely from disk**
+(`buildPreviewPayload`, gzip-transparent) and flips the serving context to
+`ignoreOverlay` for that render — the overlay entry itself survives, so a later
+Update returns to the unsaved version; the buffer and dirty state are untouched.
+
+**Renderer.** The same `renderer/editor-preview.js` orchestrator drives both
+profiles: the open document's `context` selects the engine —
+`renderer/world-preview.js` **reused verbatim** through the same injected `source`
+pattern — and the profile body: World shows the viewpoint selector, Reset View,
+navigation modes, and **Find new files**, plus a line identifying that the **full
+World Project** is being previewed and which document inside it is being edited;
+Mall-only fit modes/guides/report never appear for a world. `editor.html`'s CSP is
+the **World superset** (adds the LOCAL `wrlworld:` scheme — still no new scheme,
+no remote origin). Debounce (700 ms), size bands, layouts, zoom/High Contrast,
+last-valid retention, and cleanup-to-zero all carry over from 7C2 unchanged; both
+bridges are invalidated on close and `editor:previewLeak` reports the combined
+counts. `test/editor/script-load-order.test.js` co-loads every editor-page script
+in one shared scope to keep the dual-export const-collision class from returning.
+
+**QA:** `qa/phase-7c-world-preview/` — 22 serialized states (one Electron process,
+zero survivors, per-state outcome gates) + a pure `stress.js` (coalescing, document
+and project switches, failed-then-repaired ordering, hash-verified no-write).

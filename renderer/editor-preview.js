@@ -1,18 +1,24 @@
 'use strict';
-// Phase 7C2 -- the in-editor live-preview orchestrator. Thin DOM glue on top of
-// pure, unit-tested pieces:
+// Phase 7C2 + 7C3 -- the in-editor live-preview orchestrator. Thin DOM glue on
+// top of pure, unit-tested pieces:
 //   * window.WrlPreviewState     -- the last-valid-scene state machine (7C1)
 //   * window.WrlPreviewScheduler -- the 700 ms debounce / coalescing model (7C1)
 //   * window.WrlEditorUI         -- pure layout + status view-models (ui-state.js)
 //   * window.wrlPreview          -- the REUSED Mall X_ITE render + fit engine
 //                                   (preview.js), driven with an injected source
+//   * window.wrlWorldPreview     -- the REUSED World X_ITE render engine
+//                                   (world-preview.js), same injected-source
+//                                   pattern, plus opt-in viewpoint preservation
 //   * window.vrmlpad.editor      -- the confined main-process preview bridge
 //
-// The renderer NEVER supplies a filesystem path: it sends only { sessionId, text,
-// bufferVersion }. Main authorizes the session as the open Mall source, byte-
-// substitutes the unsaved buffer through the overlay, and returns the payload.
-// One render runs at a time (serial in-flight), so completions can never land out
-// of order; the overlay's generation check is the belt-and-suspenders authority.
+// The profile comes from the OPEN document's context ('mall' | 'world'); the
+// matching engine renders, and the profile-specific controls show. The renderer
+// NEVER supplies a filesystem path: it sends only { sessionId, text,
+// bufferVersion }. Main authorizes the session against its own authority (the
+// held Mall source, or the World scan graph), byte-substitutes the unsaved
+// buffer through the overlay, and returns the payload. One render runs at a
+// time (serial in-flight), so completions can never land out of order; the
+// overlay's generation check is the belt-and-suspenders authority.
 
 (function () {
   const PS = window.WrlPreviewState;
@@ -44,6 +50,7 @@
   const St = {
     active: false,
     sessionId: null,
+    context: 'mall',        // the open document's profile: 'mall' | 'world'
     getText: () => '',
     getVersion: () => 0,
     sm: PS.createPreviewState(),
@@ -52,11 +59,19 @@
     inFlight: false,
     displaySaved: false,
     sizeTier: 'auto',       // last known size band, for the status chip
+    newRefs: 0,             // buffer references not yet in the World graph
+    lastRenderMs: null,     // last scene-replacement duration (QA/perf evidence)
     layout: 'split',
     split: 0.5,
   };
 
   function nowMs() { return Date.now(); }
+
+  // The render engine for the open document's profile. Both are the REUSED
+  // page-scope controllers (never forked); only one is ever driven per document.
+  function engine() {
+    return St.context === 'world' ? window.wrlWorldPreview : window.wrlPreview;
+  }
 
   // --- status chip -----------------------------------------------------------
   function paintChip() {
@@ -67,6 +82,7 @@
       failureCategory: St.sm.failureCategory,
       saved: St.displaySaved,
       sizeTier: St.sizeTier,
+      newRefs: St.newRefs,
     });
     chip.textContent = model.label;
     chip.className = 'preview-chip tone-' + model.tone;
@@ -219,15 +235,28 @@
     }
     const gen = res.generation;
     St.sizeTier = res.sizeTier || 'auto';
+    St.newRefs = res.buffer && Array.isArray(res.buffer.newRefs) ? res.buffer.newRefs.length : 0;
+    paintWorldIdentity(res);
     St.sm = PS.beginUpdate(St.sm, gen, res.bufferVersion);
     paintChip(); // "Updating…"
 
     let result;
+    const t0 = nowMs();
     try {
-      result = await window.wrlPreview.load({ source: async () => res });
+      // A NESTED World edit is pre-validated through X_ITE (never the parser)
+      // BEFORE the world is replaced: X_ITE treats a failed Inline as an async
+      // warning, so skipping this would swap in a full scene with the edited
+      // piece silently missing instead of keeping the last good version.
+      if (St.context === 'world' && res.editedIsPrimary === false && typeof res.editedText === 'string') {
+        const v = await window.wrlWorldPreview.validateText(res.editedText);
+        if (!v.ok) throw new Error(v.error || 'nested text rejected');
+      }
+      // World refreshes preserve the user's viewpoint/navigation where possible.
+      result = await engine().load({ source: async () => res, preserveView: St.context === 'world' });
     } catch (e) {
-      result = { ok: false, error: String((e && e.message) || e) };
+      result = { ok: false, parseError: String((e && e.message) || e) };
     }
+    St.lastRenderMs = nowMs() - t0;
     // Confirm the generation with main (older/replayed generations are refused
     // there); our serial pipeline means this is always the in-flight one.
     try { await bridge.previewAccept(St.sessionId, gen); } catch (e) { /* best-effort */ }
@@ -269,28 +298,59 @@
     paintChip();
   }
 
-  // "Show saved version": render the on-disk source, not the buffer.
+  // "Show saved version": render the on-disk source, not the buffer. For a World
+  // document this renders the FULL world entirely from disk (main skips the
+  // overlay for this render); the unsaved buffer and dirty state are untouched,
+  // and a later Update returns to the unsaved version.
   async function showSaved() {
     if (!St.active) return;
     let res;
     try { res = await bridge.previewSaved(St.sessionId); }
     catch (e) { return; }
     if (!res || !res.ok) return;
+    paintWorldIdentity(res);
     try {
-      await window.wrlPreview.load({ source: async () => res });
+      await engine().load({ source: async () => res });
       St.displaySaved = true;
       paintChip();
-    } catch (e) { /* preview.js kept the last valid scene */ }
+    } catch (e) { /* the engine kept the last valid scene */ }
+  }
+
+  // Identify what the World pane is showing: always the FULL project, and which
+  // document inside it is being edited. Mall documents leave the line untouched.
+  function paintWorldIdentity(res) {
+    if (St.context !== 'world' || !res) return;
+    const line = el('epEditedLine');
+    if (!line) return;
+    if (res.primaryRel) {
+      line.textContent = res.editedIsPrimary || !res.editedRel
+        ? `Full World Project preview — primary: ${res.primaryRel}`
+        : `Full World Project preview — primary: ${res.primaryRel} · editing: ${res.editedRel}`;
+    }
+  }
+
+  // Explicit "Find new files" (World only): main reruns its own project scan --
+  // no path crosses IPC -- then a fresh Update renders against the new graph.
+  async function findNewFiles() {
+    if (!St.active || St.context !== 'world') return;
+    const btn = el('previewFindNewBtn');
+    if (btn) btn.disabled = true;
+    let res = null;
+    try { res = await bridge.previewRescan(St.sessionId); } catch (e) { res = null; }
+    if (btn) btn.disabled = false;
+    if (res && res.ok) manualUpdate();
   }
 
   // --- lifecycle -------------------------------------------------------------
-  // Called by editor.js once the editor has an open Mall document. Idempotent per
-  // session; a different session first tears down the previous one.
-  function start({ sessionId, getText, getVersion } = {}) {
+  // Called by editor.js once the editor has an open Mall or World document.
+  // Idempotent per session; a different session first tears down the previous
+  // one (its overlay, timer, and scene can never leak into this document).
+  function start({ sessionId, getText, getVersion, context } = {}) {
     if (St.active && St.sessionId === sessionId) return;
     if (St.active) stop();
     St.active = true;
     St.sessionId = sessionId;
+    St.context = context === 'world' ? 'world' : 'mall';
     St.getText = typeof getText === 'function' ? getText : (() => '');
     St.getVersion = typeof getVersion === 'function' ? getVersion : (() => 0);
     St.sm = PS.createPreviewState();
@@ -298,10 +358,23 @@
     St.inFlight = false;
     St.displaySaved = false;
     St.sizeTier = 'auto';
+    St.newRefs = 0;
+    St.lastRenderMs = null;
+    applyProfileBody();
     paintChip();
     // Render the initial buffer immediately (unless the preview pane is hidden).
     const m = UI.previewLayoutModel(St.layout, St.split);
     if (m.previewVisible) requestUpdate('manual');
+  }
+
+  // Show only the open profile's preview body (Mall: fit modes/guides/report;
+  // World: viewpoints/navigation/Find new files). The inactive body is hidden
+  // and its X_ITE canvas never receives a scene.
+  function applyProfileBody() {
+    const col = document.querySelector('.preview-col');
+    if (!col) return;
+    col.classList.toggle('context-world', St.context === 'world');
+    col.classList.toggle('context-mall', St.context !== 'world');
   }
 
   // Tear down: stop timers, forget the scene, tell main to drop the overlay.
@@ -333,6 +406,8 @@
     if (mx) mx.addEventListener('click', () => toggleMaximize());
     const sv = el('previewSavedBtn');
     if (sv) sv.addEventListener('click', () => showSaved());
+    const fn = el('previewFindNewBtn');
+    if (fn) fn.addEventListener('click', () => findNewFiles());
     const sel = el('previewLayoutSelect');
     if (sel) sel.addEventListener('change', () => setLayout(sel.value));
 
@@ -346,14 +421,16 @@
   // Public surface for editor.js + the serialized QA harness. No capability beyond
   // what the page already does through its own controls.
   window.wrlEditorPreview = {
-    start, stop, onEdit, manualUpdate, showSaved,
+    start, stop, onEdit, manualUpdate, showSaved, findNewFiles,
     setLayout, toggleMaximize, stepSplit,
     // QA / introspection (no buffer text exposed).
     _state: () => ({
       state: St.sm.state, failureCategory: St.sm.failureCategory,
       displayedGeneration: St.sm.displayedGeneration, requestedGeneration: St.sm.requestedGeneration,
       haveLastValid: St.sm.haveLastValid, saved: St.displaySaved, sizeTier: St.sizeTier,
+      context: St.context, newRefs: St.newRefs, lastRenderMs: St.lastRenderMs,
       layout: St.layout, split: St.split, chip: (el('previewChip') || {}).textContent,
+      world: (St.context === 'world' && window.wrlWorldPreview) ? window.wrlWorldPreview._debug() : null,
     }),
     _leak: () => bridge.previewLeak(),
   };

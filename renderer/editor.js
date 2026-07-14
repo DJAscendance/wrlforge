@@ -466,13 +466,15 @@ async function init() {
   render();
   S.handle.focus();
 
-  // Live preview is a Mall-lane feature in Phase 7C2 (World is 7C3). Start it only
-  // for an open Mall document; the orchestrator sends only text+version to main.
-  if (S.context === 'mall' && EP()) {
+  // Live preview covers both profiles: Mall (Phase 7C2) and World (Phase 7C3).
+  // The orchestrator sends only text+version to main; the document's context
+  // selects the render engine and the profile-specific controls.
+  if ((S.context === 'mall' || S.context === 'world') && EP()) {
     EP().start({
       sessionId: S.sessionId,
       getText: currentText,
       getVersion: () => S.bufferVersion,
+      context: S.context,
     });
   }
 }
@@ -498,6 +500,17 @@ window.__wrlEditor = {
   // through its own preview controls. No buffer text is exposed.
   previewUpdate: () => { if (window.wrlEditorPreview) window.wrlEditorPreview.manualUpdate(); },
   previewSaved: () => { if (window.wrlEditorPreview) window.wrlEditorPreview.showSaved(); },
+  // World live-preview hooks (Phase 7C3): each drives the page's own controls.
+  previewFindNew: () => { if (window.wrlEditorPreview) window.wrlEditorPreview.findNewFiles(); },
+  previewViewpoint: (i) => {
+    const sel = el('wpViewpoint');
+    if (sel && !sel.disabled) { sel.value = String(i); sel.dispatchEvent(new Event('change')); }
+  },
+  previewNav: (mode) => {
+    const sel = el('wpNav');
+    if (sel) { sel.value = mode; sel.dispatchEvent(new Event('change')); }
+  },
+  previewReset: () => { const n = el('wpReset'); if (n) n.click(); },
   previewLayout: (m) => { if (window.wrlEditorPreview) window.wrlEditorPreview.setLayout(m); },
   previewMaximize: () => { if (window.wrlEditorPreview) window.wrlEditorPreview.toggleMaximize(); },
   previewStepSplit: (d) => { if (window.wrlEditorPreview) window.wrlEditorPreview.stepSplit(d); },

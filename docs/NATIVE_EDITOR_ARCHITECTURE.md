@@ -356,8 +356,9 @@ re-implements none of `path-authorizer.js`). Ordering is by monotonic `bufferVer
 
 **Phase 7C2 (built) — the Mall unsaved-buffer live preview.** The native editor now
 shows a split-view X_ITE preview of the **in-memory Mall buffer** with no temp file.
-`editor.html` gains a `.preview-col` + draggable divider and its CSP is widened to the
-**Mall X_ITE superset** (string-swap + `file://` base URL, no new scheme).
+`editor.html` gains a `.preview-col` + draggable divider and its CSP was widened to the
+**Mall X_ITE superset** (string-swap + `file://` base URL, no new scheme; Phase 7C3
+later took it to the World superset — see below).
 `renderer/editor-preview.js` orchestrates the 7C1 state machine + scheduler and reuses
 `renderer/preview.js` verbatim for the render/fit/report. The trust boundary is
 `src/preview/mall-preview-bridge.js`: the renderer sends only `{sessionId, text,
@@ -366,5 +367,29 @@ authorized Mall item, builds the `mallAuthorization` proof from that path, and
 byte-substitutes the buffer through the overlay (`editor:previewLoad`/`previewSaved`/
 `previewAccept`/`previewClose`). Last-valid retention, 700 ms debounce/coalescing,
 1/8 MiB size bands, layout/split persistence, and deterministic overlay cleanup on
-close all apply. **World unsaved preview (7C3) is still not built** — the editor
-previews Mall buffers live and World documents from disk.
+close all apply.
+
+**Phase 7C3 (built) — the World unsaved-buffer live preview.** The same split view
+now previews an unsaved **World** document — the primary or any authorized nested
+WRL — inside the **full world scene**, again with no temp file. The trust boundary
+is `src/preview/world-preview-bridge.js` (the pure/injectable World twin): the
+renderer still sends only `{sessionId, text, bufferVersion}`; main authorizes the
+held document against the **current scan graph** (root match, graph membership,
+exact-case, realpath re-check), builds the `worldAuthorization` proof, and installs
+the `wrlworld://` serving context. The unsaved **primary** renders by string-swap
+with the primary's `wrlworld://` base; an unsaved **nested** WRL substitutes inside
+`resolveWorldRequest` via an injectable `overlayLookup` consulted only **after**
+root confinement + the graph allow-list (absent by default — the World workspace's
+disk preview is unchanged). The shared `editor:preview*` IPC routes by document
+context; `editor:previewRescan` is the explicit **Find new files** action (a normal
+`worldSession.scan()` — unsaved text never expands authorization). The renderer
+reuses `renderer/world-preview.js` verbatim (injected source), adding opt-in
+viewpoint/navigation preservation (pure `src/preview/viewpoint-preserve.js`:
+DEF → unique description → index → first → default) and X_ITE pre-validation of
+nested buffers so a broken nested edit keeps the last good full scene. World mode
+shows viewpoint/navigation/Reset View/Find-new-files controls (no Mall fit UI);
+`editor.html`'s CSP is the **World superset** (adds the LOCAL `wrlworld:` scheme).
+`editor:previewLeak` reports the combined Mall+World overlay counts, and
+`test/editor/script-load-order.test.js` guards the shared-script-scope class.
+See `docs/PREVIEW_ARCHITECTURE.md` §"Phase 7C3". (**7C5** cross-platform acceptance
+is still open — Windows coverage so far is the packaged-runtime self-test.)

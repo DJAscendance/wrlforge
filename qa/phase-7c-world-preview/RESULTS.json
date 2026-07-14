@@ -1,0 +1,1554 @@
+{
+  "launchCount": 1,
+  "launchesUsed": 1,
+  "pids": [
+    840040
+  ],
+  "captureCount": 22,
+  "retries": 0,
+  "exitEvents": [
+    {
+      "pid": 840040,
+      "code": 0,
+      "graceful": true
+    }
+  ],
+  "survivors": [],
+  "runError": null,
+  "gates": [
+    {
+      "id": "01-primary-split",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "02-unsaved-primary",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "03-unsaved-nested",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "04-auto-update",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "05-manual-update",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "06-broken-primary-lastvalid",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "07-broken-nested-lastvalid",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "08-recovery",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "09-saved-fallback",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "10-viewpoint-preserved",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "11-viewpoint-fallback",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "12-nav-preserved",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "13-newref-blocked",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "14-find-new-files",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "15-findings-blocked",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "16-preview-max",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "17-editor-only",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "18-contrast-zoom",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "19-seventy-textures",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "20-nested-gzip",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "21-leak-after-close",
+      "ok": true,
+      "err": null
+    },
+    {
+      "id": "22-project-switch-cleanup",
+      "ok": true,
+      "err": null
+    }
+  ],
+  "perState": [
+    {
+      "id": "01-primary-split",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/01-primary-split.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 643,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "02-unsaved-primary",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/02-unsaved-primary.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 710,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "03-unsaved-nested",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/03-unsaved-nested.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 764,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "rooms/hall.wrl",
+          "editedIsPrimary": false,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "04-auto-update",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/04-auto-update.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 756,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "05-manual-update",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/05-manual-update.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 3,
+        "requestedGeneration": 3,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 586,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "06-broken-primary-lastvalid",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/06-broken-primary-lastvalid.png",
+      "preview": {
+        "state": "showing-last-valid",
+        "failureCategory": "scene-load",
+        "displayedGeneration": 2,
+        "requestedGeneration": 3,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 3,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Showing last good version",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "07-broken-nested-lastvalid",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/07-broken-nested-lastvalid.png",
+      "preview": {
+        "state": "showing-last-valid",
+        "failureCategory": "scene-load",
+        "displayedGeneration": 2,
+        "requestedGeneration": 3,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 2,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Showing last good version",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "rooms/hall.wrl",
+          "editedIsPrimary": false,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "08-recovery",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/08-recovery.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 3,
+        "requestedGeneration": 3,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 581,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "09-saved-fallback",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/09-saved-fallback.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": true,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 572,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Showing saved version",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": null,
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "10-viewpoint-preserved",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/10-viewpoint-preserved.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 722,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Above",
+            "description": "Overview",
+            "index": 1
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "11-viewpoint-fallback",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/11-viewpoint-fallback.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 598,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "12-nav-preserved",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/12-nav-preserved.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 711,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": "WALK",
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "13-newref-blocked",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/13-newref-blocked.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 1,
+        "lastRenderMs": 767,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "New file reference found — choose Find new files",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 3,
+            "references": 3,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [
+              "newthing.wrl"
+            ],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "rooms/hall.wrl",
+          "editedIsPrimary": false,
+          "runtimeWarnings": [
+            "Couldn't load URL 'wrlworld://project/newthing.wrl' for Inline. Error: Not Found"
+          ]
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "14-find-new-files",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/14-find-new-files.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 3,
+        "requestedGeneration": 3,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 791,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 4,
+            "references": 4,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "rooms/hall.wrl",
+          "editedIsPrimary": false,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "15-findings-blocked",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/15-findings-blocked.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 601,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [],
+          "boundViewpoint": null,
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 1,
+            "references": 0,
+            "presentAssets": 0,
+            "uniqueTextures": 0,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 0
+          },
+          "remoteUrls": [
+            "http://example.com/x.png"
+          ],
+          "missingAssets": [
+            "missing.png"
+          ],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [
+              "missing.png"
+            ],
+            "caseRefs": [
+              {
+                "referenced": "case.png",
+                "actual": "CASE.PNG"
+              }
+            ],
+            "remoteRefs": [
+              "http://example.com/x.png"
+            ],
+            "unsafeRefs": [
+              "../../escape.wrl"
+            ]
+          },
+          "editedRel": "scene.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": [
+            "Couldn't load URL 'http://example.com/x.png' for ImageTexture. TypeError: Failed to fetch",
+            "TypeError: Failed to fetch",
+            "Couldn't load URL 'wrlworld://project/missing.png' for ImageTexture. Error: Not Found",
+            "Couldn't load URL 'wrlworld://project/case.png' for ImageTexture. Error: Not Found",
+            "Couldn't load URL 'wrlworld://project/escape.wrl' for Inline. Error: Not Found"
+          ]
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "16-preview-max",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/16-preview-max.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 690,
+        "layout": "preview-max",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 4,
+            "references": 4,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "17-editor-only",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/17-editor-only.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 706,
+        "layout": "editor-only",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 4,
+            "references": 4,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "18-contrast-zoom",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/18-contrast-zoom.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 674,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 4,
+            "references": 4,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "19-seventy-textures",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/19-seventy-textures.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 808,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Grid"
+          ],
+          "boundViewpoint": {
+            "name": "V",
+            "description": "Grid",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 1,
+            "references": 72,
+            "presentAssets": 72,
+            "uniqueTextures": 72,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 1
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "big.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "20-nested-gzip",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/20-nested-gzip.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 614,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 4,
+            "references": 4,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": null
+    },
+    {
+      "id": "21-leak-after-close",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/21-leak-after-close.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 632,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [
+            "Front door",
+            "Overview"
+          ],
+          "boundViewpoint": {
+            "name": "Entry",
+            "description": "Front door",
+            "index": 0
+          },
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 4,
+            "references": 4,
+            "presentAssets": 1,
+            "uniqueTextures": 1,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 2
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "entry.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": {
+        "size": 0,
+        "activeGenerations": 0,
+        "mall": {
+          "size": 0,
+          "sessions": [],
+          "overlays": [],
+          "activeGenerations": 0
+        },
+        "world": {
+          "size": 0,
+          "sessions": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21
+          ],
+          "overlays": [],
+          "activeGenerations": 0,
+          "serving": false
+        }
+      }
+    },
+    {
+      "id": "22-project-switch-cleanup",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-world-preview/screenshots/22-project-switch-cleanup.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "context": "world",
+        "newRefs": 0,
+        "lastRenderMs": 581,
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live",
+        "world": {
+          "status": "ok",
+          "haveValidScene": true,
+          "wasGzipped": false,
+          "baseURL": "wrlworld://project/",
+          "viewpoints": [],
+          "boundViewpoint": null,
+          "navChoice": null,
+          "counts": {
+            "wrlFiles": 1,
+            "references": 0,
+            "presentAssets": 0,
+            "uniqueTextures": 0,
+            "missing": 0,
+            "caseMismatches": 0,
+            "remote": 0,
+            "unsafe": 0,
+            "cycles": 0,
+            "duplicates": 0,
+            "viewpoints": 0
+          },
+          "remoteUrls": [],
+          "missingAssets": [],
+          "buffer": {
+            "newRefs": [],
+            "missingRefs": [],
+            "caseRefs": [],
+            "remoteRefs": [],
+            "unsafeRefs": []
+          },
+          "editedRel": "main.wrl",
+          "editedIsPrimary": true,
+          "runtimeWarnings": []
+        }
+      },
+      "leak": {
+        "size": 0,
+        "activeGenerations": 0,
+        "mall": {
+          "size": 0,
+          "sessions": [],
+          "overlays": [],
+          "activeGenerations": 0
+        },
+        "world": {
+          "size": 0,
+          "sessions": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22
+          ],
+          "overlays": [],
+          "activeGenerations": 0,
+          "serving": false
+        }
+      }
+    }
+  ]
+}

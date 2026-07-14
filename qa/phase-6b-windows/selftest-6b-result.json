@@ -5,8 +5,8 @@
   "node": "20.20.2",
   "electron": null,
   "chrome": null,
-  "total": 52,
-  "passed": 52,
+  "total": 55,
+  "passed": 55,
   "failed": 0,
   "results": [
     {
@@ -142,7 +142,7 @@
     {
       "name": "scans a path with spaces + non-ASCII",
       "pass": true,
-      "detail": "/tmp/wrlbeta-RfVvcd/a b — wörld"
+      "detail": "/tmp/wrlbeta-9eZ8Ek/a b — wörld"
     },
     {
       "name": "editor: clear not-found message (VSCodium absent)",
@@ -217,7 +217,7 @@
     {
       "name": "editor safe-save (plain): atomic write + backup, on-disk matches buffer",
       "pass": true,
-      "detail": "item.wrl.bak-2026-07-14T06-18-03-799Z"
+      "detail": "item.wrl.bak-2026-07-14T07-08-17-192Z"
     },
     {
       "name": "editor safe-save (gzip): round-trips as gzip on disk",
@@ -257,7 +257,7 @@
     {
       "name": "7C2 preview bridge authorizes the open Mall buffer + host-correct base URL",
       "pass": true,
-      "detail": "file:///tmp/wrlforge-7c2-VxJO41/"
+      "detail": "file:///tmp/wrlforge-7c2-qOxRxb/"
     },
     {
       "name": "7C2 preview bridge rejects a session whose held path != the authorized source",
@@ -266,6 +266,21 @@
     },
     {
       "name": "7C2 preview bridge refuses an >8 MiB buffer and leaves zero overlays after close",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "7C3 world bridge authorizes primary + nested unsaved buffers on the real filesystem",
+      "pass": true,
+      "detail": "wrlworld://project/"
+    },
+    {
+      "name": "7C3 world bridge refuses non-graph documents and stale scans",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "7C3 close reaches zero overlays/generations; viewpoint fallback order holds",
       "pass": true,
       "detail": ""
     }

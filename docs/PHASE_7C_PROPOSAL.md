@@ -1,17 +1,20 @@
 # Phase 7C — Unsaved-Buffer X_ITE Preview — Architecture Proposal
 
-Status: **PARTIALLY BUILT.** This document is the architecture proposal; the design
-below is the authority for the whole lane. **Built so far:** 7C4 (Windows QA
-harness), 7C4.1 (workspace guard), Feature A (vision accommodations), **7C1 — the
-pure buffer-overlay foundation** (`src/preview/buffer-overlay.js`, `preview-state.js`,
-`preview-scheduler.js`; §4–§10, §12 first block), and **7C2 — the Mall unsaved-buffer
-live preview** (`src/preview/mall-preview-bridge.js` authorizer, `editor:preview*` IPC,
-`renderer/editor-preview.js` split-view reusing `renderer/preview.js`, Mall-superset CSP
-on `editor.html`; §4–§10 realized for the Mall profile, no new scheme). **Not built:**
-7C3 (World unsaved preview), 7C5 (cross-platform acceptance). 7C2 ships **only** the
-Mall profile — the World primary/nested buffer override, World-graph rescan, and
-viewpoint preservation stay in 7C3. The Windows-native QA workflow that Phase 7C's
-cross-platform acceptance depends on is a companion document:
+Status: **BUILT except 7C5.** This document is the architecture proposal; the design
+below is the authority for the whole lane. **Built:** 7C4 (Windows QA harness),
+7C4.1 (workspace guard), Feature A (vision accommodations), **7C1 — the pure
+buffer-overlay foundation** (`src/preview/buffer-overlay.js`, `preview-state.js`,
+`preview-scheduler.js`; §4–§10, §12 first block), **7C2 — the Mall unsaved-buffer
+live preview** (`src/preview/mall-preview-bridge.js` authorizer, `editor:preview*`
+IPC, `renderer/editor-preview.js` split-view reusing `renderer/preview.js`; §4–§10
+realized for the Mall profile, no new scheme), and **7C3 — the World unsaved-buffer
+live preview** (`src/preview/world-preview-bridge.js` authorizer over the scan graph,
+the `resolveWorldRequest` overlay lookup for nested overrides, primary string-swap
+with the `wrlworld://` base, viewpoint preservation via `viewpoint-preserve.js`,
+the manual "Find new files" rescan, World-superset CSP on `editor.html`; §4.2 and
+§14 realized). **Not built:** 7C5 (cross-platform acceptance) — Windows coverage so
+far is the packaged-runtime self-test, not the full WinBoat GUI pass. The
+Windows-native QA workflow that acceptance depends on is a companion document:
 **`docs/WINDOWS_NATIVE_QA_PLAN.md`**.
 
 See `docs/NATIVE_EDITOR_ARCHITECTURE.md` (as-built Phase 7B), `docs/PREVIEW_ARCHITECTURE.md`
@@ -505,8 +508,23 @@ sequence"** (shared with the Windows harness slice). Summary:
   `stress.js`. An idempotent-re-render note: a manual Update of the **same** bufferVersion
   re-renders the same authorized bytes (a fresh generation over the existing overlay
   entry); only a strictly-older version is refused as stale.
-- **7C3 — World unsaved preview.** Primary override, nested-dependency override, viewpoint
-  preservation, asset-graph interaction, "Rescan for preview", Linux QA.
+- **7C3 — World unsaved preview. ✅ built.** `src/preview/world-preview-bridge.js`
+  (pure main-process authorizer over the CURRENT scan graph: root match, membership,
+  exact-case, realpath re-check; the renderer still sends only `{sessionId, text,
+  bufferVersion}`), the primary override as a string-swap with the primary's
+  `wrlworld://` base, the nested-dependency override as an injectable `overlayLookup`
+  inside `resolveWorldRequest` consulted only AFTER root confinement + the allow-list
+  (absent by default — the workspace disk preview is byte-identical), viewpoint
+  preservation (pure `viewpoint-preserve.js`: DEF → unique description → index →
+  first → default; nav-mode restore; opt-in `preserveView` so the workspace Refresh
+  is unchanged), X_ITE pre-validation of nested buffers (a broken nested edit keeps
+  the last good FULL scene), the manual-only **"Find new files"** rescan
+  (`editor:previewRescan` → the normal `worldSession.scan()`; new/missing/case/
+  remote/unsafe buffer references are classified + surfaced, never auto-authorized),
+  and full-world saved fallback. Tests: `test/preview/world-preview-bridge.test.js`,
+  `viewpoint-preserve.test.js`, `test/editor/script-load-order.test.js`. Visual QA
+  `qa/phase-7c-world-preview/` (22/22 outcome-gated states, 1 process, 0 survivors,
+  leak-clean) + pure `stress.js`.
 - **7C4 — Windows-native QA harness.** See the Windows plan; **independent of 7C1–7C3**
   and may run in parallel once the harness decision lands.
 - **7C5 — Cross-platform acceptance.** Linux full regression, Windows direct-agent QA,

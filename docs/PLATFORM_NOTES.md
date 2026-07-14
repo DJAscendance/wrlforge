@@ -64,27 +64,39 @@ verified on Linux via the serialized `VisualQaRunner`
 (`qa/phase-7b-native-editor/`); the Windows GUI run is the interactive WinBoat
 step, consistent with how the Phase 6B GUI was verified.
 
-## Mall live preview — cross-platform behavior (Phase 7C2)
+## Live preview — cross-platform behavior (Phase 7C2 Mall + Phase 7C3 World)
 
-The Mall unsaved-buffer live preview is portable by construction and packaged with
-the app (new files fall under the existing `src/**/*` + `renderer/**/*` build globs;
-`x_ite` is already a runtime dependency bundled for the Mall page):
+The unsaved-buffer live preview (both profiles) is portable by construction and
+packaged with the app (new files fall under the existing `src/**/*` +
+`renderer/**/*` build globs; `x_ite` is already a runtime dependency bundled for
+the Mall and World pages):
 
-- The X_ITE base URL is `fileDirUrl(heldSource)` — `path.dirname` of the source, so
-  it is correct on Windows **drive-letter** paths (`C:\…\item.wrl → file:///C:/…/`).
-  Covered by three Phase 7C2 cases in the Windows self-test
-  (`qa/phase-6b-windows/win-selftest.js`: base URL, source-mismatch rejection, and
-  the 8 MiB refusal + zero-overlay-after-close leak check).
-- No temp file is written for preview; the buffer renders by string-swap. Path
-  authorization is main-owned (`src/preview/mall-preview-bridge.js`) — the renderer
+- **Mall:** the X_ITE base URL is `fileDirUrl(heldSource)` — `path.dirname` of the
+  source, so it is correct on Windows **drive-letter** paths
+  (`C:\…\item.wrl → file:///C:/…/`). Covered by three Phase 7C2 cases in the
+  Windows self-test (`qa/phase-6b-windows/win-selftest.js`: base URL,
+  source-mismatch rejection, and the 8 MiB refusal + zero-overlay leak check).
+- **World:** the base URL is the primary's `wrlworld://project/<dir>/` (built with
+  `path.relative` from the project root, separator-normalized), and the allow-list
+  keys are `path.resolve`d on-disk paths — both host-correct on Windows. Covered by
+  three Phase 7C3 cases in the same self-test (primary + nested overrides over a
+  real scratch world through the REAL `resolveWorldRequest` incl. a gzip disk
+  dependency; non-graph/stale-scan refusal; zero-overlay close + the viewpoint
+  fallback order). Exact-case graph membership is enforced by the case-preserving
+  directory-listing rule even on case-insensitive NTFS (same rule as the scanner).
+- No temp file is written for preview in either profile; buffers render by
+  string-swap / handler-level byte substitution. Path authorization is main-owned
+  (`src/preview/mall-preview-bridge.js` / `world-preview-bridge.js`) — the renderer
   never supplies a path, so there is no separator-sensitive renderer path handling.
-- The pure preview modules (`preview-state.js`/`preview-scheduler.js`) are also
-  loaded as browser `<script>`s and use module-unique global names to avoid a
-  shared-scope `const` collision (a browser-only concern, platform-independent).
+- The pure preview modules (`preview-state.js`/`preview-scheduler.js`/
+  `viewpoint-preserve.js`) are also loaded as browser `<script>`s and use
+  module-unique global names to avoid a shared-scope `const` collision
+  (`test/editor/script-load-order.test.js` co-loads the whole editor page's script
+  list to guard the class — a browser-only concern, platform-independent).
 
 **Windows GUI acceptance of the live preview is deferred to Phase 7C5** (the full
-WinBoat run), consistent with 7B/6B; 7C2's Windows coverage here is the packaged
-self-test + build-config inclusion, not an interactive GUI pass.
+WinBoat run), consistent with 7B/6B; the 7C2+7C3 Windows coverage here is the
+packaged self-test + build-config inclusion, not an interactive GUI pass.
 
 ## Path separators
 

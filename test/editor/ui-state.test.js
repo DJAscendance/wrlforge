@@ -270,9 +270,29 @@ test('previewStatusModel maps INTERNAL states to release-quality copy (no jargon
   // No engineering jargon leaks into any surface.
   const states = ['idle', 'updating', 'current', 'failed', 'showing-last-valid', 'outdated', 'closed'];
   for (const s of states) {
-    const l = ui.previewStatusModel({ state: s }).label.toLowerCase();
-    for (const banned of ['generation', 'overlay', 'stale', 'buffer version', 'state machine', 'phase', 'experimental']) {
-      assert.ok(!l.includes(banned), `"${l}" must not contain "${banned}"`);
+    for (const opts of [{ state: s }, { state: s, newRefs: 2 }]) {
+      const l = ui.previewStatusModel(opts).label.toLowerCase();
+      for (const banned of ['generation', 'overlay', 'stale', 'buffer version', 'state machine', 'phase', 'experimental', 'graph']) {
+        assert.ok(!l.includes(banned), `"${l}" must not contain "${banned}"`);
+      }
     }
   }
+});
+
+test('previewStatusModel surfaces a NEW file reference on the settled states only (7C3)', () => {
+  const m = (opts) => ui.previewStatusModel(opts);
+  // Settled states point at the explicit Find-new-files action...
+  for (const state of ['current', 'outdated', 'showing-last-valid']) {
+    const r = m({ state, newRefs: 1 });
+    assert.strictEqual(r.key, 'new-file', state);
+    assert.strictEqual(r.label, 'New file reference found — choose Find new files');
+  }
+  // ...but never mask progress, hard failure, saved display, or the size refusal.
+  assert.strictEqual(m({ state: 'updating', newRefs: 1 }).label, 'Updating…');
+  assert.strictEqual(m({ state: 'failed', newRefs: 1 }).label, 'Can’t display latest');
+  assert.strictEqual(m({ saved: true, newRefs: 1 }).label, 'Showing saved version');
+  assert.match(m({ state: 'current', newRefs: 1, sizeTier: 'refused' }).label, /too large/i);
+  // Zero/absent newRefs changes nothing.
+  assert.strictEqual(m({ state: 'current', newRefs: 0 }).label, 'Live');
+  assert.strictEqual(m({ state: 'current' }).label, 'Live');
 });

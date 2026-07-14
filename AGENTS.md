@@ -124,24 +124,40 @@ never block saving. **Vision accommodations (Feature A) are built** (renderer-on
 IPC/CSP change): one persisted **zoom level** (`Ctrl`+`/-/0`, toolbar group) scales the CodeMirror code
 area (a **font compartment** in `editor-view.js`, decoupled from the theme compartment) *and* the app
 chrome (a `--wrl-ui-scale` rem layer in `editor.html`) together; all zoom math is pure in
-`ui-state.js` (`resolveZoom`/`zoomStep`/`zoomModel`). Reuse those — don't duplicate. The **Mall
-unsaved-buffer X_ITE live preview is built (Phase 7C2)**; the **World unsaved preview (7C3) is not
-built** — do not add World primary/nested buffer overrides, World-graph rescan, or viewpoint
-preservation, and do not build a renderer. The **7C1 foundation** is three dependency-free
-`src/preview/` modules (`buffer-overlay.js` — byte-substitution-only, session-scoped, **never authorizes
-a path** and requires an authorization proof from the Mall session / World scan graph; `preview-state.js`
-— last-valid-scene state machine; `preview-scheduler.js` — clock-injected 700 ms debounce). **7C2 wires
-them into the Mall editor**: `src/preview/mall-preview-bridge.js` is the pure/injectable main-process
-authorizer (the renderer sends only `{sessionId, text, bufferVersion}` — never a path; it builds the
-`mallAuthorization` proof from the held Mall source and confirms it equals the active authorized item);
+`ui-state.js` (`resolveZoom`/`zoomStep`/`zoomModel`). Reuse those — don't duplicate. The **native
+editor's live X_ITE preview of the UNSAVED buffer is built for both profiles** — **Mall (Phase 7C2)**
+and **World (Phase 7C3)** — with no temp file ever written; do not build a renderer. The **7C1
+foundation** is three dependency-free `src/preview/` modules (`buffer-overlay.js` —
+byte-substitution-only, session-scoped, **never authorizes a path** and requires an authorization
+proof from the Mall session / World scan graph; `preview-state.js` — last-valid-scene state machine;
+`preview-scheduler.js` — clock-injected 700 ms debounce). **7C2 wires them into the Mall editor**:
+`src/preview/mall-preview-bridge.js` is the pure/injectable main-process authorizer (the renderer
+sends only `{sessionId, text, bufferVersion}` — never a path; it builds the `mallAuthorization` proof
+from the held Mall source and confirms it equals the active authorized item);
 `editor:previewLoad`/`previewSaved`/`previewAccept`/`previewClose` are the confined IPC; `renderer/
 editor-preview.js` + `editor.html`'s `.preview-col` + divider are the split-view (layout/split persisted,
 `Ctrl+Enter` Update, `Ctrl+Shift+Enter` maximize); it **reuses `renderer/preview.js` verbatim** (Original/
-Fit/guides/fit-report) through an injected source loader; `editor.html`'s CSP is widened to the **Mall
-X_ITE superset** (string-swap + `file://` base URL — **no new scheme**, no World `wrlworld:`); release
-copy is `ui-state.js` `previewStatusModel`. The two shared pure modules dual-export (`window.WrlPreview*`)
-with **module-unique const names** (a plain `const API` would collide in the browser's shared script
-scope). Reuse these in 7C3, don't fork, and don't route `validator.js`/World scanning/packaging through
+Fit/guides/fit-report) through an injected source loader; release copy is `ui-state.js`
+`previewStatusModel`. **7C3 wires them into the World editor** the same way:
+`src/preview/world-preview-bridge.js` is the pure/injectable World twin — it authorizes the held
+document against the **current scan graph** (root match, graph membership incl. exact-case, realpath
+re-check) and builds the `worldAuthorization` proof; the shared `editor:preview*` IPC routes by the
+open document's context (plus `editor:previewRescan` — the explicit **Find new files** action, which
+runs the normal `worldSession.scan()`; a new reference in unsaved text is only ever *surfaced*, never
+auto-authorized); the **unsaved primary** renders by the same string-swap with the primary's
+`wrlworld://` base, while an **unsaved nested WRL** substitutes inside `resolveWorldRequest` via an
+injectable `overlayLookup` consulted only **after** root confinement + the graph allow-list (absent
+by default, so the workspace disk preview is byte-identical); `renderer/world-preview.js` is **reused
+verbatim** through the same injected-source pattern, gaining opt-in `preserveView` (viewpoint restore
+DEF → unique description → index → first → default via the pure `src/preview/viewpoint-preserve.js`,
+plus the user's navigation-mode choice) and `validateText` (a nested buffer is pre-parsed through
+X_ITE before the world is replaced, so a broken nested edit keeps the last good FULL scene);
+`editor.html`'s CSP is the **World X_ITE superset** (adds the LOCAL `wrlworld:` — **still no new
+scheme**). "Show saved version" renders the whole world from disk without dropping the unsaved
+overlay. The shared pure modules dual-export (`window.WrlPreview*`) with **module-unique const
+names** (a plain `const API` would collide in the browser's shared script scope —
+`test/editor/script-load-order.test.js` co-loads every editor-page script to catch this class).
+Reuse all of these, don't fork, and don't route `validator.js`/World scanning/packaging through
 them. Everything except the single Build-World-
 Project-Bundle action is read-only; that action writes only a portable bundle to a
 caller-chosen destination and never mutates the source project. See
@@ -168,7 +184,7 @@ Do not copy Mall Item validation rules into World Project or Generic VRML97 code
   - `loadWindowState()` / `saveWindowState()` — window position/size persistence, with a fallback that reads the pre-rename `vrmlpad` userData directory if the new `wrl-forge` one has no saved state yet (see "Rename note" below).
   - The `mall:*` IPC channel names and the `window.vrmlpad` bridge object name are retained from the pre-rename codebase. They are internal symbols, not user-facing branding — do not rename them purely for cosmetic consistency; only rename when a real World Project / Generic VRML97 IPC surface is added alongside them.
 - `preload.js` — contextBridge, exposes `window.vrmlpad.{openMall, openMallPath, check, repack, revealInFolder, loadPreview, openInEditor}` to the renderer. Keep `contextIsolation: true` / `nodeIntegration: false`; add new capabilities as new IPC handlers, not by relaxing this. This constraint applies to the embedded X_ITE preview too — it is isolated from privileged Electron APIs.
-- `src/preview/` — shared preview/fit modules (Phase 2B1), single source of truth reused by both the production app and the isolated spike (no duplicate implementations): `fit-math.js`, `extrusion-bounds.js`, `bbox-traversal.js` (browser-only), `guides.js`, `texture-base.js`, `wrl-source.js` (main-process), `url-policy.js`, plus the **Phase 7C1** unsaved-buffer foundation `buffer-overlay.js` / `preview-state.js` / `preview-scheduler.js` (pure) and the **Phase 7C2** Mall live-preview authorizer `mall-preview-bridge.js` (pure/injectable main-process; wires the foundation into the Mall editor via `editor:previewLoad`). Pure/browser modules keep no Electron/fs dependency so they are `node:test`-able; only `wrl-source.js` touches the filesystem and runs in the main process. See `docs/PREVIEW_ARCHITECTURE.md`.
+- `src/preview/` — shared preview/fit modules (Phase 2B1), single source of truth reused by both the production app and the isolated spike (no duplicate implementations): `fit-math.js`, `extrusion-bounds.js`, `bbox-traversal.js` (browser-only), `guides.js`, `texture-base.js`, `wrl-source.js` (main-process), `url-policy.js`, plus the **Phase 7C1** unsaved-buffer foundation `buffer-overlay.js` / `preview-state.js` / `preview-scheduler.js` (pure), the **Phase 7C2** Mall live-preview authorizer `mall-preview-bridge.js`, the **Phase 7C3** World live-preview authorizer `world-preview-bridge.js` (both pure/injectable main-process; they wire the foundation into the native editor via the shared `editor:preview*` IPC), and the **Phase 7C3** pure viewpoint-restore resolver `viewpoint-preserve.js`. Pure/browser modules keep no Electron/fs dependency so they are `node:test`-able; `wrl-source.js` touches the filesystem, and the two bridges reach it only through injectable deps, in the main process. See `docs/PREVIEW_ARCHITECTURE.md`.
 - `src/editor/editor-locator.js` (Phase 6A) — cross-platform external-editor discovery (pure/injectable: `platform`/`env`/`existsSync` injected). `resolveEditor` (Linux `codium`/`code` on PATH; Windows VSCodium/VS Code install-location search + PATH shims; `WRL_FORGE_EDITOR`/settings override) + `buildLaunch` (spaces/non-ASCII-safe spawn args; `.cmd` shims via the shell with both command and file double-quoted). `main.js`'s `launchEditor` uses it and returns a structured `{ launched, reason, hint }` so the renderer can show a clear "editor not found" message. `src/settings/app-settings.js` (Phase 6A) — read-only `settings.json` under userData (today just `editorCommand`). Both `node:test`-covered for Linux **and** Windows via injected platform/env (`test/editor/`, `test/settings/`).
 - `main.js` preview surface (Phase 2B1) — a **read-only** `preview:load` IPC (role `'source'`/`'edit'`, never a renderer-supplied path; gzip decompressed in main so X_ITE only sees plain text), an `mall:openInEditor` re-launch action, and a `session.webRequest` network guard that cancels every remote request (`url-policy.isBlockedPreviewUrl`). There is **no** write-capable preview channel.
 - `renderer/` — plain HTML/CSS/JS (no framework, no bundler). `index.html` + `renderer.js` are the Mall Item lane's UI; `renderer/preview.js` owns the embedded X_ITE preview (Original/Cybertown Fit modes, guide toggles, refresh) and the fit report. `index.html` carries a strict CSP (no remote origin). The Fit mode transform and guides are **preview-only** — never written to any file. `world.html` + `world.js` are the **World Project** lane's separate workspace (Phase 4A): a read-only asset table / dependency view over the resolved graph, sharing the one BrowserWindow + preload (so it gets the same `window.vrmlpad` bridge, plus `window.vrmlpad.world.*`). As of Phase 4B it also loads X_ITE and `renderer/world-preview.js` (a **separate** controller from `renderer/preview.js` — no Mall fit/guide/placement logic), so its CSP now permits X_ITE's LOCAL needs only (`'wasm-unsafe-eval'`, `blob:` workers, and the LOCAL `wrlworld:` scheme in `img/media/connect-src`), still with no remote origin. Phase 5A adds `renderer/world-packaging.js` (packaging section: status badge / totals / blocking / unused list / manifest preview / output location / a read-only Package Audit + an explicit Build World Project Bundle button). Navigation between the two pages is main-controlled (`app:goto`, whitelisted). Each new profile gets its own clearly-labeled page rather than overloading another.

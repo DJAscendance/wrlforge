@@ -37,6 +37,9 @@ const { loadSettings } = req('src/settings/app-settings.js');
 const { windowStatePath, legacyWindowStatePath } = req('src/settings/window-state.js');
 const { classifyWorkspace, assertLocalWorkspace } = req('qa/visual-qa/workspace-guard.js');
 const { createMallPreviewBridge, HARD_MAX_BYTES } = req('src/preview/mall-preview-bridge.js');
+const { createWorldPreviewBridge } = req('src/preview/world-preview-bridge.js');
+const { resolveWorldRequest, worldAssetUrl } = req('src/world-project/preview-source.js');
+const { resolveViewpointRestore } = req('src/preview/viewpoint-preserve.js');
 const { fileDirUrl } = req('src/preview/texture-base.js');
 
 const FIX = path.join(ROOT, 'test', 'fixtures', 'world');
@@ -515,6 +518,91 @@ check('7C2 preview bridge refuses an >8 MiB buffer and leaves zero overlays afte
   b.invalidateSession(1);
   const leak = b.leak();
   assert(leak.size === 0 && leak.activeGenerations === 0, JSON.stringify(leak));
+});
+
+// ---- Phase 7C3 World live-preview bridge (packed-runtime + real NTFS paths) ----
+// The World bridge authorizes the UNSAVED editor buffer against a REAL scan
+// graph over real (drive-letter, case-insensitive) paths: primary + nested
+// overrides, wrlworld:// base URL, graph-membership refusal, stale-scan
+// refusal, gzip disk deps beside a plain in-memory override, zero overlays
+// after close, and the pure viewpoint-restore fallback order.
+function stage7c3World() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wrlforge-7c3-'));
+  fs.mkdirSync(path.join(root, 'rooms'));
+  const primary = path.join(root, 'entry.wrl');
+  const nested = path.join(root, 'rooms', 'hall.wrl');
+  const nestedGz = path.join(root, 'rooms', 'vault.wrl');
+  fs.writeFileSync(primary, '#VRML V2.0 utf8\nInline { url "rooms/hall.wrl" }\nInline { url "rooms/vault.wrl" }\n', 'utf8');
+  fs.writeFileSync(nested, '#VRML V2.0 utf8\nDEF Hall Shape { geometry Box {} }\n', 'utf8');
+  fs.writeFileSync(nestedGz, zlib.gzipSync(Buffer.from('#VRML V2.0 utf8\nDEF Vault Shape { geometry Sphere {} }\n', 'utf8')));
+  fs.writeFileSync(path.join(root, 'unrelated.wrl'), '#VRML V2.0 utf8\n', 'utf8'); // in-root but NOT referenced
+  const scan = scanProject({ root, primary });
+  return { root, primary, nested, nestedGz, scan };
+}
+
+function mk7c3Bridge(w, session) {
+  const st = { session };
+  const bridge = createWorldPreviewBridge({
+    describeSession: () => st.session,
+    getWorldRoot: () => w.root,
+    getWorldPrimary: () => w.primary,
+    getScan: () => w.scan,
+    rescan: async () => w.scan,
+  });
+  return { bridge, st };
+}
+
+check('7C3 world bridge authorizes primary + nested unsaved buffers on the real filesystem', () => {
+  const w = stage7c3World();
+  const { bridge, st } = mk7c3Bridge(w, { open: true, sessionId: 1, context: 'world', sourcePath: w.primary });
+  const buf = '#VRML V2.0 utf8\n# edited primary\nInline { url "rooms/hall.wrl" }\nInline { url "rooms/vault.wrl" }\n';
+  const p = bridge.load({ sessionId: 1, text: buf, bufferVersion: 1 });
+  assert(p.ok && p.editedIsPrimary === true && p.text === buf, 'primary buffer substituted: ' + JSON.stringify({ ok: p.ok, reason: p.reason }));
+  assert(p.baseURL.startsWith('wrlworld://project/'), 'wrlworld base URL: ' + p.baseURL);
+  // Nested edit: the override serves through the REAL authorized resolution path.
+  st.session = { open: true, sessionId: 2, context: 'world', sourcePath: w.nested };
+  const nbuf = '#VRML V2.0 utf8\nDEF HallEdited Shape { geometry Cone {} }\n';
+  const n = bridge.load({ sessionId: 2, text: nbuf, bufferVersion: 1 });
+  assert(n.ok && n.editedIsPrimary === false && n.editedText === nbuf, 'nested registered');
+  const hit = resolveWorldRequest(bridge.servingContext(), worldAssetUrl(w.root, w.nested), {
+    overlayLookup: (abs) => bridge.overlayTextFor(abs),
+  });
+  assert(hit.status === 200 && hit.overlay === true && hit.body.toString('utf8') === nbuf, 'overlay served after disk authorization');
+  // The gzip sibling still serves gzip-transparently from disk.
+  const gz = resolveWorldRequest(bridge.servingContext(), worldAssetUrl(w.root, w.nestedGz), {
+    overlayLookup: (abs) => bridge.overlayTextFor(abs),
+  });
+  assert(gz.status === 200 && !gz.overlay && /DEF Vault/.test(gz.body.toString('utf8')), 'gzip disk dep decompressed');
+  return p.baseURL;
+});
+
+check('7C3 world bridge refuses non-graph documents and stale scans', () => {
+  const w = stage7c3World();
+  // An in-root file that is NOT a graph node may never receive an override.
+  const a = mk7c3Bridge(w, { open: true, sessionId: 1, context: 'world', sourcePath: path.join(w.root, 'unrelated.wrl') });
+  const r1 = a.bridge.load({ sessionId: 1, text: 'x', bufferVersion: 1 });
+  assert(!r1.ok && r1.reason === 'not-in-graph', JSON.stringify(r1));
+  // A scan held for a DIFFERENT project root can never authorize.
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), 'wrlforge-7c3-other-'));
+  const b = mk7c3Bridge({ ...w, root: other, primary: path.join(other, 'entry.wrl') },
+    { open: true, sessionId: 1, context: 'world', sourcePath: path.join(other, 'entry.wrl') });
+  const r2 = b.bridge.load({ sessionId: 1, text: 'x', bufferVersion: 1 });
+  assert(!r2.ok && r2.reason === 'root-mismatch', JSON.stringify(r2));
+});
+
+check('7C3 close reaches zero overlays/generations; viewpoint fallback order holds', () => {
+  const w = stage7c3World();
+  const { bridge } = mk7c3Bridge(w, { open: true, sessionId: 9, context: 'world', sourcePath: w.primary });
+  bridge.load({ sessionId: 9, text: '#VRML V2.0 utf8\n', bufferVersion: 1 });
+  bridge.invalidateSession(9);
+  const leak = bridge.leak();
+  assert(leak.size === 0 && leak.activeGenerations === 0 && leak.serving === false, JSON.stringify(leak));
+  // Pure preservation order: DEF -> unique description -> index -> first -> default.
+  const vps = [{ name: 'A', description: 'dup' }, { name: 'B', description: 'dup' }];
+  assert(resolveViewpointRestore({ name: 'B', description: 'dup', index: 0 }, vps).index === 1, 'DEF wins');
+  assert(resolveViewpointRestore({ name: 'Z', description: 'dup', index: 1 }, vps).matchedBy === 'index', 'duplicate descriptions skip to index');
+  assert(resolveViewpointRestore({ name: 'Z', description: null, index: 9 }, vps).matchedBy === 'first', 'first fallback');
+  assert(resolveViewpointRestore({ name: 'Z', description: null, index: 9 }, []).action === 'none', 'default view');
 });
 
 // ---- summarize + write result ----

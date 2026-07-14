@@ -58,15 +58,19 @@ contextBridge.exposeInMainWorld('vrmlpad', {
     openInExternal: (sessionId) => ipcRenderer.invoke('editor:openInExternal', { sessionId }),
     close: (sessionId) => ipcRenderer.invoke('editor:close', { sessionId }),
     restore: () => ipcRenderer.invoke('editor:restore'),
-    // Live in-editor preview (Phase 7C2). The renderer sends only the opaque
-    // sessionId + buffer text + monotonic bufferVersion (never a path): main
-    // authorizes the session as the open Mall source, byte-substitutes the
-    // unsaved buffer through the overlay, and returns the render payload. saved
-    // renders the on-disk source; accept confirms a generation; close/leak are
-    // cleanup + the QA leak assertion. No write path is exposed.
+    // Live in-editor preview (Phase 7C2 Mall + Phase 7C3 World). The renderer
+    // sends only the opaque sessionId + buffer text + monotonic bufferVersion
+    // (never a path): main routes to the open document's profile bridge, which
+    // authorizes the session against its own authority (the held Mall source,
+    // or the World scan graph), byte-substitutes the unsaved buffer through the
+    // overlay, and returns the render payload. saved renders entirely from
+    // disk; accept confirms a generation; rescan is the explicit World
+    // "Find new files" action (main reruns its own scan -- no path crosses);
+    // close/leak are cleanup + the QA leak assertion. No write path is exposed.
     previewLoad: (sessionId, text, bufferVersion) => ipcRenderer.invoke('editor:previewLoad', { sessionId, text, bufferVersion }),
     previewSaved: (sessionId) => ipcRenderer.invoke('editor:previewSaved', { sessionId }),
     previewAccept: (sessionId, generation) => ipcRenderer.invoke('editor:previewAccept', { sessionId, generation }),
+    previewRescan: (sessionId) => ipcRenderer.invoke('editor:previewRescan', { sessionId }),
     previewClose: (sessionId) => ipcRenderer.invoke('editor:previewClose', { sessionId }),
     previewLeak: () => ipcRenderer.invoke('editor:previewLeak'),
   },

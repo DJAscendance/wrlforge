@@ -104,7 +104,11 @@ function togglePreviewMaximize(current) {
 // release-quality chip the user sees. No engineering jargon ever leaves here.
 // `saved` overrides everything (the "Show saved version" display); an oversized
 // buffer is refused with plain wording; the manual band explains why auto stops.
-function previewStatusModel({ state, failureCategory, saved, sizeTier } = {}) {
+// `newRefs` (Phase 7C3, World) is the count of buffer references not yet in the
+// project graph -- it takes over the settled states so the user is pointed at
+// the explicit "Find new files" action, but never masks an in-flight update or
+// a hard failure.
+function previewStatusModel({ state, failureCategory, saved, sizeTier, newRefs } = {}) {
   if (saved) return { key: 'saved', label: 'Showing saved version', tone: 'info' };
   if (sizeTier === 'refused') {
     return {
@@ -112,6 +116,10 @@ function previewStatusModel({ state, failureCategory, saved, sizeTier } = {}) {
       label: 'This file is too large to display from unsaved changes. Save it, then use the saved version.',
       tone: 'warn',
     };
+  }
+  const pendingNew = (Number(newRefs) || 0) > 0;
+  if (pendingNew && (state === 'current' || state === 'outdated' || state === 'showing-last-valid')) {
+    return { key: 'new-file', label: 'New file reference found — choose Find new files', tone: 'warn' };
   }
   switch (state) {
     case 'current': return { key: 'live', label: 'Live', tone: 'ok' };

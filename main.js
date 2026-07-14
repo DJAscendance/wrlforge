@@ -26,6 +26,7 @@ const { loadSettings } = require('./src/settings/app-settings');
 const { EditorController } = require('./src/editor/editor-controller');
 const { openMallItem, openExternalEditor } = require('./src/editor/mall-edit-flow');
 const { createMallPreviewBridge } = require('./src/preview/mall-preview-bridge');
+const { createWorldPreviewBridge } = require('./src/preview/world-preview-bridge');
 
 // The World Project preview scheme (Phase 4B) is a privileged, standard, LOCAL
 // scheme. This MUST run before app 'ready'. It does NOT bypass CSP -- world.html
@@ -72,6 +73,35 @@ let editorController = null;
 // bufferVersion } and never a path. Instantiated in whenReady alongside the
 // editor controller (it reads the live currentSession / editor describe).
 let mallPreviewBridge = null;
+
+// The World live-preview bridge (Phase 7C3). The World twin of the Mall bridge:
+// it authorizes an UNSAVED editor buffer (the primary or an authorized nested
+// WRL) against the CURRENT World scan graph, byte-substitutes it through its own
+// 7C1 overlay, and installs the wrlworld:// serving context while active. The
+// renderer sends only { sessionId, text, bufferVersion } -- never a path, root,
+// or URL. Instantiated in whenReady alongside the editor controller.
+let worldPreviewBridge = null;
+
+// Dispatch a live-preview request to the bridge that owns the OPEN editor
+// document's profile. Both bridges independently re-verify the session and
+// context, so this is routing, not authorization.
+function activePreviewBridge() {
+  const d = editorController ? editorController.describe() : { open: false };
+  return d.open && d.context === 'world' ? worldPreviewBridge : mallPreviewBridge;
+}
+
+// Combined leak-assertion view across both preview bridges (QA gate: zero
+// overlays / zero active generations after close, on both profiles).
+function combinedPreviewLeak() {
+  const m = mallPreviewBridge ? mallPreviewBridge.leak() : { size: 0, activeGenerations: 0 };
+  const w = worldPreviewBridge ? worldPreviewBridge.leak() : { size: 0, activeGenerations: 0 };
+  return {
+    size: m.size + w.size,
+    activeGenerations: m.activeGenerations + w.activeGenerations,
+    mall: m,
+    world: w,
+  };
+}
 
 // Renderer pages the app may navigate between (whitelist -- never a path from
 // the renderer). Both share the one BrowserWindow, preload, and security config.
@@ -136,7 +166,20 @@ function installPreviewNetworkGuard() {
 // only ever sees plain text); assets are served as raw bytes. Nothing is written.
 function installWorldPreviewProtocol() {
   protocol.handle(WORLD_PREVIEW_SCHEME, async (request) => {
-    const res = resolveWorldRequest(worldPreview, request.url);
+    // Phase 7C3: while the editor's live World preview is active, its serving
+    // context (the SAME projectRoot + graph allow-list the disk preview would
+    // install, held by the world bridge) takes precedence, and an unsaved-buffer
+    // overlay may substitute bytes for an ALREADY-authorized WRL node -- the
+    // lookup runs inside resolveWorldRequest only AFTER root confinement and the
+    // allow-list check, so overlay presence can never make a request valid. When
+    // the editor preview is not active, the workspace disk preview (worldPreview,
+    // set only by world:previewLoad) serves exactly as in Phase 4B.
+    const live = worldPreviewBridge ? worldPreviewBridge.servingContext() : null;
+    const res = resolveWorldRequest(
+      live || worldPreview,
+      request.url,
+      live ? { overlayLookup: (abs) => worldPreviewBridge.overlayTextFor(abs) } : {},
+    );
     if (res.status !== 200) {
       return new Response(res.error || 'unavailable', { status: res.status });
     }
@@ -372,8 +415,10 @@ function createWindow() {
         // -- no new capability. The preview authorizes against currentSession
         // (the scratch mallPath set above), so it renders the unsaved buffer.
         if (e.previewLayout) {
+          // Full settle: entering a visible layout from a persisted hidden one
+          // triggers the first render, which must complete before later steps.
           await win.webContents.executeJavaScript(`window.__wrlEditor.previewLayout(${JSON.stringify(e.previewLayout)})`);
-          await new Promise((r) => setTimeout(r, 500));
+          await new Promise((r) => setTimeout(r, SETTLE_MS));
         }
         if (e.fitMode) {
           await win.webContents.executeJavaScript(`window.__wrlEditor.fitMode(${JSON.stringify(e.fitMode)})`);
@@ -392,6 +437,22 @@ function createWindow() {
         } else if (e.previewStep === 'maximize') {
           await win.webContents.executeJavaScript('window.__wrlEditor.previewMaximize()');
           await new Promise((r) => setTimeout(r, 500));
+        } else if (e.previewStep === 'findnew') {
+          // World only: the explicit Find-new-files action (rescan + fresh
+          // Update). Longer settle -- a rescan plus an X_ITE render follows.
+          await win.webContents.executeJavaScript('window.__wrlEditor.previewFindNew()');
+          await new Promise((r) => setTimeout(r, SETTLE_MS * 2));
+        }
+        // Phase 7C3 World live-preview view steps: select a viewpoint / set the
+        // navigation mode through the page's own controls (after the initial
+        // render, before any text2 edit triggers a preserving refresh).
+        if (e.previewViewpoint != null) {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.previewViewpoint(${JSON.stringify(e.previewViewpoint)})`);
+          await new Promise((r) => setTimeout(r, 600));
+        }
+        if (e.previewNav) {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.previewNav(${JSON.stringify(e.previewNav)})`);
+          await new Promise((r) => setTimeout(r, 400));
         }
         // A second edit (used for the temporary-syntax-error / recovery captures).
         if (typeof e.text2 === 'string') {
@@ -413,11 +474,14 @@ function createWindow() {
           payload.out = job.out;
         }
         // Leak assertion: after closing the editor session, no overlay/generation
-        // may remain for it (Phase 7C2 resource-cleanup gate).
+        // may remain for it on EITHER preview bridge (7C2 + 7C3 cleanup gate).
         if (e.leakAfterClose) {
           const sid = editorController.describe().sessionId;
-          if (sid != null) mallPreviewBridge.invalidateSession(sid);
-          payload.leak = mallPreviewBridge.leak();
+          if (sid != null) {
+            mallPreviewBridge.invalidateSession(sid);
+            worldPreviewBridge.invalidateSession(sid);
+          }
+          payload.leak = combinedPreviewLeak();
         }
         return payload;
       }
@@ -685,6 +749,17 @@ app.whenReady().then(() => {
     describeSession: () => editorController.describe(),
     getAuthorizedMallSource: () => (currentSession ? currentSession.mallPath : null),
     scanRemoteUrls,
+    readSaved: (absPath) => readWrlSource(absPath),
+  });
+  worldPreviewBridge = createWorldPreviewBridge({
+    // The renderer never supplies a path: the bridge resolves the editor session
+    // itself and authorizes the held document against the CURRENT scan graph
+    // (root match, graph membership, exact case, realpath confinement).
+    describeSession: () => editorController.describe(),
+    getWorldRoot: () => worldSession.root,
+    getWorldPrimary: () => worldSession.primary,
+    getScan: () => worldSession.last,
+    rescan: () => worldSession.scan(),
     readSaved: (absPath) => readWrlSource(absPath),
   });
   createWindow();
@@ -1058,30 +1133,44 @@ ipcMain.handle('editor:reload', async (_evt, { sessionId } = {}) => editorContro
 ipcMain.handle('editor:checkConflict', async (_evt, { sessionId } = {}) => editorController.checkConflict(sessionId));
 ipcMain.handle('editor:openInExternal', async (_evt, { sessionId } = {}) => editorController.openInExternal(sessionId));
 ipcMain.handle('editor:close', async (_evt, { sessionId } = {}) => {
-  // Closing an editor session must leave no live preview overlay behind.
-  if (mallPreviewBridge && sessionId != null) mallPreviewBridge.invalidateSession(sessionId);
+  // Closing an editor session must leave no live preview overlay behind (either
+  // profile -- invalidation on a bridge that never held the session is a no-op).
+  if (sessionId != null) {
+    if (mallPreviewBridge) mallPreviewBridge.invalidateSession(sessionId);
+    if (worldPreviewBridge) worldPreviewBridge.invalidateSession(sessionId);
+  }
   return editorController.close(sessionId);
 });
 ipcMain.handle('editor:restore', async () => editorController.restore());
 
 // ---------------------------------------------------------------------------
-// Mall live-preview IPC (Phase 7C2). The renderer sends ONLY { sessionId, text,
-// bufferVersion } -- never a path/base/root/url/scheme. The bridge resolves the
-// editor session, confirms it is the AUTHORIZED Mall source, byte-substitutes the
-// unsaved buffer through the 7C1 overlay, and returns the render payload. No file
-// is written; there is no channel by which the renderer names a path to read.
+// Live-preview IPC (Phase 7C2 Mall + Phase 7C3 World). The renderer sends ONLY
+// { sessionId, text, bufferVersion } -- never a path/base/root/url/scheme. The
+// request is routed to the bridge owning the OPEN document's profile; each
+// bridge independently resolves the editor session and its own authorization
+// authority (the held Mall source, or the World scan graph), byte-substitutes
+// the unsaved buffer through the 7C1 overlay, and returns the render payload.
+// No file is written; there is no channel by which the renderer names a path.
 // ---------------------------------------------------------------------------
 ipcMain.handle('editor:previewLoad', async (_evt, { sessionId, text, bufferVersion } = {}) =>
-  mallPreviewBridge.load({ sessionId, text, bufferVersion }));
+  activePreviewBridge().load({ sessionId, text, bufferVersion }));
 ipcMain.handle('editor:previewSaved', async (_evt, { sessionId } = {}) =>
-  mallPreviewBridge.saved({ sessionId }));
+  activePreviewBridge().saved({ sessionId }));
 ipcMain.handle('editor:previewAccept', async (_evt, { sessionId, generation } = {}) =>
-  mallPreviewBridge.accept({ sessionId, generation }));
+  activePreviewBridge().accept({ sessionId, generation }));
+// Explicit "Find new files" (World only): run the NORMAL World rescan on the
+// held project session, so a newly added file can become graph-authorized. The
+// Mall profile has no rescan; the world bridge refuses non-World sessions.
+ipcMain.handle('editor:previewRescan', async (_evt, { sessionId } = {}) =>
+  worldPreviewBridge.rescanForNewFiles({ sessionId }));
 ipcMain.handle('editor:previewClose', async (_evt, { sessionId } = {}) => {
-  if (mallPreviewBridge && sessionId != null) mallPreviewBridge.invalidateSession(sessionId);
+  if (sessionId != null) {
+    if (mallPreviewBridge) mallPreviewBridge.invalidateSession(sessionId);
+    if (worldPreviewBridge) worldPreviewBridge.invalidateSession(sessionId);
+  }
   return { ok: true };
 });
-ipcMain.handle('editor:previewLeak', async () => (mallPreviewBridge ? mallPreviewBridge.leak() : null));
+ipcMain.handle('editor:previewLeak', async () => combinedPreviewLeak());
 
 function safeSize(p) {
   try { return fs.statSync(p).size; } catch { return null; }

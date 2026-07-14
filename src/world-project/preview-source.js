@@ -113,6 +113,20 @@ function resolveWorldRequest(preview, requestUrl, deps = {}) {
   const entry = preview.authorized.get(abs);
   if (!entry) return { status: 404, error: 'not-authorized' };
 
+  // Phase 7C3: an OPTIONAL unsaved-buffer overlay lookup, consulted only AFTER
+  // the request has passed scheme/root confinement AND the graph allow-list
+  // above -- overlay presence alone can never make a request valid. Only WRL
+  // nodes may be overridden (a byte substitution of already-authorized text);
+  // assets always come from disk. Absent (the default, and always for the
+  // workspace disk preview), behavior is byte-identical to Phase 4B.
+  const overlayLookup = deps.overlayLookup;
+  if (entry.kind === 'wrl' && typeof overlayLookup === 'function') {
+    const hit = overlayLookup(abs, entry);
+    if (typeof hit === 'string') {
+      return { status: 200, mimeType: 'model/vrml', body: Buffer.from(hit, 'utf8'), overlay: true };
+    }
+  }
+
   try {
     if (entry.kind === 'wrl') {
       const { text } = readSource(abs); // gzip-transparent -> X_ITE only sees text

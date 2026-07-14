@@ -170,6 +170,21 @@ non-mutation, no-Mall-rules), the opt-in `test/visual/electron-world-preview.tes
 and one serialized `VisualQaRunner` run of all 10 states
 (`qa/phase-4b-world-preview/`, `RESULTS.md`).
 
+**Editor live preview (Phase 7C3).** The native editor previews an **unsaved**
+World document (the primary or any authorized nested WRL) inside the full world
+scene, with no temp file: `src/preview/world-preview-bridge.js` authorizes the held
+document against the **current scan graph** (root match, membership, exact-case,
+realpath re-check) and installs the same `{ projectRoot, authorized }` serving
+context this page's disk preview uses; a nested override is a byte substitution
+inside `resolveWorldRequest` via an injectable `overlayLookup` consulted only
+**after** root confinement + the allow-list (absent by default, so this page's
+disk preview is byte-identical to Phase 4B). Unsaved text never expands the graph:
+a new reference is surfaced and stays blocked until the explicit **Find new files**
+action reruns the normal scan. `renderer/world-preview.js` is reused verbatim by
+the editor (injected source, opt-in viewpoint/navigation preservation); this
+workspace page's own behavior — including Refresh — is unchanged. See
+`docs/PREVIEW_ARCHITECTURE.md` §"Phase 7C3".
+
 ## Packaging (Phase 5A)
 
 A read-only **package audit** plus one explicit **Build World Project Bundle** action.

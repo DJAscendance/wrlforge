@@ -3,21 +3,24 @@
 <head>
 <meta charset="utf-8">
 <!-- Strict CSP: no remote origins anywhere. The CodeMirror bundle is the app's
-     own local file (vendor/wrl-editor.bundle.js, 'self'). Phase 7C2 adds an
-     embedded X_ITE live preview of the UNSAVED buffer, so the local schemes X_ITE
-     needs are permitted -- the SAME superset the Mall page (index.html) ships:
+     own local file (vendor/wrl-editor.bundle.js, 'self'). Phase 7C2 added an
+     embedded X_ITE live preview of the UNSAVED Mall buffer (string-swap with a
+     file:// base URL); Phase 7C3 adds the World profile, whose nested reads go
+     through the existing LOCAL-only 'wrlworld:' scheme (served by the main
+     process from the asset-graph allow-list, confined to the project root) --
+     so this is the SAME superset the World page (world.html) already ships:
      'wasm-unsafe-eval' for X_ITE's local WASM decoders, blob: workers, and
-     file:/data:/blob: for the item's own local textures. No http(s)/ws origin
-     appears anywhere; this is layered over main.js's network guard
-     (session.webRequest cancels remote requests). No new scheme is introduced --
-     the Mall buffer renders by direct string-swap with a file:// base URL. -->
+     file:/data:/blob:/wrlworld: for local textures and authorized world assets.
+     No http(s)/ws origin appears anywhere; this is layered over main.js's
+     network guard (session.webRequest cancels remote requests) and the
+     wrlworld handler's own allow-list. No new scheme is introduced. -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'none';
   script-src 'self' file: 'wasm-unsafe-eval';
   style-src 'self' 'unsafe-inline';
-  img-src 'self' file: data: blob:;
-  media-src 'self' file: data: blob:;
-  connect-src 'self' file: data: blob:;
+  img-src 'self' file: data: blob: wrlworld:;
+  media-src 'self' file: data: blob: wrlworld:;
+  connect-src 'self' file: data: blob: wrlworld:;
   font-src 'self' file: data:;
   worker-src 'self' blob:;
   child-src blob:;
@@ -39,7 +42,9 @@
 <script defer src="../src/editor/ui-state.js"></script>
 <script defer src="../src/preview/preview-state.js"></script>
 <script defer src="../src/preview/preview-scheduler.js"></script>
+<script defer src="../src/preview/viewpoint-preserve.js"></script>
 <script defer src="preview.js"></script>
+<script defer src="world-preview.js"></script>
 <script defer src="editor.js"></script>
 <script defer src="editor-preview.js"></script>
 <style>
@@ -124,11 +129,21 @@
     padding: 0.3rem 0.5rem; font-size: 0.85rem;
   }
   .preview-body { padding: 0.46rem 0.62rem; display: flex; flex-direction: column; gap: 0.5rem; min-height: 0; }
-  x3d-canvas#preview {
+  x3d-canvas#preview, x3d-canvas#wpCanvas {
     display: block; width: 100%; height: 46vh; min-height: 12rem;
     background: #0e0e10; border: 1px solid #333; border-radius: 6px;
   }
-  .main.layout-preview-max x3d-canvas#preview { height: 74vh; }
+  .main.layout-preview-max x3d-canvas#preview,
+  .main.layout-preview-max x3d-canvas#wpCanvas { height: 74vh; }
+  /* Profile bodies: only the OPEN document's profile shows (Mall: fit modes /
+     guides / fit report; World: viewpoints / navigation / Find new files). The
+     inactive body is hidden and its X_ITE canvas never receives a scene. Mall
+     is the default so the pane renders sensibly before a document opens. */
+  #mallPreviewBody { display: flex; flex-direction: column; gap: 0.5rem; }
+  #worldPreviewBody { display: none; flex-direction: column; gap: 0.5rem; }
+  .preview-col.context-world #mallPreviewBody { display: none; }
+  .preview-col.context-world #worldPreviewBody { display: flex; }
+  #worldPreviewBody .mono { font-family: monospace; color: #9cc4ff; }
   .preview-status-line { font-size: 0.82rem; color: #9ab; min-height: 1.2em; }
   .preview-controls { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; align-items: center; }
   .preview-controls fieldset { border: 1px solid #333; border-radius: 6px; margin: 0; padding: 0.3rem 0.7rem 0.5rem; }
@@ -280,6 +295,8 @@
         </label>
       </div>
       <div class="preview-body">
+        <!-- Mall profile body (Phase 7C2): the reused Mall render/fit engine. -->
+        <div id="mallPreviewBody">
         <x3d-canvas id="preview" tabindex="0" aria-label="Embedded X_ITE 3D preview of the unsaved buffer"></x3d-canvas>
         <div class="preview-status-line" id="previewStatus" role="status" aria-live="polite">Preview idle.</div>
         <div class="preview-controls">
@@ -319,6 +336,37 @@
             <div class="rulelist" id="rules"></div>
           </div>
           <div id="previewWarnings"></div>
+        </div>
+        </div>
+
+        <!-- World profile body (Phase 7C3): the reused World render engine.
+             Renders the FULL World Project with the unsaved buffer substituted
+             in memory (primary or an authorized nested WRL). No Mall fit rules,
+             bounds, guides, or scale/offset report apply to a world. -->
+        <div id="worldPreviewBody">
+          <x3d-canvas id="wpCanvas" tabindex="0" aria-label="Embedded X_ITE 3D preview of the full World Project"></x3d-canvas>
+          <div class="preview-status-line" id="wpStatus" role="status" aria-live="polite">Preview idle.</div>
+          <div class="preview-controls">
+            <label class="inline">Viewpoint
+              <select id="wpViewpoint" aria-label="World viewpoint" disabled><option>(default view)</option></select>
+            </label>
+            <button id="wpReset" class="secondary" title="Return to the current viewpoint's authored position">Reset View</button>
+            <label class="inline">Navigation
+              <select id="wpNav" aria-label="Navigation mode">
+                <option value="EXAMINE">Examine</option>
+                <option value="WALK">Walk</option>
+                <option value="FLY">Fly</option>
+                <option value="LOOKAT">Look-at</option>
+                <option value="NONE">None</option>
+              </select>
+            </label>
+            <button id="previewFindNewBtn" class="secondary" title="Rescan the project so newly added files can load">Find new files</button>
+          </div>
+          <div class="preview-hint" id="epEditedLine">Full World Project preview.</div>
+          <div class="preview-hint">Renders the whole world with your unsaved edits substituted in memory. Nothing here is written to your project.</div>
+          <div class="preview-status-line" id="wpLoadedMissing"></div>
+          <div class="preview-status-line">preview of: <span id="wpPrimary" class="mono">—</span></div>
+          <div id="wpWarnings"></div>
         </div>
       </div>
     </section>

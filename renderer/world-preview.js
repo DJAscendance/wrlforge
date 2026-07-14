@@ -28,6 +28,7 @@
   let meta = null;                 // last payload from loadPreview
   let haveValidScene = false;      // a real scene has rendered at least once
   let viewpointNodes = [];         // live X_ITE viewpoint nodes for the selector
+  let userNav = null;              // the user's explicit navigation-mode choice
   const runtimeWarnings = [];
 
   const el = (id) => document.getElementById(id);
@@ -68,17 +69,28 @@
     return ready;
   }
 
+  // The default source: the World workspace's read-only disk loader. The editor
+  // live-preview lane (Phase 7C3) passes its own `source` returning the
+  // authorized UNSAVED-buffer payload (same shape), plus `preserveView: true` so
+  // a refresh keeps the user's viewpoint/navigation where possible. The render/
+  // viewpoint/warnings path below is reused verbatim, never forked.
+  const defaultSource = () => W.loadPreview();
+
   // ---- public: (re)load the current world into the preview -------------------
-  async function load() {
-    if (!W) { setStatus('World preview unavailable (no bridge).', 'error'); return debugState(); }
+  // Returns the debug snapshot augmented with { ok } / { ok:false, parseError |
+  // error } so an orchestrator (the editor lane) can drive its own state machine
+  // while the existing QA hooks keep their fields.
+  async function load(opts = {}) {
+    const source = (opts && opts.source) || (W ? defaultSource : null);
+    if (!source) { setStatus('World preview unavailable (no bridge).', 'error'); return { ...debugState(), ok: false, error: 'no-bridge' }; }
     await ensureBrowser();
     setStatus('Loading world preview…');
     let payload;
     try {
-      payload = await W.loadPreview();
+      payload = await source();
     } catch (err) {
       setStatus('Cannot load preview: ' + (err && err.message || err), 'error');
-      return debugState();
+      return { ...debugState(), ok: false, error: String((err && err.message) || err) };
     }
     meta = payload;
     runtimeWarnings.length = 0;
@@ -89,8 +101,12 @@
         (haveValidScene ? ' — keeping last valid preview.' : ''), 'error');
       setStale(haveValidScene);
       renderMeta();
-      return debugState();
+      return { ...debugState(), ok: false, parseError: payload.error || 'primary-unreadable' };
     }
+
+    // Capture the bound viewpoint's identity BEFORE the scene is replaced, so a
+    // successful refresh can restore it (DEF -> description -> index -> first).
+    const prevView = opts && opts.preserveView ? captureViewState() : null;
 
     try {
       browser.baseURL = payload.baseURL;
@@ -100,22 +116,33 @@
       setStale(false);
     } catch (err) {
       // Temporary parse error (e.g. a half-written external save): keep the last
-      // valid scene, flag stale, allow a manual Refresh. Do NOT clear the canvas.
+      // valid scene AND its viewpoint, flag stale, allow a manual Refresh. Do NOT
+      // clear the canvas.
       setStatus('Parse error — ' + (haveValidScene ? 'keeping last valid preview.' : 'no scene yet.') +
         ' Fix the world and Refresh. (' + (err && err.message || err) + ')', 'error');
       setStale(haveValidScene);
       renderMeta();
-      return debugState();
+      return { ...debugState(), ok: false, parseError: String((err && err.message) || err) };
     }
 
     // Let nested Inline scenes + textures attempt to load before enumerating.
     await new Promise((r) => setTimeout(r, 500));
     discoverViewpoints();
+    if (prevView && window.WrlViewpointPreserve) {
+      const target = window.WrlViewpointPreserve.resolveViewpointRestore(
+        prevView,
+        viewpointNodes.map((vp, i) => describeViewpoint(vp, i)),
+      );
+      if (target.action === 'bind') selectViewpoint(target.index, { syncSelect: true });
+    }
+    // Preserve the user's explicit navigation-mode choice across refreshes (the
+    // new scene's own NavigationInfo would otherwise reset it on every update).
+    if (opts && opts.preserveView && userNav) setNavigation(userNav);
     setStatus(payload.wasGzipped
       ? 'World preview loaded (primary from gzip). Analysis + display only — not an upload check.'
       : 'World preview loaded. Analysis + display only — not an upload check.');
     renderMeta();
-    return debugState();
+    return { ...debugState(), ok: true };
   }
 
   // ---- viewpoints ------------------------------------------------------------
@@ -155,17 +182,62 @@
       sel.appendChild(o);
     });
   }
-  function selectViewpoint(i) {
+  // The raw identity of one live viewpoint node, for the pure preservation
+  // resolver (src/preview/viewpoint-preserve.js): DEF name + raw description
+  // (null when unset -- the synthetic "Viewpoint N" label never participates).
+  function describeViewpoint(vp, i) {
+    // DEF name where this X_ITE build exposes it (internal nodes answer
+    // getName(); SFNode wrappers answer getNodeName()); null otherwise -- the
+    // resolver then falls through to the description/index tiers.
+    let name = null;
+    try { name = (vp.getName && vp.getName()) || (vp.getNodeName && vp.getNodeName()) || null; } catch { /* ignore */ }
+    let description = null;
+    try { description = (vp.getDescriptions() || []).join(' » ') || null; } catch { /* ignore */ }
+    return { name, description, index: i };
+  }
+
+  // The currently-BOUND viewpoint's identity (or null when the default view is
+  // active). Captured before a preserving refresh; also exposed for QA.
+  function captureViewState() {
+    let index = -1;
+    viewpointNodes.forEach((vp, i) => {
+      try { if (vp._isBound && vp._isBound.getValue()) index = i; } catch { /* ignore */ }
+    });
+    if (index < 0) return null;
+    return describeViewpoint(viewpointNodes[index], index);
+  }
+
+  function selectViewpoint(i, opts) {
     const layer = activeLayer();
     const vp = viewpointNodes[i];
     if (!layer || !vp) return;
     try { browser.bindViewpoint(layer, vp); } catch (err) { setStatus('Could not bind viewpoint: ' + (err && err.message || err), 'warn'); }
+    if (opts && opts.syncSelect) {
+      const sel = el('wpViewpoint');
+      if (sel && !sel.disabled) sel.value = String(i);
+    }
   }
   function resetView() {
     try {
       const vp = browser.getActiveViewpoint();
       if (vp && typeof vp.resetUserOffsets === 'function') vp.resetUserOffsets();
     } catch { /* ignore */ }
+  }
+
+  // ---- pre-validation (X_ITE as the authority, without touching the scene) ---
+  // Parse `text` through X_ITE WITHOUT replacing the displayed world. Used by
+  // the editor lane before a nested-override refresh: X_ITE loads a failed
+  // Inline as an async warning, so an unparseable nested buffer would otherwise
+  // replace the full scene with that piece missing instead of keeping the last
+  // good version. Parser diagnostics are NOT consulted -- X_ITE decides.
+  async function validateText(text) {
+    await ensureBrowser();
+    try {
+      await browser.createX3DFromString(String(text == null ? '' : text));
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: String((err && err.message) || err) };
+    }
   }
 
   // ---- navigation mode (optional; feature-detected) --------------------------
@@ -190,6 +262,12 @@
     const box = el('wpWarnings');
     if (!box) return;
     const items = [];
+    // Buffer-scoped findings from the editor live preview (Phase 7C3): a payload
+    // carries `.buffer` only on the editor lane -- the workspace disk preview
+    // never sees this branch. New references are surfaced, never auto-loaded.
+    if (meta.buffer && meta.buffer.newRefs && meta.buffer.newRefs.length) {
+      items.push(`<div class="warn">New file reference found — choose Find new files: ${meta.buffer.newRefs.map(esc).join(', ')}</div>`);
+    }
     if (meta.stale) items.push(`<div class="warn err">Showing the last valid scene (a rescan/refresh did not fully succeed).</div>`);
     if (meta.remoteUrls && meta.remoteUrls.length) {
       items.push(`<div class="warn err">Remote URL(s) blocked (never fetched): ${meta.remoteUrls.map(esc).join(', ')}</div>`);
@@ -218,9 +296,14 @@
       wasGzipped: meta ? !!meta.wasGzipped : false,
       baseURL: meta ? meta.baseURL : null,
       viewpoints: viewpointNodes.map((vp, i) => viewpointLabel(vp, i)),
+      boundViewpoint: captureViewState(),
+      navChoice: userNav,
       counts: meta ? meta.counts : null,
       remoteUrls: meta ? meta.remoteUrls : [],
       missingAssets: meta ? meta.missingAssets : [],
+      buffer: meta && meta.buffer ? meta.buffer : null,
+      editedRel: meta && meta.editedRel != null ? meta.editedRel : null,
+      editedIsPrimary: meta && meta.editedIsPrimary != null ? !!meta.editedIsPrimary : null,
       runtimeWarnings: [...new Set(runtimeWarnings)],
     };
   }
@@ -230,11 +313,18 @@
     const rf = el('wpRefresh'); if (rf) rf.addEventListener('click', () => load());
     const rv = el('wpReset'); if (rv) rv.addEventListener('click', resetView);
     const vp = el('wpViewpoint'); if (vp) vp.addEventListener('change', (e) => selectViewpoint(Number(e.target.value)));
-    const nav = el('wpNav'); if (nav) nav.addEventListener('change', (e) => setNavigation(e.target.value));
+    const nav = el('wpNav');
+    if (nav) {
+      nav.addEventListener('change', (e) => {
+        userNav = e.target.value; // remembered so a preserving refresh can restore it
+        setNavigation(e.target.value);
+      });
+    }
   }
 
-  // Public API (used by world.js + the read-only visual-QA capture harness).
-  window.wrlWorldPreview = { load, wire, resetView, discoverViewpoints, _debug: debugState };
+  // Public API (used by world.js, the editor live-preview lane, and the
+  // read-only visual-QA capture harness).
+  window.wrlWorldPreview = { load, wire, resetView, discoverViewpoints, validateText, _debug: debugState };
 
   // QA hook: load (optionally select a viewpoint / reset) and return debug JSON.
   // Read-only; adds no capability beyond what world:previewLoad already returns.

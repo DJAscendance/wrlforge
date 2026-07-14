@@ -432,12 +432,13 @@ Mall/World validation profiles.
 in production (see the ✅ sub-sections below). Within Phase 7C, planning (**7C0**) is
 complete, the **7C4** Windows-native QA harness is **built**, **7C4.1** (Windows
 Workspace Isolation Guard) is **built**, **Feature A (Vision Accommodations)** is
-**built**, **7C1** (the pure buffer-overlay foundation) is **built**, and **7C2** (the
-Mall unsaved-buffer live preview) is **built** and shipped in the native editor; the
-**World** unsaved-buffer preview + X_ITE integration (**7C3**) remains **unbuilt**, as
-does **7C5** (cross-platform acceptance) — do not describe World live preview as
-shipped. Phase 7D (beta polish) remains a **plan**. Anything still plan-only ships no
-code without separate approval.
+**built**, **7C1** (the pure buffer-overlay foundation) is **built**, **7C2** (the
+Mall unsaved-buffer live preview) is **built**, and **7C3** (the World unsaved-buffer
+live preview — primary + nested overrides, viewpoint preservation, Find new files) is
+**built** and shipped in the native editor; **7C5** (cross-platform acceptance)
+remains **unbuilt** — Windows coverage so far is the packaged-runtime self-test, not
+the full WinBoat GUI pass. Phase 7D (beta polish) remains a **plan**. Anything still
+plan-only ships no code without separate approval.
 
 ### Phase 7A — Parser Foundation ✅
 **Shipped (parser-only lane).** A dependency-free, token-driven VRML97 tokenizer +
@@ -590,18 +591,39 @@ generation counts are **0** after close (QA leak assertion). Nonvisual tests:
 survivors, leak-clean; perf/stress `stress.js` (100 edits → 1 render). See
 `docs/PREVIEW_ARCHITECTURE.md` §"Phase 7C2".
 
-**Unbuilt (still plan-only): 7C3** (World unsaved preview), **7C5** (cross-platform
-acceptance). World live preview (primary + nested WRL buffer overrides, viewpoint
-preservation, "Find new files" rescan) is **not** shipped.
+**7C3 — World unsaved-buffer live preview ✅ built.** The same split view previews an
+unsaved **World** document — the primary or any authorized nested WRL — inside the
+**full world scene**, no temp file, no new scheme. `src/preview/world-preview-bridge.js`
+(pure/injectable, `node:test`-able) authorizes the held document against the **current
+scan graph** (root match, graph membership, exact-case, realpath re-check), builds the
+`worldAuthorization` proof, and installs the `wrlworld://` serving context; the shared
+`editor:preview*` IPC routes by document context, and `editor:previewRescan` is the
+explicit **Find new files** normal rescan (unsaved text never expands authorization —
+new/missing/case/remote/unsafe buffer references are classified and surfaced only).
+The unsaved **primary** is a string-swap with the primary's `wrlworld://` base; an
+unsaved **nested** WRL substitutes inside `resolveWorldRequest` via an injectable
+`overlayLookup` consulted only after root confinement + the allow-list (absent by
+default → the workspace disk preview is byte-identical). `renderer/world-preview.js`
+is reused verbatim (injected source) with opt-in viewpoint preservation (pure
+`src/preview/viewpoint-preserve.js`: DEF → unique description → index → first →
+default), navigation-mode restore, and X_ITE pre-validation of nested buffers (a
+broken nested edit keeps the last good FULL scene). Saved fallback renders the whole
+world from disk without dropping the unsaved overlay. Nonvisual tests:
+`test/preview/world-preview-bridge.test.js`, `test/preview/viewpoint-preserve.test.js`,
+`test/editor/script-load-order.test.js` (shared-scope co-load guard), `ui-state`
+new-file chip model. Visual QA `qa/phase-7c-world-preview/` (`qa:world-preview`):
+**22/22** outcome-gated states (incl. a 72-texture world, a nested gzip Inline, and
+project-switch cleanup), 1 reused Electron process, 0 survivors, leak-clean; pure
+perf/stress `stress.js` (coalescing, alternating document switches,
+failed-then-repaired ordering, hash-verified no-write). Locked decisions carried
+forward as implemented: 700 ms debounce, 50/50 default split, manual-only Find new
+files, 1 MiB auto / 8 MiB hard bands, `Ctrl+Enter` / `Ctrl+Shift+Enter`, and the
+split / preview-max / editor-only layouts. See `docs/PREVIEW_ARCHITECTURE.md`
+§"Phase 7C3".
 
-**Locked future-lane decisions (7C3, recorded — not yet implemented; the pure
-7C1 modules already encode the debounce and 1 MiB threshold):**
-- Auto-preview debounce: **700 ms** (implemented in `preview-scheduler.js`).
-- Default editor/preview split: **side-by-side 50/50**.
-- World "Find new files" (rescan): **manual only**.
-- Auto-refresh applies to buffers up to **1 MiB**; larger buffers use manual Update.
-- `Ctrl/Cmd + Enter`: **Update preview**; `Ctrl/Cmd + Shift + Enter`: **toggle preview maximize**.
-- Preview layouts: **split**, **preview-max**, **editor-only**.
+**Unbuilt (still plan-only): 7C5** (cross-platform acceptance — the full
+Windows-native GUI pass over the 7C features via the 7C4 harness, plus the beta
+build refresh).
 
 ### Phase 7D — Beta Polish
 Keyboard accessibility, performance on large worlds, crash recovery, session

@@ -47,3 +47,10 @@ Stress: `node qa/phase-7c-mall-preview/stress.js` (pure, no Electron).
   pure state-machine unit tests and was observed transiently in intermediate runs.
 - X_ITE does not expose a first-rendered-frame callback here, so per-frame GPU
   timing is not separately instrumented; renders complete within the settle window.
+
+## Phase 7C3 regression re-run (2026-07-13)
+
+After the World live preview landed (shared `editor:preview*` IPC now routes by
+document context; `editor:previewLeak` reports combined Mall+World counts), this
+suite was re-run in full: **18/18, 1 Electron launch, 0 survivors, leak-clean** —
+the screenshots and `RESULTS.json` in this directory are from that re-run.
