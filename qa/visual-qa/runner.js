@@ -46,6 +46,16 @@ class VisualQaRunner {
     // children that a bare TerminateProcess on the main pid would orphan.
     // Still never process-name-wide (no /IM) -- only the one tracked pid's tree.
     this.killChild = opts.killChild || killerFor(process.platform);
+    // Job-delivery transport. Default (POSIX): newline-JSON over the child's
+    // stdin. Windows overrides these because a GUI-subsystem electron.exe gets an
+    // immediately-ended process.stdin (Phase 7C5) -- there jobs are pre-written to
+    // a file the server reads (prepareJobs) and the per-job/shutdown stdin writes
+    // become no-ops (the server self-quits after the last job). See transport.js.
+    this.prepareJobs = opts.prepareJobs || (() => {});
+    this.writeJob = opts.writeJob || ((child, job) => { child.stdin.write(JSON.stringify(job) + '\n'); });
+    this.requestShutdown = opts.requestShutdown || ((child) => {
+      try { child.stdin.write(JSON.stringify({ cmd: 'shutdown' }) + '\n'); } catch { /* stdin may be gone */ }
+    });
     this.cfg = { ...DEFAULTS, ...pick(opts, Object.keys(DEFAULTS)) };
 
     this._active = false;      // concurrency==1 guard
@@ -107,6 +117,9 @@ class VisualQaRunner {
   }
 
   async _oneLaunch(jobs, launchNo, attempt) {
+    // Deliver jobs out-of-band before spawning where the transport needs it
+    // (Windows file transport writes the batch the server will read at startup).
+    this.prepareJobs(jobs);
     const child = this.spawn(jobs.length);
     const pid = child.pid;
     this.tracked.add(pid);
@@ -121,7 +134,7 @@ class VisualQaRunner {
       for (const job of jobs) {
         const t0 = this.now();
         this._emit('capture:start', { pid, id: job.id, fixture: job.fixture, mode: job.mode, out: job.out });
-        child.stdin.write(JSON.stringify(job) + '\n');
+        this.writeJob(child, job);
         const line = await this._await(
           reader,
           (l) => l.startsWith(OK + ' ' + job.id + ' ') || l.startsWith(ERR + ' ' + job.id + ' '),
@@ -152,7 +165,7 @@ class VisualQaRunner {
   // Graceful: ask the server to quit, await its own exit within the grace window.
   async _shutdown(child, pid) {
     this._emit('shutdown:request', { pid });
-    try { child.stdin.write(JSON.stringify({ cmd: 'shutdown' }) + '\n'); } catch { /* stdin may be gone */ }
+    this.requestShutdown(child);
     const exited = await this._awaitExit(child, this.cfg.shutdownGraceMs);
     if (!exited) {
       this._emit('shutdown:timeout', { pid, graceMs: this.cfg.shutdownGraceMs });

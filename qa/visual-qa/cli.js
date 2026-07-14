@@ -29,6 +29,7 @@ const { spawn } = require('child_process');
 const { VisualQaRunner } = require('./runner');
 const { acquire } = require('./lock');
 const { guardWindowsWorkspace } = require('./workspace-guard');
+const { makeCaptureTransport } = require('./transport');
 
 const repoRoot = path.join(__dirname, '..', '..');
 
@@ -75,12 +76,13 @@ function resolveExeForTarget(target, root = repoRoot) {
   return null;
 }
 
-function realSpawn(args) {
+function realSpawn(args, extraEnv = {}) {
   const target = args.flags.target || 'source';
   const env = {
     ...process.env,
     WRL_FORGE_CAPTURE_SERVER: '1',
     WRL_FORGE_NO_EDITOR: '1', // never spawn VSCodium per fixture during QA
+    ...extraEnv, // e.g. WRL_FORGE_CAPTURE_JOBS_FILE on the Windows file transport
   };
   if (target === 'source') {
     const electronBinary = require('electron');
@@ -105,9 +107,13 @@ async function main() {
   }
 
   const jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf8'));
+  // Platform-aware transport: stdin on POSIX, a jobs file on Windows (where a
+  // GUI-subsystem electron.exe has an immediately-ended stdin -- Phase 7C5).
+  const transport = makeCaptureTransport();
   const opts = {
-    spawn: () => realSpawn(args),
+    spawn: () => realSpawn(args, transport.env),
     log: (rec) => process.stdout.write(JSON.stringify(rec) + '\n'),
+    ...transport.runnerOpts,
   };
   if (args.flags.max) opts.maxLaunches = Number(args.flags.max);
   if (args.flags.cooldown) opts.cooldownMs = Number(args.flags.cooldown);
@@ -124,6 +130,7 @@ async function main() {
     process.stdout.write(JSON.stringify({ event: 'error', code: err.code, message: String(err.message || err) }) + '\n');
   } finally {
     release();
+    transport.cleanup();
   }
 
   const survivors = runner.survivors();

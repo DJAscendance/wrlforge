@@ -26,6 +26,7 @@ const zlib = require('zlib');
 const { spawn } = require('child_process');
 const { VisualQaRunner } = require('../visual-qa/runner');
 const { acquire } = require('../visual-qa/lock');
+const { makeCaptureTransport } = require('../visual-qa/transport');
 
 const repoRoot = path.join(__dirname, '..', '..');
 const OUT = path.join(__dirname, 'screenshots');
@@ -116,10 +117,10 @@ function stageWorldB() {
   return root;
 }
 
-function realSpawn() {
+function realSpawn(extraEnv = {}) {
   return spawn(require('electron'), ['.', '--no-sandbox'], {
     cwd: repoRoot,
-    env: { ...process.env, WRL_FORGE_CAPTURE_SERVER: '1', WRL_FORGE_NO_EDITOR: '1', WRL_FORGE_SETTLE_MS: '1600' },
+    env: { ...process.env, WRL_FORGE_CAPTURE_SERVER: '1', WRL_FORGE_NO_EDITOR: '1', WRL_FORGE_SETTLE_MS: '1600', ...extraEnv },
     stdio: ['pipe', 'pipe', 'inherit'],
   });
 }
@@ -129,10 +130,11 @@ const chipOf = (r) => (r.preview && r.preview.chip) || '';
 const worldOf = (r) => (r.preview && r.preview.world) || {};
 
 async function main() {
-  if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+  if (process.platform !== 'win32' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
     console.error('phase-7c-world-preview: no DISPLAY/WAYLAND_DISPLAY -- refusing to launch Electron headless-blind.');
     process.exit(2);
   }
+  const transport = makeCaptureTransport();
   fs.mkdirSync(OUT, { recursive: true });
 
   const rootA = stageWorldA();
@@ -220,7 +222,8 @@ async function main() {
 
   const log = [];
   const runner = new VisualQaRunner({
-    spawn: realSpawn,
+    spawn: () => realSpawn(transport.env),
+    ...transport.runnerOpts,
     maxLaunches: 2,
     retriesPerLaunch: 1,
     captureTimeoutMs: 90000,
@@ -239,6 +242,7 @@ async function main() {
     process.stdout.write(JSON.stringify({ event: 'error', code: err.code, message: runError }) + '\n');
   } finally {
     release();
+    transport.cleanup();
   }
 
   const survivors = runner.survivors();

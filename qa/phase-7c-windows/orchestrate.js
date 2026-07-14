@@ -21,6 +21,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { VisualQaRunner } = require('../visual-qa/runner');
 const { parseArgs, checkSessionPresent, resolveExeForTarget, realSpawn } = require('../visual-qa/cli');
+const { makeCaptureTransport } = require('../visual-qa/transport');
 const { acquire } = require('../visual-qa/lock');
 const evidence = require('../visual-qa/evidence');
 const { guardWindowsWorkspace } = require('../visual-qa/workspace-guard');
@@ -90,9 +91,13 @@ async function main() {
 
   const jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf8'));
   const release = acquire();
+  // Platform-aware transport: on Windows a GUI-subsystem electron.exe has an
+  // immediately-ended stdin, so jobs go through a file, not stdin (Phase 7C5).
+  const transport = makeCaptureTransport();
   const runnerOpts = {
-    spawn: () => realSpawn(args),
+    spawn: () => realSpawn(args, transport.env),
     log: (rec) => process.stdout.write(JSON.stringify(rec) + '\n'),
+    ...transport.runnerOpts,
   };
   if (args.flags.max) runnerOpts.maxLaunches = Number(args.flags.max);
   if (args.flags.cooldown) runnerOpts.cooldownMs = Number(args.flags.cooldown);
@@ -107,6 +112,7 @@ async function main() {
     tier2Error = { code: err.code, message: String(err.message || err) };
   } finally {
     release();
+    transport.cleanup();
   }
 
   const survivors = runner.survivors();

@@ -622,7 +622,33 @@ function createWindow() {
         }
       });
     };
-    win.webContents.once('did-finish-load', () => {
+    win.webContents.once('did-finish-load', async () => {
+      // Windows transport (Phase 7C5): a GUI-subsystem electron.exe gets an
+      // immediately-ended process.stdin, so stdin-delivered jobs never arrive and
+      // a readline 'close' would quit the server at once. When a jobs FILE is
+      // provided, read the whole batch from it, run each through the SAME runJob,
+      // emit one result line per job on stdout (stdout works fine), then quit.
+      // stdout/capturePage/WebGL are unaffected -- only stdin is broken on Windows.
+      // See docs/WINDOWS_NATIVE_QA_PLAN.md Sec.5.
+      const jobsFile = process.env.WRL_FORGE_CAPTURE_JOBS_FILE;
+      if (jobsFile) {
+        emit('WRL_FORGE_CAPTURE_READY');
+        let batch = [];
+        try { batch = JSON.parse(fs.readFileSync(jobsFile, 'utf8')); }
+        catch { emit('WRL_FORGE_CAPTURE_ERR - bad-jobs-file'); }
+        for (const job of batch) {
+          if (job && job.cmd === 'shutdown') break;
+          try {
+            const payload = await runJob(job);
+            emit('WRL_FORGE_CAPTURE_OK ' + job.id + ' ' + JSON.stringify(payload));
+          } catch (err) {
+            emit('WRL_FORGE_CAPTURE_ERR ' + (job && job.id) + ' ' + String((err && err.message) || err));
+          }
+        }
+        app.quit();
+        return;
+      }
+      // POSIX transport: newline-delimited JSON jobs over stdin.
       const rl = require('readline').createInterface({ input: process.stdin });
       rl.on('line', (raw) => {
         const line = raw.trim();
