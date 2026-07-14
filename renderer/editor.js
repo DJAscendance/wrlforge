@@ -20,6 +20,8 @@ const els = {
   stFile: el('stFile'), stFormat: el('stFormat'), stDirty: el('stDirty'), stSave: el('stSave'),
   stCursor: el('stCursor'), stDiag: el('stDiag'), stAdv: el('stAdv'),
   themeSelect: el('themeSelect'),
+  zoomOut: el('zoomOutBtn'), zoomIn: el('zoomInBtn'), zoomReset: el('zoomResetBtn'),
+  zoomLabel: el('zoomLabel'),
 };
 
 // Theme preference persists across sessions in the renderer (a cosmetic setting;
@@ -30,6 +32,29 @@ function savedTheme() {
 }
 function persistTheme(id) {
   try { window.localStorage.setItem(THEME_KEY, id); } catch (e) { /* best-effort */ }
+}
+
+// Zoom preference (one level scales both the code area and the app chrome).
+const ZOOM_KEY = 'wrlforge.editor.zoom';
+function savedZoom() {
+  try { return UI.resolveZoom(window.localStorage.getItem(ZOOM_KEY)); } catch (e) { return UI.ZOOM_DEFAULT; }
+}
+function persistZoom(level) {
+  try { window.localStorage.setItem(ZOOM_KEY, String(level)); } catch (e) { /* best-effort */ }
+}
+
+// Apply a zoom level: scale the app chrome via the --wrl-ui-scale CSS variable,
+// resize the code font via the editor handle, update the label, and persist.
+function applyZoom(level) {
+  const z = UI.zoomModel(level);
+  S.zoom = z.level;
+  document.documentElement.style.setProperty('--wrl-ui-scale', String(z.chromeScale));
+  if (S.handle) S.handle.setFontSize(z.codeFontPx);
+  if (els.zoomLabel) {
+    els.zoomLabel.textContent = z.label;
+    els.zoomLabel.setAttribute('aria-label', 'Editor size ' + z.label);
+  }
+  persistZoom(z.level);
 }
 
 // --- renderer-local editor state --------------------------------------------
@@ -48,6 +73,7 @@ const S = {
   appliedAnalysisVersion: 0,
   saving: false,
   saveState: null,        // overrides derived clean/dirty during the save lifecycle
+  zoom: 0,                // current zoom level (persisted); scales code + chrome
 };
 
 function currentText() { return S.handle ? S.handle.getText() : S.baseline; }
@@ -343,6 +369,9 @@ function wireButtons() {
   els.external.addEventListener('click', doExternal);
   els.close.addEventListener('click', doClose);
   els.back.addEventListener('click', doBack);
+  if (els.zoomIn) els.zoomIn.addEventListener('click', () => applyZoom(UI.zoomStep(S.zoom, +1)));
+  if (els.zoomOut) els.zoomOut.addEventListener('click', () => applyZoom(UI.zoomStep(S.zoom, -1)));
+  if (els.zoomReset) els.zoomReset.addEventListener('click', () => applyZoom(UI.ZOOM_DEFAULT));
 
   // App-level accelerators (CodeMirror owns undo/redo/find/replace via its keymap).
   window.addEventListener('keydown', (e) => {
@@ -353,6 +382,9 @@ function wireButtons() {
     else if (cmd === 'saveAs') doSaveAs();
     else if (cmd === 'gotoLine') doGotoLine();
     else if (cmd === 'close') doClose();
+    else if (cmd === 'zoomIn') applyZoom(UI.zoomStep(S.zoom, +1));
+    else if (cmd === 'zoomOut') applyZoom(UI.zoomStep(S.zoom, -1));
+    else if (cmd === 'zoomReset') applyZoom(UI.ZOOM_DEFAULT);
   });
 }
 
@@ -377,6 +409,7 @@ function mountEditor(text, profile) {
     doc: text,
     profile,
     theme: savedTheme(),
+    fontSize: UI.zoomModel(savedZoom()).codeFontPx,
     onChange: () => { if (S.saveState !== UI.SAVE_STATE.CONFLICT) S.saveState = null; render(); },
     onCursor: (c) => { S.cursor = c; els.stCursor.textContent = UI.cursorLabel(c); },
     onAnalysis: (a) => {
@@ -391,6 +424,7 @@ function mountEditor(text, profile) {
 async function init() {
   wireButtons();
   populateThemes();
+  applyZoom(savedZoom()); // set chrome scale + label on cold start (font seeded at mount)
   let d;
   try { d = await bridge.describe({ includeText: true }); } catch (e) { d = { open: false }; }
   // Cold start / direct navigation: try to restore the most-recent document.
@@ -427,6 +461,8 @@ window.__wrlEditor = {
   },
   click: (id) => { const n = el(id); if (n) n.click(); },
   setTheme: (t) => { els.themeSelect.value = t; els.themeSelect.dispatchEvent(new Event('change')); },
+  zoom: () => S.zoom,
+  setZoom: (n) => { applyZoom(n); return S.zoom; },
   clickFirst: (sel) => { const n = document.querySelector(sel); if (n) n.click(); return !!n; },
   modalVisible: () => el('modalBackdrop').classList.contains('show'),
   status: () => ({

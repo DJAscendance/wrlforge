@@ -43,6 +43,35 @@ Requirements:
 - **No mutation of committed fixtures.** No direct work against historical Cybertown
   source files.
 
+### Workspace isolation (enforced — Phase 7C4.1)
+
+The above is now **enforced**, not just recommended. `qa/visual-qa/workspace-guard.js`
+refuses to run Windows QA / builds from a workspace that is not a local NTFS clone:
+
+- **Rejected on Windows:** UNC roots (`\\host.lan\Data\...`), mapped **network** drives
+  (`DriveInfo.DriveType == Network`), and any path containing a known host-share marker
+  (`host.lan`, extendable via `WRL_FORGE_HOST_SHARE`). Running `npm ci`/builds/fixture-
+  writing QA from the SMB mount is what previously wiped `node_modules`.
+- **Accepted:** a local clone such as `C:\Projects\wrlforge` (a `Fixed` drive). **Linux
+  paths are never blocked** (the guard is a no-op off Windows).
+- **On rejection** the command prints one message and exits non-zero:
+  > Windows work must run from a local NTFS clone. Clone WRL Forge to `C:\Projects\wrlforge`
+  > and retry. The host share may be used only to export finalized QA evidence.
+- **Guarded commands:** `npm run qa:windows` (orchestrator), `npm run qa:visual`
+  (visual-QA CLI), the packed Windows self-test (`qa/phase-6b-windows/win-selftest.js`,
+  hard precondition), and `npm run build:win` / `build:win:portable` (via
+  `qa/visual-qa/workspace-preflight.js`).
+
+### Evidence export is allowlist-only
+
+The share stays the evidence-out channel (§3), but export is allowlisted. The guard's
+`filterEvidenceExport()` **never** exports `node_modules`, `.git`, source directories,
+committed fixtures, `.edit.wrl` working copies, backup files (`.bak`/`.orig`/`~`/
+`backups/`), build intermediates (`release/`/`dist/`/`win-unpacked/`/`vendor/`), or
+Windows binaries (`.exe`/`.dll`/… — only with an explicit `allowBinaries` opt-in). Only
+the evidence run directory (`RESULTS.md`, `results.json`, `environment.json`, PNGs, etc.)
+crosses to the share.
+
 ---
 
 ## 3. Linux ↔ Windows sync model (owner-confirmed)

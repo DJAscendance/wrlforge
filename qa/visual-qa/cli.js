@@ -28,6 +28,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { VisualQaRunner } = require('./runner');
 const { acquire } = require('./lock');
+const { guardWindowsWorkspace } = require('./workspace-guard');
 
 const repoRoot = path.join(__dirname, '..', '..');
 
@@ -93,6 +94,9 @@ function realSpawn(args) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  // On Windows, refuse a UNC / network-drive / host-share workspace (no-op on
+  // Linux, which is never blocked).
+  guardWindowsWorkspace({ cwd: repoRoot, label: 'visual-qa' });
   checkSessionPresent(args);
   const jobsFile = args.positional[0];
   if (!jobsFile) {

@@ -88,14 +88,26 @@ const PALETTES = {
     bool: '#7dcfff', nodeType: '#7aa2f7', defName: '#f7768e', useName: '#ff9db4',
     fieldName: '#7dcfff', number: '#ff9e64', string: '#9ece6a', invalid: '#f7768e', bracket: '#a9b1d6',
   },
+  contrast: { // High Contrast -- pure black, bright saturated tokens, for low vision
+    dark: true,
+    bg: '#000000', fg: '#ffffff', caret: '#ffff00', selection: '#0060c0',
+    gutterBg: '#000000', gutterFg: '#c8c8c8', activeLine: '#101830', activeGutterFg: '#ffffff',
+    panelBg: '#000000', panelFg: '#ffffff', border: '#ffffff', matchBg: '#0060c0',
+    header: '#00ffff', comment: '#00e0e0', keyword: '#ff80ff', is: '#ff80ff', nullc: '#00ff00',
+    bool: '#00ff00', nodeType: '#ffff00', defName: '#ff6060', useName: '#ffb0b0',
+    fieldName: '#66d9ff', number: '#ffd000', string: '#66ff66', invalid: '#ff4040', bracket: '#ffffff',
+  },
 };
 
 const THEMES = Object.keys(PALETTES);
 const DEFAULT_THEME = 'dark';
 
 function makeTheme(p) {
+  // Font size is intentionally NOT set here -- it lives in its own compartment
+  // (fontThemeOf, below) so zoom and theme stay orthogonal: changing one never
+  // clobbers the other.
   return EditorView.theme({
-    '&': { height: '100%', fontSize: '13px', backgroundColor: p.bg, color: p.fg },
+    '&': { height: '100%', backgroundColor: p.bg, color: p.fg },
     '.cm-content': { caretColor: p.caret },
     '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
     '.cm-cursor, .cm-dropCursor': { borderLeftColor: p.caret },
@@ -129,10 +141,26 @@ function makeTheme(p) {
   }, { dark: p.dark });
 }
 
-// Prebuild the four themes once (they are static).
+// Prebuild the themes once (they are static).
 const THEME_EXT = {};
 for (const name of THEMES) THEME_EXT[name] = makeTheme(PALETTES[name]);
 function themeExtOf(name) { return THEME_EXT[name] || THEME_EXT[DEFAULT_THEME]; }
+
+// --- font size (its own compartment, decoupled from theme) -------------------
+// The code-area font size is a separate, reconfigurable extension so zoom and
+// theme never disturb each other. Bounds are shared with the renderer's zoom
+// model (ui-state.js) via the window.WrlEditor export so both clamp identically.
+const DEFAULT_FONT_PX = 13;
+const MIN_FONT_PX = 9;
+const MAX_FONT_PX = 28;
+function clampFontPx(px) {
+  const n = Number(px);
+  if (!Number.isFinite(n)) return DEFAULT_FONT_PX;
+  return Math.max(MIN_FONT_PX, Math.min(MAX_FONT_PX, Math.round(n)));
+}
+function fontThemeOf(px) {
+  return EditorView.theme({ '&': { fontSize: clampFontPx(px) + 'px' } });
+}
 
 // --- editor handle -----------------------------------------------------------
 function create(parent, opts = {}) {
@@ -141,7 +169,9 @@ function create(parent, opts = {}) {
   const debounceMs = Number.isFinite(options.debounceMs) ? options.debounceMs : 250;
   const editable = new Compartment();
   const themeCompartment = new Compartment();
+  const fontCompartment = new Compartment();
   let currentTheme = THEMES.includes(options.theme) ? options.theme : DEFAULT_THEME;
+  let currentFontPx = clampFontPx(options.fontSize != null ? options.fontSize : DEFAULT_FONT_PX);
 
   let version = 0; // monotonic; bumps on every doc change and every re-analyze
   let pending = null; // debounce timer
@@ -159,9 +189,9 @@ function create(parent, opts = {}) {
   });
 
   // A builder (not a hoisted const) so setDoc can rebuild a fresh EditorState
-  // (which resets undo history) while carrying the CURRENT theme forward -- the
-  // theme compartment's initial value must reflect a live setTheme, not the
-  // theme at first construction.
+  // (which resets undo history) while carrying the CURRENT theme AND font size
+  // forward -- each compartment's initial value must reflect a live
+  // setTheme/setFontSize, not the value at first construction.
   const buildExtensions = () => [
     lineNumbers(),
     highlightActiveLineGutter(),
@@ -177,6 +207,7 @@ function create(parent, opts = {}) {
     lintGutter(),
     highlightField,
     themeCompartment.of(themeExtOf(currentTheme)),
+    fontCompartment.of(fontThemeOf(currentFontPx)),
     editable.of(EditorView.editable.of(options.readOnly !== true)),
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
     listener,
@@ -237,6 +268,12 @@ function create(parent, opts = {}) {
       return currentTheme;
     },
     getTheme() { return currentTheme; },
+    setFontSize(px) {
+      currentFontPx = clampFontPx(px);
+      view.dispatch({ effects: fontCompartment.reconfigure(fontThemeOf(currentFontPx)) });
+      return currentFontPx;
+    },
+    getFontSize() { return currentFontPx; },
     focus: () => view.focus(),
     setReadOnly(ro) { view.dispatch({ effects: editable.reconfigure(EditorView.editable.of(!ro)) }); },
     revealRange(from, to) {
@@ -262,4 +299,4 @@ function create(parent, opts = {}) {
   };
 }
 
-window.WrlEditor = { create, THEMES, DEFAULT_THEME };
+window.WrlEditor = { create, THEMES, DEFAULT_THEME, DEFAULT_FONT_PX, MIN_FONT_PX, MAX_FONT_PX };

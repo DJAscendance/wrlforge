@@ -429,9 +429,12 @@ reusable syntax tree feeding diagnostics, scene outline, asset-reference discove
 Mall/World validation profiles.
 
 **Status:** Phase 7A (parser) and Phase 7B (native editor) have **shipped** and are
-in production (see the ✅ sub-sections below). Phase 7C (unsaved-buffer preview
-integration) and Phase 7D (beta polish) remain **plans** and ship no code without
-separate approval.
+in production (see the ✅ sub-sections below). Within Phase 7C, planning (**7C0**) is
+complete, the **7C4** Windows-native QA harness is **built**, **7C4.1** (Windows
+Workspace Isolation Guard) is **built**, and **Feature A (Vision Accommodations)** is
+**built**; the unsaved-buffer preview itself (**7C1–7C3**) remains **unbuilt** — do
+not describe it as shipped. Phase 7D (beta polish) remains a **plan**. Anything still
+plan-only ships no code without separate approval.
 
 ### Phase 7A — Parser Foundation ✅
 **Shipped (parser-only lane).** A dependency-free, token-driven VRML97 tokenizer +
@@ -517,15 +520,45 @@ verification runs in this lane (WinBoat).
 ### Phase 7C — Editor + Preview Integration
 Preview refresh from the unsaved editor buffer, debounced parsing, last-valid-scene
 behavior, Mall Item and World Project contexts, reload/conflict handling, and the
-safe save + backup workflow end-to-end.
+safe save + backup workflow end-to-end. Being delivered one lane at a time, with a
+stop-and-report gate between lanes.
 
-**Architecture proposals (plan only — Phase 7C is not started):**
-`docs/PHASE_7C_PROPOSAL.md` (unsaved-buffer X_ITE preview: buffer-overlay model,
-generation/stale model, last-valid state machine, parser/X_ITE policy, security +
-threat model, collapsible editor split-view) and `docs/WINDOWS_NATIVE_QA_PLAN.md`
-(Windows-native agent QA workflow for Claude Code CLI inside the WinBoat VM: reused
-cross-platform `VisualQaRunner`, packaged-app automation, evidence format, and the
-shared 7C0–7C5 implementation slices).
+**Planning — 7C0 ✅ complete.** `docs/PHASE_7C_PROPOSAL.md` (unsaved-buffer X_ITE
+preview: buffer-overlay model, generation/stale model, last-valid state machine,
+parser/X_ITE policy, security + threat model, collapsible editor split-view) and
+`docs/WINDOWS_NATIVE_QA_PLAN.md` (Windows-native agent QA workflow, packaged-app
+automation, evidence format, shared 7C0–7C5 slices).
+
+**7C4 — Windows-native QA harness ✅ built.** `qa/phase-7c-windows/` +
+`qa/visual-qa/` cross-platform (`qa:windows`); Tier 1 packed self-test + Tier 2
+`VisualQaRunner` + evidence with a fixture-mutation NO-GO gate.
+
+**7C4.1 — Windows Workspace Isolation Guard ✅ built.** `qa/visual-qa/workspace-guard.js`
+refuses UNC / mapped-network-drive / host-share workspaces on Windows (the WinBoat
+`\\host.lan\Data` share that broke `node_modules`), wired into `qa:windows`,
+`qa:visual`, the Windows self-test, and the Windows build scripts; plus an
+evidence-export allowlist (share is export-only, never node_modules/.git/source/
+fixtures/backups/binaries). Linux paths are never blocked. See
+`docs/WINDOWS_NATIVE_QA_PLAN.md` §"Workspace isolation".
+
+**Feature A — Vision Accommodations ✅ built.** For low-vision users: one coherent
+zoom level (Ctrl `+`/`-`/`0`, persisted) that scales **both** the CodeMirror code
+area (a font compartment in `src/editor/browser/editor-view.js`) **and** the app
+chrome (a `--wrl-ui-scale` rem layer in `renderer/editor.html`); a fifth **High
+Contrast** theme; a toolbar zoom group. Pure zoom model in `src/editor/ui-state.js`;
+visual QA `qa/phase-7c-vision/` (`qa:vision`). No main/preload/IPC/CSP change.
+
+**Unbuilt (still plan-only): 7C1** (buffer-overlay foundation), **7C2** (Mall
+unsaved preview), **7C3** (World unsaved preview), **7C5** (cross-platform
+acceptance). The unsaved-buffer live preview is **not** shipped.
+
+**Locked future-lane decisions (7C1–7C3, recorded — not yet implemented):**
+- Auto-preview debounce: **700 ms**.
+- Default editor/preview split: **side-by-side 50/50**.
+- World "Find new files" (rescan): **manual only**.
+- Auto-refresh applies to buffers up to **1 MiB**; larger buffers use manual Update.
+- `Ctrl/Cmd + Enter`: **Update preview**; `Ctrl/Cmd + Shift + Enter`: **toggle preview maximize**.
+- Preview layouts: **split**, **preview-max**, **editor-only**.
 
 ### Phase 7D — Beta Polish
 Keyboard accessibility, performance on large worlds, crash recovery, session

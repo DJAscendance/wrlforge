@@ -274,8 +274,12 @@ Phase 7A parser (`src/vrml`) — there is **no second grammar or regex mode**.
   diagnostics + SEMANTIC advisories (kept separate) + AST outline. Identifier
   roles (nodeType/fieldName/DEF/USE) come from the AST.
 - `src/editor/browser/editor-view.js` — the CodeMirror assembly (bundle-only,
-  ESM). Debounced re-analyze drops stale parses via a monotonic version; four
-  palette-driven themes via a Compartment. `window.WrlEditor.create`.
+  ESM). Debounced re-analyze drops stale parses via a monotonic version; **five**
+  palette-driven themes (incl. **High Contrast**) via a theme Compartment, and an
+  independent **font Compartment** (`setFontSize`/`getFontSize`, bounds
+  `MIN/MAX_FONT_PX`) so zoom and theme never clobber each other. Both compartments
+  are re-seeded in `buildExtensions()` so a `setDoc` state rebuild carries the live
+  theme + font forward. `window.WrlEditor.create`.
 - `src/editor/session.js` — main-process one-document holder; **owns the path**.
 - `src/editor/path-authorizer.js` — confines a renderer-named World WRL open:
   lexical root confinement + scan-graph membership + realpath (symlink-escape).
@@ -284,8 +288,30 @@ Phase 7A parser (`src/vrml`) — there is **no second grammar or regex mode**.
 - `src/editor/editor-controller.js` — orchestrates the above behind the `editor:*`
   IPC; a monotonic `sessionId` rejects stale-renderer writes.
 - `src/editor/ui-state.js` — pure renderer view-models (toolbar/status/outline/
-  conflict/shortcut/diagnostic-cap/theme), dual CJS+global for Node tests.
+  conflict/shortcut/diagnostic-cap/theme + the **zoom model**: `resolveZoom`,
+  `zoomStep`, `zoomModel` → `{ codeFontPx, chromeScale, label }`), dual CJS+global
+  for Node tests.
 - `renderer/editor.html` + `editor.js` — the workspace (thin DOM binding).
+
+### Vision accommodations (Feature A)
+
+For low-vision users, one persisted integer **zoom level** (`wrlforge.editor.zoom`,
+range −3…+8) scales the whole editor from a single control:
+
+- **Code area** — `applyZoom()` calls the handle's `setFontSize(zoomModel.codeFontPx)`
+  (the font Compartment above). CodeMirror font is deliberately decoupled from the
+  chrome's rem base so the two are driven by one level without double-applying.
+- **App chrome** — `applyZoom()` sets `--wrl-ui-scale` on `:root`; `editor.html`
+  expresses toolbar/sidebar/status-bar/modal sizes in `rem` off
+  `html { font-size: calc(13px * var(--wrl-ui-scale)) }`. Hairline borders/radii stay
+  in px. The (future 7C) X_ITE canvas must **not** be CSS-transformed by this scale.
+- **Controls** — a toolbar zoom group (`−` / percentage / `+` / Reset) and
+  `Ctrl/Cmd` `+` / `-` / `0` (resolved by the pure `resolveShortcut`).
+- **High Contrast** — the fifth theme; pure-black background, bright saturated tokens.
+- All zoom math is pure in `ui-state.js` (Node-tested); `editor.js` only reads/writes
+  localStorage and pokes the DOM. QA drives it through the existing `__wrlEditor`
+  hook (`zoom()`/`setZoom(n)`); visual QA lives in `qa/phase-7c-vision/` (`qa:vision`).
+- No main-process, preload, IPC, or CSP change — Feature A is renderer-only.
 
 ### File + buffer lifecycle
 

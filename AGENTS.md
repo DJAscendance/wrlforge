@@ -118,9 +118,14 @@ semantic diagnostics as authoritative yet. The **native editor** on top of it is
 esbuild bundle, no CDN; `src/editor/*` + `renderer/editor.*`) opened from both lanes via `editor:*` IPC,
 using the `src/vrml` parser as its **sole** grammar (highlighting/diagnostics/outline), with a
 verify-before-commit safe save + timestamped backup + external-change Reload/Save-As/Cancel, gzip
-transparency, four themes, and main-process path ownership. Syntax diagnostics are authoritative; the
-flat-scope VRML040–044 stay non-authoritative **advisories** that never block saving. The unsaved-buffer
-X_ITE preview is **Phase 7C, not built** — do not add it, and do not build a renderer. Everything except the single Build-World-
+transparency, **five** themes (incl. **High Contrast**), and main-process path ownership. Syntax
+diagnostics are authoritative; the flat-scope VRML040–044 stay non-authoritative **advisories** that
+never block saving. **Vision accommodations (Feature A) are built** (renderer-only — no main/preload/
+IPC/CSP change): one persisted **zoom level** (`Ctrl`+`/-/0`, toolbar group) scales the CodeMirror code
+area (a **font compartment** in `editor-view.js`, decoupled from the theme compartment) *and* the app
+chrome (a `--wrl-ui-scale` rem layer in `editor.html`) together; all zoom math is pure in
+`ui-state.js` (`resolveZoom`/`zoomStep`/`zoomModel`). Reuse those — don't duplicate. The unsaved-buffer
+X_ITE preview is still **Phase 7C1–7C3, not built** — do not add it, and do not build a renderer. Everything except the single Build-World-
 Project-Bundle action is read-only; that action writes only a portable bundle to a
 caller-chosen destination and never mutates the source project. See
 `docs/WORLD_PROJECT_ARCHITECTURE.md` and `docs/WORLD_PACKAGE_QUESTIONS.md`.
@@ -180,3 +185,4 @@ Do not copy Mall Item validation rules into World Project or Generic VRML97 code
 
 - GTK's file-open dialog does not reliably accept `Ctrl+L` + typed path + `Return` in this environment — typed text can land in the fuzzy-search box instead of the location bar. Navigating via the folder tree/breadcrumbs is reliable; keep that in mind if scripting or automating file selection.
 - A file opened from an untrusted folder (e.g. `/tmp`) puts VSCodium in Restricted Mode, which disables the X_ITE preview extension with no obvious error — the `X3D: Preview 3D Model` command simply won't appear in the command palette. This is why `.edit.wrl` siblings are written next to the mall file inside the already-trusted `~/Projects/cybertown` tree rather than to a temp directory.
+- On **Windows**, never run dev/QA/build from the WinBoat `\\host.lan\Data` SMB share, a UNC path, or a mapped network drive — running `npm ci`/builds/fixture-writing QA there wiped `node_modules`. This is now **enforced** (Phase 7C4.1): `qa/visual-qa/workspace-guard.js` refuses those workspaces (UNC / `DriveType == Network` / host-share marker) with one message and a non-zero exit, wired into `qa:windows`, `qa:visual`, the packed self-test, and `build:win`/`build:win:portable`. It is a **no-op on Linux** — never block normal Linux paths, and don't route the guard around a legitimate local clone. The share stays evidence-out only, via the `filterEvidenceExport` allowlist. Clone to a local NTFS path such as `C:\Projects\wrlforge`.

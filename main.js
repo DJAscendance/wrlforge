@@ -315,6 +315,12 @@ function createWindow() {
           await new Promise((r) => setTimeout(r, 400));
         }
 
+        // Optional zoom level (visual-QA of the vision-accommodation scaling).
+        if (e.zoom != null) {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.setZoom(${JSON.stringify(e.zoom)})`);
+          await new Promise((r) => setTimeout(r, 400));
+        }
+
         // Optional scripted step, driven through the page's own QA hook.
         if (e.step === 'type') {
           await win.webContents.executeJavaScript(`window.__wrlEditor.setText(${JSON.stringify(e.text || '')})`);
@@ -332,6 +338,10 @@ function createWindow() {
           await new Promise((r) => setTimeout(r, 400));
         } else if (e.step === 'external') {
           await win.webContents.executeJavaScript(`window.__wrlEditor.click('externalBtn')`);
+          await new Promise((r) => setTimeout(r, 400));
+        } else if (e.step === 'modal') {
+          // Open the in-DOM go-to-line modal so it can be captured (e.g. scaled).
+          await win.webContents.executeJavaScript(`window.__wrlEditor.click('gotoBtn')`);
           await new Promise((r) => setTimeout(r, 400));
         } else if (e.step === 'conflict') {
           // Type an edit, stage an EXTERNAL change to the same scratch source,

@@ -35,6 +35,7 @@ const { writeReviewBundle } = req('src/world-project/bundle-builder.js');
 const { resolveEditor, buildLaunch } = req('src/editor/editor-locator.js');
 const { loadSettings } = req('src/settings/app-settings.js');
 const { windowStatePath, legacyWindowStatePath } = req('src/settings/window-state.js');
+const { classifyWorkspace, assertLocalWorkspace } = req('qa/visual-qa/workspace-guard.js');
 
 const FIX = path.join(ROOT, 'test', 'fixtures', 'world');
 const results = [];
@@ -47,6 +48,18 @@ function check(name, fn) {
   }
 }
 function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+
+// Phase 7C4.1 hard precondition: on the real Windows VM this self-test writes
+// scratch and reads committed fixtures, so it must NOT run from a UNC path,
+// mapped network drive, or the host share. Abort loudly before any fixture read.
+// (No-op on Linux, where the harness runs for its own verification.)
+try {
+  assertLocalWorkspace(ROOT);
+} catch (err) {
+  console.error(err.message);
+  console.error(`Refused workspace: ${err.classification ? err.classification.reason : ROOT}`);
+  process.exit(2);
+}
 
 function scan(dir, primaryName = 'world.wrl') {
   const root = path.join(FIX, dir);
@@ -67,6 +80,28 @@ check('win32 path.join drive-letter + spaces', () => {
 });
 check('win32 isAbsolute drive letter', () => {
   assert(path.win32.isAbsolute('C:\\x') && !path.win32.isAbsolute('x\\y'));
+});
+
+// ---- Phase 7C4.1 workspace guard (injected, deterministic cross-host) ----
+const fixedC = () => 'Fixed';
+const networkZ = () => 'Network';
+check('workspace guard: local C:\\Projects\\wrlforge accepted', () => {
+  const c = classifyWorkspace('C:\\Projects\\wrlforge', { platform: 'win32', env: {}, driveType: fixedC });
+  assert(c.ok && c.kind === 'ok', JSON.stringify(c));
+});
+check('workspace guard: UNC host share rejected', () => {
+  const c = classifyWorkspace('\\\\host.lan\\Data\\wrlforge', { platform: 'win32', env: {}, driveType: fixedC });
+  assert(!c.ok && (c.kind === 'unc' || c.kind === 'host-share'), JSON.stringify(c));
+});
+check('workspace guard: mapped network drive rejected', () => {
+  const c = classifyWorkspace('Z:\\wrlforge', { platform: 'win32', env: {}, driveType: networkZ });
+  assert(!c.ok && c.kind === 'network-drive', JSON.stringify(c));
+});
+check('workspace guard: this workspace on the real host', () => {
+  const c = classifyWorkspace(ROOT);
+  // On the Windows VM this proves the clone is local; on Linux it is a non-block.
+  assert(c.ok, `${c.kind}: ${c.reason}`);
+  return `${c.kind}`;
 });
 
 // ---- gzip transparency (Phase 6A parity) ----

@@ -23,6 +23,7 @@ const { VisualQaRunner } = require('../visual-qa/runner');
 const { parseArgs, checkSessionPresent, resolveExeForTarget, realSpawn } = require('../visual-qa/cli');
 const { acquire } = require('../visual-qa/lock');
 const evidence = require('../visual-qa/evidence');
+const { guardWindowsWorkspace } = require('../visual-qa/workspace-guard');
 
 const repoRoot = path.join(__dirname, '..', '..');
 
@@ -58,6 +59,9 @@ function runTier1(electronBinary, outDir) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  // Refuse UNC / network-drive / host-share workspaces on Windows before any
+  // packed self-test, spawn, or evidence write touches node_modules or fixtures.
+  guardWindowsWorkspace({ cwd: repoRoot, label: 'qa:windows' });
   checkSessionPresent(args);
 
   const jobsFile = args.flags.jobs;

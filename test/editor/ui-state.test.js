@@ -129,19 +129,71 @@ test('resolveShortcut dispatches app-level accelerators only', () => {
   assert.strictEqual(ui.resolveShortcut({ key: 's' }), null, 'no modifier -> not an accelerator');
   assert.strictEqual(ui.resolveShortcut({ key: 'z', ctrlOrMeta: true }), null, 'undo is CodeMirror-owned');
   assert.strictEqual(ui.resolveShortcut({}), null);
+  // Zoom accelerators (both punctuation forms).
+  assert.strictEqual(ui.resolveShortcut({ key: '=', ctrlOrMeta: true }), 'zoomIn');
+  assert.strictEqual(ui.resolveShortcut({ key: '+', ctrlOrMeta: true }), 'zoomIn');
+  assert.strictEqual(ui.resolveShortcut({ key: '-', ctrlOrMeta: true }), 'zoomOut');
+  assert.strictEqual(ui.resolveShortcut({ key: '_', ctrlOrMeta: true }), 'zoomOut');
+  assert.strictEqual(ui.resolveShortcut({ key: '0', ctrlOrMeta: true }), 'zoomReset');
+  assert.strictEqual(ui.resolveShortcut({ key: '=' }), null, 'zoom needs the modifier');
 });
 
-test('themes: at least four, with a safe default and fallback', () => {
-  assert.ok(ui.THEMES.length >= 4, 'at least four built-in themes');
+test('themes: at least five (incl. High Contrast), with a safe default and fallback', () => {
+  assert.ok(ui.THEMES.length >= 5, 'at least five built-in themes');
   const ids = ui.THEMES.map((t) => t.id);
-  for (const id of ['dark', 'light', 'terminal', 'tokyo']) assert.ok(ids.includes(id), `${id} present`);
+  for (const id of ['dark', 'light', 'terminal', 'tokyo', 'contrast']) assert.ok(ids.includes(id), `${id} present`);
   assert.ok(ui.THEMES.every((t) => t.id && t.label), 'every theme has an id and a label');
-  assert.strictEqual(ui.isValidTheme('tokyo'), true);
+  assert.strictEqual(ui.isValidTheme('contrast'), true, 'High Contrast is available');
   assert.strictEqual(ui.isValidTheme('nope'), false);
-  assert.strictEqual(ui.resolveTheme('terminal'), 'terminal');
+  assert.strictEqual(ui.resolveTheme('contrast'), 'contrast');
   assert.strictEqual(ui.resolveTheme('bogus'), ui.DEFAULT_THEME);
   assert.strictEqual(ui.resolveTheme(null), ui.DEFAULT_THEME);
   assert.strictEqual(ui.isValidTheme(ui.DEFAULT_THEME), true);
+});
+
+test('zoom: clamping, stepping, and reset stay within bounds', () => {
+  assert.strictEqual(ui.clampZoom(0), 0);
+  assert.strictEqual(ui.clampZoom(99), ui.ZOOM_MAX, 'clamps above max');
+  assert.strictEqual(ui.clampZoom(-99), ui.ZOOM_MIN, 'clamps below min');
+  assert.strictEqual(ui.zoomStep(0, +1), 1);
+  assert.strictEqual(ui.zoomStep(ui.ZOOM_MAX, +1), ui.ZOOM_MAX, 'cannot step past max');
+  assert.strictEqual(ui.zoomStep(ui.ZOOM_MIN, -1), ui.ZOOM_MIN, 'cannot step below min');
+  assert.strictEqual(ui.zoomStep(2, -3), -1);
+});
+
+test('resolveZoom tolerates absent / garbage persisted values', () => {
+  assert.strictEqual(ui.resolveZoom('3'), 3);
+  assert.strictEqual(ui.resolveZoom(3), 3);
+  assert.strictEqual(ui.resolveZoom(null), ui.ZOOM_DEFAULT);
+  assert.strictEqual(ui.resolveZoom('garbage'), ui.ZOOM_DEFAULT);
+  assert.strictEqual(ui.resolveZoom(undefined), ui.ZOOM_DEFAULT);
+  assert.strictEqual(ui.resolveZoom('999'), ui.ZOOM_MAX, 'out-of-range persisted value is clamped');
+});
+
+test('zoomModel: the single source of truth for code font + chrome scale', () => {
+  const base = ui.zoomModel(0);
+  assert.strictEqual(base.level, 0);
+  assert.strictEqual(base.codeFontPx, 13, 'level 0 is the 13px base');
+  assert.strictEqual(base.chromeScale, 1);
+  assert.strictEqual(base.label, '100%');
+
+  const up = ui.zoomModel(5);
+  const down = ui.zoomModel(-2);
+  assert.ok(up.codeFontPx > base.codeFontPx, 'zooming in enlarges the code font');
+  assert.ok(up.chromeScale > base.chromeScale, 'zooming in enlarges the chrome');
+  assert.ok(down.codeFontPx < base.codeFontPx, 'zooming out shrinks the code font');
+  assert.match(up.label, /^\d+%$/, 'label is a percentage');
+
+  // Monotonic across the whole range, and font stays within the shared bounds.
+  let prev = -Infinity;
+  for (let lv = ui.ZOOM_MIN; lv <= ui.ZOOM_MAX; lv++) {
+    const m = ui.zoomModel(lv);
+    assert.ok(m.codeFontPx >= prev, 'codeFontPx is non-decreasing with level');
+    assert.ok(m.codeFontPx >= 9 && m.codeFontPx <= 28, `font ${m.codeFontPx} within [9,28]`);
+    prev = m.codeFontPx;
+  }
+  // Out-of-range input is clamped by the model itself.
+  assert.deepStrictEqual(ui.zoomModel(999), ui.zoomModel(ui.ZOOM_MAX));
 });
 
 test('isFreshAnalysis rejects an older analysis version', () => {

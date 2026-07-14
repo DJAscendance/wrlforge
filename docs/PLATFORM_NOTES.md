@@ -160,6 +160,22 @@ or public release is configured. This is distinct from the Phase 5A **WRL Forge
 World Project Bundle** (a portable content ZIP for review + manual upload, not an
 app installer).
 
+## Windows workspace isolation (Phase 7C4.1)
+
+Windows dev/QA/build commands must run from a **local NTFS clone** (e.g.
+`C:\Projects\wrlforge`), never from a UNC path, mapped **network** drive, or the
+WinBoat `\\host.lan\Data` SMB share — running `npm ci`/builds/fixture-writing QA
+from the share previously wiped `node_modules`. `qa/visual-qa/workspace-guard.js`
+(pure/injectable — `platform`/`env`/`driveType` are all injected, so it unit-tests
+on any host) classifies the workspace and refuses UNC, `DriveType == Network`, and
+known host-share markers with one exact message, exiting non-zero. It is a **no-op
+on Linux** (Linux paths are never blocked). Guarded entry points: `qa:windows`,
+`qa:visual`, the packed self-test (`win-selftest.js`), and `build:win`/
+`build:win:portable` (via `workspace-preflight.js`). The share stays the
+evidence-out channel but export is **allowlist-only** (`filterEvidenceExport` —
+never `node_modules`/`.git`/source/fixtures/`.edit.wrl`/backups/build-intermediates/
+binaries). See `docs/WINDOWS_NATIVE_QA_PLAN.md` §"Workspace isolation".
+
 ## Windows beta hardening (Phase 6B)
 
 The Phase 6A build was promoted to a **beta candidate** (`1.1.0-beta.1`, labelled

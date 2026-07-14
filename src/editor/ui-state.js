@@ -8,18 +8,50 @@
 const DIAG_CAP = 200; // cap visible diagnostics/advisories; the true total is kept
 
 // Built-in editor themes (must mirror the palette ids in browser/editor-view.js).
-// Each has strong text-on-background contrast; two light-on-dark, one dark-on-
-// light, one high-contrast terminal green.
+// Two light-on-dark, one dark-on-light, one terminal green, and a pure-black
+// High Contrast theme for low-vision use.
 const THEMES = [
   { id: 'dark', label: 'Dark' },
   { id: 'light', label: 'Light' },
   { id: 'terminal', label: 'Terminal' },
   { id: 'tokyo', label: 'Tokyo Night' },
+  { id: 'contrast', label: 'High Contrast' },
 ];
 const DEFAULT_THEME = 'dark';
 function isValidTheme(id) { return THEMES.some((t) => t.id === id); }
 // A saved/requested theme falls back to the default when absent or unknown.
 function resolveTheme(id) { return isValidTheme(id) ? id : DEFAULT_THEME; }
+
+// --- zoom model (single source of truth for code font + chrome scale) --------
+// One integer "zoom level" scales BOTH the CodeMirror code area (codeFontPx, fed
+// to the editor handle's setFontSize) and the app chrome (chromeScale, applied
+// as the --wrl-ui-scale CSS variable). Keeping both in one pure model means they
+// can never drift. Bounds mirror MIN/MAX_FONT_PX in browser/editor-view.js.
+const ZOOM_MIN = -3;
+const ZOOM_MAX = 8;
+const ZOOM_DEFAULT = 0;
+const ZOOM_BASE_FONT_PX = 13; // matches editor-view DEFAULT_FONT_PX
+const ZOOM_MIN_FONT_PX = 9;   // matches editor-view MIN_FONT_PX
+const ZOOM_MAX_FONT_PX = 28;  // matches editor-view MAX_FONT_PX
+
+function clampZoom(level) {
+  const n = Math.round(Number(level));
+  if (!Number.isFinite(n)) return ZOOM_DEFAULT;
+  return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, n));
+}
+// A persisted/typed value -> a valid level (defaults on absent/garbage).
+function resolveZoom(raw) {
+  const n = Math.round(Number(raw));
+  return Number.isFinite(n) ? clampZoom(n) : ZOOM_DEFAULT;
+}
+function zoomStep(level, delta) { return clampZoom(clampZoom(level) + Math.round(Number(delta) || 0)); }
+// The derived view-model for a level: 10% per step, clamped font, percent label.
+function zoomModel(level) {
+  const lv = clampZoom(level);
+  const factor = 1 + lv * 0.1; // lv -3..+8 -> 0.7..1.8
+  const codeFontPx = Math.max(ZOOM_MIN_FONT_PX, Math.min(ZOOM_MAX_FONT_PX, Math.round(ZOOM_BASE_FONT_PX * factor)));
+  return { level: lv, codeFontPx, chromeScale: factor, label: Math.round(factor * 100) + '%' };
+}
 
 const FORMAT_LABEL = { plain: 'Plain', gzip: 'gzip' };
 function formatLabel(format) { return FORMAT_LABEL[format] || 'Plain'; }
@@ -139,6 +171,11 @@ function resolveShortcut({ key, ctrlOrMeta, shift } = {}) {
   if (k === 's') return shift ? 'saveAs' : 'save';
   if (k === 'g' && !shift) return 'gotoLine';
   if (k === 'w' && !shift) return 'close';
+  // Zoom accelerators: Ctrl/Cmd with +/=/-/0 (both the shifted and unshifted
+  // punctuation forms are accepted so any keyboard layout reaches them).
+  if (k === '=' || k === '+' || k === 'add') return 'zoomIn';
+  if (k === '-' || k === '_' || k === 'subtract') return 'zoomOut';
+  if (k === '0') return 'zoomReset';
   return null;
 }
 
@@ -151,10 +188,11 @@ function isFreshAnalysis(resultVersion, appliedVersion) {
 
 const API = {
   DIAG_CAP, SAVE_STATE, CONFLICT_ACTION, THEMES, DEFAULT_THEME,
+  ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT,
   formatLabel, isDirty, saveStateLabel, basename, cursorLabel,
   capDiagnostics, statusModel, toolbarModel, flattenOutline,
   originNav, conflictDecision, needsUnsavedConfirm, resolveShortcut, isFreshAnalysis,
-  isValidTheme, resolveTheme,
+  isValidTheme, resolveTheme, clampZoom, resolveZoom, zoomStep, zoomModel,
 };
 
 // Dual use: CommonJS for Node unit tests, a window global for the renderer (this

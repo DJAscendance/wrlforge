@@ -21,6 +21,7 @@ qa/phase-4b-world-preview/RESULTS.json
 qa/phase-5a-world-packaging/RESULTS.json
 qa/phase-7b-native-editor/RESULTS.json
 qa/phase-7b-native-editor/PERF.json
+qa/phase-7c-vision/RESULTS.json
 
 # graphify knowledge-graph output (machine-generated, regenerated via `graphify update .`)
 graphify-out/

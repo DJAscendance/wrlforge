@@ -24,76 +24,90 @@
 <script defer src="../src/editor/ui-state.js"></script>
 <script defer src="editor.js"></script>
 <style>
-  :root { color-scheme: dark; }
+  /* --wrl-ui-scale scales the whole app chrome (toolbar, sidebar, status bar,
+     modal) via a single root font-size: chrome sizes below are in `rem`, so the
+     renderer only sets this one variable to zoom everything together. The
+     CodeMirror code area is deliberately NOT scaled here -- its font size is
+     owned by the editor handle's font compartment (setFontSize), driven by the
+     same zoom level so the two stay coherent without double-applying. Hairline
+     borders and radii stay in px so they don't blur when enlarged. */
+  :root { color-scheme: dark; --wrl-ui-scale: 1; }
+  html { font-size: calc(13px * var(--wrl-ui-scale)); }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     margin: 0; background: #1b1b1b; color: #ddd;
-    font-family: -apple-system, "Segoe UI", sans-serif; font-size: 13px;
+    font-family: -apple-system, "Segoe UI", sans-serif; font-size: 1rem;
     display: flex; flex-direction: column;
   }
   .toolbar {
-    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-    padding: 8px 12px; background: #202020; border-bottom: 1px solid #333;
+    display: flex; flex-wrap: wrap; gap: 0.46rem; align-items: center;
+    padding: 0.62rem 0.92rem; background: #202020; border-bottom: 1px solid #333;
   }
   .toolbar .spacer { flex: 1 1 auto; }
   button {
     background: #2d6ae0; color: #fff; border: none; border-radius: 4px;
-    padding: 6px 12px; font-size: 12.5px; cursor: pointer;
+    padding: 0.46rem 0.92rem; font-size: 0.96rem; cursor: pointer;
   }
   button:hover { background: #3a78ee; }
   button.secondary { background: #333; }
   button.secondary:hover { background: #444; }
   button:disabled { background: #2a2a2a; color: #666; cursor: not-allowed; }
-  button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
-    outline: 2px solid #7db3ff; outline-offset: 2px;
+  button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+    outline: 3px solid #7db3ff; outline-offset: 2px;
   }
   .main { flex: 1 1 auto; display: flex; min-height: 0; }
   .editor-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  /* The code area font is owned by CodeMirror (font compartment), not by rem. */
   #editor { flex: 1 1 auto; min-height: 0; overflow: hidden; }
   .cm-editor { height: 100%; }
   .toolbar select {
     background: #333; color: #fff; border: 1px solid #444; border-radius: 4px;
-    padding: 5px 8px; font-size: 12.5px;
+    padding: 0.38rem 0.62rem; font-size: 0.96rem;
   }
-  .toolbar label.theme { display: inline-flex; align-items: center; gap: 6px; color: #9a9a9a; font-size: 12px; }
+  .toolbar label.theme { display: inline-flex; align-items: center; gap: 0.46rem; color: #9a9a9a; font-size: 0.92rem; }
+  .toolbar .zoom { display: inline-flex; align-items: center; gap: 0.31rem; }
+  .toolbar .zoom #zoomLabel {
+    min-width: 3rem; text-align: center; color: #cbd; font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
   .sidebar {
-    flex: 0 0 320px; max-width: 42vw; border-left: 1px solid #333;
+    flex: 0 0 24.6rem; max-width: 42vw; border-left: 1px solid #333;
     background: #161616; display: flex; flex-direction: column; overflow: auto;
   }
   .sidebar section { border-bottom: 1px solid #262626; }
   .sidebar h2 {
-    font-size: 11px; margin: 0; padding: 8px 12px 6px; color: #9a9a9a;
+    font-size: 0.85rem; margin: 0; padding: 0.62rem 0.92rem 0.46rem; color: #9a9a9a;
     text-transform: uppercase; letter-spacing: 0.05em; position: sticky; top: 0; background: #161616;
   }
   .sidebar h2 .count { color: #ddd; font-weight: 700; }
-  .list { padding: 0 0 6px; }
+  .list { padding: 0 0 0.46rem; }
   .row-item {
-    padding: 4px 12px; cursor: pointer; font-size: 12px; line-height: 1.4;
-    display: flex; gap: 8px; align-items: baseline; border-left: 3px solid transparent;
+    padding: 0.31rem 0.92rem; cursor: pointer; font-size: 0.92rem; line-height: 1.4;
+    display: flex; gap: 0.62rem; align-items: baseline; border-left: 3px solid transparent;
   }
   .row-item:hover { background: #202430; }
-  .row-item .loc { color: #667; font-family: monospace; font-size: 11px; flex: none; }
+  .row-item .loc { color: #778; font-family: monospace; font-size: 0.85rem; flex: none; }
   .row-item.sev-error { border-left-color: #ff6161; }
   .row-item.sev-warning { border-left-color: #ffb648; }
   .row-item.advisory { border-left-color: #6a5acd; }
-  .outline .kind { color: #7aa2f7; font-family: monospace; font-size: 10.5px; flex: none; }
+  .outline .kind { color: #7aa2f7; font-family: monospace; font-size: 0.8rem; flex: none; }
   .outline .row-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .empty-note { color: #666; font-style: italic; padding: 6px 12px; }
-  .advisory-note { color: #8a80c8; font-size: 11px; padding: 0 12px 8px; }
+  .empty-note { color: #888; font-style: italic; padding: 0.46rem 0.92rem; }
+  .advisory-note { color: #9a90d8; font-size: 0.85rem; padding: 0 0.92rem 0.62rem; }
   .statusbar {
-    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
-    padding: 5px 12px; background: #202020; border-top: 1px solid #333;
-    font-size: 12px; color: #9ab;
+    display: flex; flex-wrap: wrap; gap: 1.08rem; align-items: center;
+    padding: 0.38rem 0.92rem; background: #202020; border-top: 1px solid #333;
+    font-size: 0.92rem; color: #9ab;
   }
-  .statusbar .seg { display: inline-flex; gap: 5px; align-items: center; }
+  .statusbar .seg { display: inline-flex; gap: 0.38rem; align-items: center; }
   .statusbar .fmt { color: #cbd; }
   .statusbar .dirty-dot { color: #ffce6a; font-weight: 700; }
   .statusbar .save-clean { color: #7fbf7f; }
   .statusbar .save-dirty { color: #ffce6a; }
   .statusbar .save-saving { color: #7db3ff; }
   .statusbar .save-error, .statusbar .save-conflict { color: #ff8b8b; }
-  .editor-msg { background: #3a2f10; color: #ffce6a; padding: 6px 12px; font-size: 12px; }
+  .editor-msg { background: #3a2f10; color: #ffce6a; padding: 0.46rem 0.92rem; font-size: 0.92rem; }
   .editor-msg.err { background: #401414; color: #ff9b9b; }
 
   /* In-DOM modal (unsaved confirm / external-change conflict / go-to-line) -- no
@@ -105,16 +119,16 @@
   .modal-backdrop.show { display: flex; }
   .modal {
     background: #232323; border: 1px solid #3a3a3a; border-radius: 8px;
-    padding: 18px 20px; max-width: 460px; width: 90%;
+    padding: 1.38rem 1.54rem; max-width: 35.4rem; width: 90%;
   }
-  .modal h3 { margin: 0 0 8px; font-size: 15px; }
-  .modal p { margin: 0 0 14px; color: #bbb; line-height: 1.5; }
+  .modal h3 { margin: 0 0 0.62rem; font-size: 1.15rem; }
+  .modal p { margin: 0 0 1.08rem; color: #bbb; line-height: 1.5; }
   .modal input[type=number], .modal input[type=text] {
-    width: 100%; padding: 7px 9px; margin-bottom: 14px; border-radius: 4px;
-    border: 1px solid #3a3a3a; background: #1a1a1a; color: #eee; font-size: 13px;
+    width: 100%; padding: 0.54rem 0.69rem; margin-bottom: 1.08rem; border-radius: 4px;
+    border: 1px solid #3a3a3a; background: #1a1a1a; color: #eee; font-size: 1rem;
   }
-  .modal .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
-  .empty-state { padding: 40px; text-align: center; color: #888; }
+  .modal .actions { display: flex; gap: 0.62rem; justify-content: flex-end; flex-wrap: wrap; }
+  .empty-state { padding: 3.08rem; text-align: center; color: #888; }
 </style>
 </head>
 <body>
@@ -130,6 +144,12 @@
     <button id="gotoBtn" class="secondary" disabled>Go to line…</button>
     <button id="externalBtn" class="secondary" disabled title="Open the same file in your external editor">External editor</button>
     <span class="spacer"></span>
+    <span class="zoom" role="group" aria-label="Editor size">
+      <button id="zoomOutBtn" class="secondary" title="Decrease size (Ctrl -)" aria-label="Decrease size">−</button>
+      <span id="zoomLabel" aria-live="polite" aria-label="Editor size 100%">100%</span>
+      <button id="zoomInBtn" class="secondary" title="Increase size (Ctrl +)" aria-label="Increase size">+</button>
+      <button id="zoomResetBtn" class="secondary" title="Reset size (Ctrl 0)" aria-label="Reset size">Reset</button>
+    </span>
     <label class="theme">Theme <select id="themeSelect" aria-label="Editor color theme"></select></label>
     <button id="closeBtn" class="secondary" disabled>Close</button>
   </div>
