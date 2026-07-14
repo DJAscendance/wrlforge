@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussion
+    url: https://github.com/DJAscendance/wrlforge/discussions
+    about: Ask questions, share worlds, or discuss WRL Forge with the community. Not sure it's a bug? Start here.
+  - name: User Guide (screenshots & usage)
+    url: https://github.com/DJAscendance/wrlforge/blob/main/docs/SCREENSHOTS_AND_USAGE.md
+    about: Learn how to open, edit, preview, and package worlds before filing an issue.
+  - name: Troubleshooting
+    url: https://github.com/DJAscendance/wrlforge/blob/main/docs/TROUBLESHOOTING.md
+    about: Common problems and fixes — check here first for install and preview issues.
+  - name: Report a security vulnerability (private)
+    url: https://github.com/DJAscendance/wrlforge/security/advisories/new
+    about: Security vulnerabilities must NOT be filed as public issues. Report them privately via GitHub Security advisories.

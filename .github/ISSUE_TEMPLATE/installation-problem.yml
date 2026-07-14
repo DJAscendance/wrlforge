@@ -1,0 +1,91 @@
+name: Installation problem
+description: Report trouble installing, launching, or running a WRL Forge build.
+title: "[Install]: "
+labels: [installer, needs-info]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Installation & launch problems
+
+        Use this for problems getting WRL Forge installed or started — installer errors, security warnings, missing files, or the app not launching.
+
+        **Note:** WRL Forge Windows builds are **unsigned by design for this beta**. Windows SmartScreen / Defender may show a warning; choosing **More info → Run anyway** is expected. WRL Forge has no code signing, no auto-update, and no telemetry.
+
+        WRL Forge is an independent community project and is **not affiliated with Cybertown** or its operators.
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - Windows
+    validations:
+      required: true
+  - type: dropdown
+    id: download-type
+    attributes:
+      label: Download type
+      description: Which build were you installing or running?
+      options:
+        - Linux AppImage
+        - Linux tar.gz
+        - Windows Setup EXE
+        - Windows MSI
+        - Windows Portable EXE
+        - Windows ZIP
+        - Built from source
+    validations:
+      required: true
+  - type: dropdown
+    id: smartscreen
+    attributes:
+      label: Did you see a SmartScreen or security warning?
+      options:
+        - "Yes"
+        - "No"
+        - Not sure
+    validations:
+      required: false
+  - type: textarea
+    id: smartscreen-text
+    attributes:
+      label: Security / SmartScreen message text
+      description: If you saw a SmartScreen, Defender, or antivirus message, paste its exact wording here.
+    validations:
+      required: false
+  - type: textarea
+    id: error-text
+    attributes:
+      label: Exact error text
+      description: Copy the full error message word-for-word. Use a code block if possible.
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: install-location
+    attributes:
+      label: Install location
+      description: Where did you install or extract WRL Forge (full path)?
+      placeholder: e.g. C:\Program Files\WRL Forge  or  /home/you/Apps
+    validations:
+      required: false
+  - type: dropdown
+    id: other-build-works
+    attributes:
+      label: Does another build type work?
+      description: Have you tried a different download type (e.g. Setup EXE vs. Portable EXE)?
+      options:
+        - Have not tried another build
+        - "Yes — another build works"
+        - "No — no build works"
+        - Not applicable
+    validations:
+      required: false
+  - type: textarea
+    id: screenshot-log
+    attributes:
+      label: Screenshot or log
+      description: Drag-and-drop a screenshot of the error, or paste relevant log output. Do not include private content.
+    validations:
+      required: false

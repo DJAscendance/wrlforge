@@ -1,0 +1,90 @@
+name: VRML compatibility issue
+description: Report a VRML97 file that parses, renders, or behaves differently than expected in WRL Forge.
+title: "[VRML]: "
+labels: [vrml-compatibility, needs-info]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## VRML97 compatibility
+
+        Use this to report a `.wrl` file whose nodes, extensions, or behavior differ from what you expected.
+
+        **How WRL Forge treats VRML:**
+        - The built-in **parser advisories are advisory-only** — they flag things for your attention and never block saving.
+        - **X_ITE is the runtime authority** — it is the sole renderer, and what X_ITE renders is what actually happens. If the parser and the rendered result disagree, the rendered (X_ITE) result is authoritative.
+        - WRL Forge does **not** guarantee that every historical or nonstandard VRML extension behaves identically to the original platform.
+
+        **Privacy & copyright:** GitHub issues are public. Only attach files or assets you are legally allowed to share. If a world is not shareable, describe it or attach a small minimal reproduction instead.
+
+        WRL Forge is an independent community project and is **not affiliated with Cybertown** or its operators.
+  - type: input
+    id: version
+    attributes:
+      label: WRL Forge version
+      value: 1.3.0-beta.2
+    validations:
+      required: true
+  - type: dropdown
+    id: profile
+    attributes:
+      label: Which lane?
+      options:
+        - Mall Item
+        - World Project
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: wrl-encoding
+    attributes:
+      label: Plain or gzip-compressed WRL?
+      options:
+        - Plain (uncompressed)
+        - Gzip-compressed
+        - Not sure
+    validations:
+      required: false
+  - type: textarea
+    id: nodes
+    attributes:
+      label: Nodes / extensions involved
+      description: Which VRML nodes, fields, PROTOs, or nonstandard extensions are involved?
+    validations:
+      required: false
+  - type: textarea
+    id: parser-result
+    attributes:
+      label: Parser result
+      description: What did the WRL Forge parser report (advisories, diagnostics, outline)? Remember these are advisory-only.
+    validations:
+      required: false
+  - type: textarea
+    id: xite-result
+    attributes:
+      label: X_ITE render result
+      description: What did the X_ITE preview actually show or do? (X_ITE is the runtime authority.)
+    validations:
+      required: false
+  - type: textarea
+    id: expected-historical
+    attributes:
+      label: Expected historical behavior
+      description: How did this behave on the original platform / how did you expect it to behave?
+    validations:
+      required: false
+  - type: textarea
+    id: minimal-repro
+    attributes:
+      label: Minimal reproduction (when legally shareable)
+      description: A small `.wrl` snippet or file that reproduces the issue. Only include content you have permission to share.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: screenshot-console
+    attributes:
+      label: Screenshot / console output
+      description: Drag-and-drop a screenshot of the preview, or paste console output. Do not include private content.
+    validations:
+      required: false
