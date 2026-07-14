@@ -31,8 +31,8 @@ untouched), and the explicit VSCodium launch (incl. space/Unicode paths). Eviden
 
 | File | Size | SHA-256 |
 |---|---|---|
-| `WRL Forge-1.3.0-beta.1-x64-PrivateBeta-Unsigned-portable.exe` | _computed at final build_ | _computed at final build_ |
-| `WRL Forge-1.3.0-beta.1-x64-PrivateBeta-Unsigned-setup.exe` (NSIS installer) | _computed at final build_ | _computed at final build_ |
+| `WRL Forge-1.3.0-beta.1-x64-PrivateBeta-Unsigned-portable.exe` | 99,358,164 B (~95 MB) | `f66563293846bb952a2f9f88099599c9ca25687b568558ba8c5c721a0f501020` |
+| `WRL Forge-1.3.0-beta.1-x64-PrivateBeta-Unsigned-setup.exe` (NSIS installer) | 99,566,284 B (~95 MB) | `26d2e5b183cd4ec8d29e15031c31522a6c42b27286a99bb6f65e15d1351da757` |
 
 Checksums in `release/SHA256SUMS-1.3.0-beta.1.txt` (git-ignored, like the artifacts).
 Both are **unsigned** (PE certificate table empty — verified at build time) and **x64

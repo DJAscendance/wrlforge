@@ -1,0 +1,2 @@
+f66563293846bb952a2f9f88099599c9ca25687b568558ba8c5c721a0f501020  WRL Forge-1.3.0-beta.1-x64-PrivateBeta-Unsigned-portable.exe
+26d2e5b183cd4ec8d29e15031c31522a6c42b27286a99bb6f65e15d1351da757  WRL Forge-1.3.0-beta.1-x64-PrivateBeta-Unsigned-setup.exe

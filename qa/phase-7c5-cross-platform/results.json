@@ -4,38 +4,131 @@
   "version": "1.3.0-beta.1",
   "date": "2026-07-14",
   "linux": {
-    "tests": { "total": 567, "pass": 567, "fail": 0 },
+    "tests": {
+      "total": 567,
+      "pass": 567,
+      "fail": 0
+    },
     "check": "exit 0",
     "visualSuites": {
-      "vision": "9/9", "nativeEditor": "15/15", "mallPreview": "18/18",
-      "worldPreview": "22/22", "mallDisk": "5/5", "worldDisk": "12/12", "packaging": "7/7"
+      "vision": "9/9",
+      "nativeEditor": "15/15",
+      "mallPreview": "18/18",
+      "worldPreview": "22/22",
+      "mallDisk": "5/5",
+      "worldDisk": "12/12",
+      "packaging": "7/7"
     },
     "survivorsAllSuites": 0,
     "fixtureMutation": false,
-    "stress": { "requested": 300, "renderAttempts": 153, "coalesced": 297, "staleIgnored": 50, "replacementsOk": 150, "replacementsFailed": 0, "overlaysBeforeAfter": "0/0", "gensBeforeAfter": "0/0" },
-    "perfMedianMs": { "small": 0.3, "reprWorld": 1.5, "kb80": 7.8, "kb327": 35.9, "mib1": 136.4, "mib1_3": 208.7, "scriptHeavy": 33.8, "errorHeavy": 18.3, "debounceBudgetMs": 250 }
+    "stress": {
+      "requested": 300,
+      "renderAttempts": 153,
+      "coalesced": 297,
+      "staleIgnored": 50,
+      "replacementsOk": 150,
+      "replacementsFailed": 0,
+      "overlaysBeforeAfter": "0/0",
+      "gensBeforeAfter": "0/0"
+    },
+    "perfMedianMs": {
+      "small": 0.3,
+      "reprWorld": 1.5,
+      "kb80": 7.8,
+      "kb327": 35.9,
+      "mib1": 136.4,
+      "mib1_3": 208.7,
+      "scriptHeavy": 33.8,
+      "errorHeavy": 18.3,
+      "debounceBudgetMs": 250
+    }
   },
   "windows": {
     "os": "Windows 11 Pro 23H2 (22631.6199)",
     "node": "v24.18.0",
     "electron": "41.7.1",
     "workspaceLocalNtfs": true,
-    "tests": { "total": 567, "pass": 567, "fail": 0 },
+    "tests": {
+      "total": 567,
+      "pass": 567,
+      "fail": 0
+    },
     "check": "exit 0",
-    "tier1SelfTest": { "source": "55/55", "winUnpacked": "55/55" },
-    "visualSuites": { "vision": "9/9", "nativeEditor": "15/15", "mallPreview": "18/18", "worldPreview": "22/22" },
+    "tier1SelfTest": {
+      "source": "55/55",
+      "winUnpacked": "55/55"
+    },
+    "visualSuites": {
+      "vision": "9/9",
+      "nativeEditor": "15/15",
+      "mallPreview": "18/18",
+      "worldPreview": "22/22"
+    },
     "chipsMatchLinux": true,
-    "cleanup": { "overlays": 0, "generations": 0 },
-    "build": { "portable": true, "nsis": true, "winUnpacked": true, "signed": false, "peCertTableEmpty": true },
-    "nsisLifecycle": { "install": true, "appsEntryVersionCorrect": true, "desktopShortcut": true, "startMenuShortcut": true, "installedAppRuns": true, "uninstallRemovesAll": true, "userDataIntact": true },
-    "vscodium": { "found": true, "source": "install-location", "spaceUnicodePath": true, "explicitLaunch": true, "cleanClose": true, "passiveLaunch": false }
+    "cleanup": {
+      "overlays": 0,
+      "generations": 0
+    },
+    "build": {
+      "portable": true,
+      "nsis": true,
+      "winUnpacked": true,
+      "signed": false,
+      "peCertTableEmpty": true
+    },
+    "nsisLifecycle": {
+      "install": true,
+      "appsEntryVersionCorrect": true,
+      "desktopShortcut": true,
+      "startMenuShortcut": true,
+      "installedAppRuns": true,
+      "uninstallRemovesAll": true,
+      "userDataIntact": true
+    },
+    "vscodium": {
+      "found": true,
+      "source": "install-location",
+      "spaceUnicodePath": true,
+      "explicitLaunch": true,
+      "cleanClose": true,
+      "passiveLaunch": false
+    }
   },
   "defectsFound": [
-    { "id": 1, "commit": "f3107af", "summary": "CRLF fixture checkout (autocrlf) broke byte-exact twin test on Windows", "fix": ".gitattributes -text on fixture trees + regression test" },
-    { "id": 2, "commit": "0a9eca8", "summary": "GUI-electron process.stdin dead on Windows blocked all automated Windows visual QA", "fix": "file-based capture transport + runner hooks + transport test" },
-    { "id": 3, "commit": "84fdcea", "summary": "POSIX inline-env in build:win broke native Windows build", "fix": "cross-platform node wrapper + posture test" }
+    {
+      "id": 1,
+      "commit": "f3107af",
+      "summary": "CRLF fixture checkout (autocrlf) broke byte-exact twin test on Windows",
+      "fix": ".gitattributes -text on fixture trees + regression test"
+    },
+    {
+      "id": 2,
+      "commit": "0a9eca8",
+      "summary": "GUI-electron process.stdin dead on Windows blocked all automated Windows visual QA",
+      "fix": "file-based capture transport + runner hooks + transport test"
+    },
+    {
+      "id": 3,
+      "commit": "84fdcea",
+      "summary": "POSIX inline-env in build:win broke native Windows build",
+      "fix": "cross-platform node wrapper + posture test"
+    }
   ],
-  "artifactHashes": "see artifact-hashes.md (computed after final 1.3.0-beta.1 build from committed source)",
+  "artifactHashes": {
+    "portable": {
+      "file": "WRL Forge-1.3.0-beta.1-x64-PrivateBeta-Unsigned-portable.exe",
+      "bytes": 99358164,
+      "sha256": "f66563293846bb952a2f9f88099599c9ca25687b568558ba8c5c721a0f501020",
+      "signed": false
+    },
+    "setup": {
+      "file": "WRL Forge-1.3.0-beta.1-x64-PrivateBeta-Unsigned-setup.exe",
+      "bytes": 99566284,
+      "sha256": "26d2e5b183cd4ec8d29e15031c31522a6c42b27286a99bb6f65e15d1351da757",
+      "signed": false
+    },
+    "builtFromCommit": "0ecde5e"
+  },
   "regressionIsolation": "validator/scanner/packaging independent of parser+overlay; parser only in editor language.js; bundle zlib-only",
-  "verdict": "PASS (final artifact hashes pending final build)"
+  "verdict": "PASS"
 }
