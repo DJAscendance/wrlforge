@@ -1,10 +1,16 @@
 # Phase 7C — Unsaved-Buffer X_ITE Preview — Architecture Proposal
 
-Status: **PLAN ONLY.** Phase 7C is not started. This document is the architecture
-and implementation proposal for review; it ships **no** production code, no
-dependencies, no Windows rebuild, and does not change any existing behavior. The
-Windows-native QA workflow that Phase 7C's cross-platform acceptance depends on is a
-companion document: **`docs/WINDOWS_NATIVE_QA_PLAN.md`**.
+Status: **PARTIALLY BUILT.** This document is the architecture proposal; the design
+below is the authority for the whole lane. **Built so far:** 7C4 (Windows QA
+harness), 7C4.1 (workspace guard), Feature A (vision accommodations), and **7C1 —
+the pure buffer-overlay foundation** (`src/preview/buffer-overlay.js`,
+`preview-state.js`, `preview-scheduler.js`; §4–§10, §12 first block). **Not built:**
+7C2 (Mall unsaved preview UI + X_ITE), 7C3 (World unsaved preview), 7C5 (acceptance).
+7C1 adds **no** editor preview UI, no X_ITE on the editor page, no CSP or scheme
+change, and nothing wired into `preview:load`/`world:previewLoad` — it is the
+main-process-ready model only. The Windows-native QA workflow that Phase 7C's
+cross-platform acceptance depends on is a companion document:
+**`docs/WINDOWS_NATIVE_QA_PLAN.md`**.
 
 See `docs/NATIVE_EDITOR_ARCHITECTURE.md` (as-built Phase 7B), `docs/PREVIEW_ARCHITECTURE.md`
 (the two existing X_ITE previews), `docs/VRML_PARSER.md` (the Phase 7A parser), and
@@ -480,9 +486,11 @@ sequence"** (shared with the Windows harness slice). Summary:
 - **7C0 — Architecture + harness decisions.** This document + the Windows plan; buffer
   overlay design, editor/preview UI decision (done), security review, Windows QA
   architecture decision. **No production behavior change.**
-- **7C1 — Preview overlay foundation.** `src/preview/buffer-overlay.js`, the
-  generation/version model, authorization wiring, the state machine, pure tests. **No
-  editor UI integration yet.**
+- **7C1 — Preview overlay foundation. ✅ built.** `src/preview/buffer-overlay.js` +
+  `preview-state.js` + `preview-scheduler.js`, the generation/version model, the
+  authorization proof boundary, the last-valid state machine, the debounce coordinator,
+  and 46 pure tests (`test/preview/buffer-overlay.test.js`). **No editor UI integration
+  — nothing is wired into a preview page.**
 - **7C2 — Mall unsaved preview.** Editor split-view integration, Original/Fit from the
   buffer, last-valid, debounce, Linux QA.
 - **7C3 — World unsaved preview.** Primary override, nested-dependency override, viewpoint

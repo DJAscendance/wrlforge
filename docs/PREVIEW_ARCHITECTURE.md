@@ -27,6 +27,9 @@ spike now references them, no duplicate implementations):
 | `texture-base.js` | pure (Node `path` only) | source-directory `file://` base URL + `safeResolve` path confinement |
 | `wrl-source.js` | main-process (fs/zlib) | read + gzip-detect/decompress a source file |
 | `url-policy.js` | pure | remote-URL block predicate + preflight remote-URL scan |
+| `buffer-overlay.js` | pure (Phase 7C1) | session-scoped unsaved-buffer registry — byte substitution only, never a new grant |
+| `preview-state.js` | pure (Phase 7C1) | last-valid-scene state machine (idle/updating/current/failed/showing-last-valid/outdated/closed) |
+| `preview-scheduler.js` | pure (Phase 7C1) | clock-injected 700 ms debounce / coalescing coordinator (no real timer) |
 
 Pure/browser modules keep no Electron or filesystem dependency, so they are
 unit-tested under `node:test` (`test/preview/*.test.js`) independent of the
@@ -231,3 +234,107 @@ binds via `browser.bindViewpoint(layer, node)`; Reset View calls
   the opt-in `test/visual/electron-world-preview.test.js` is the regression test.
 
 None of these hooks are active during normal use.
+
+## Phase 7C1 — unsaved-buffer overlay foundation (built; not yet wired)
+
+The three pure `src/preview/` 7C1 modules are the **main-process-ready model** for
+previewing an unsaved editor buffer through X_ITE **without writing a temp file**.
+Phase 7C1 ships the model **only** — there is no editor preview UI, no X_ITE on the
+editor page, no CSP or scheme change, and nothing calls these modules from
+production yet. 7C2 (Mall) and 7C3 (World) wire them into `preview:load` /
+`world:previewLoad`.
+
+### The overlay is a byte substitution, never a new grant
+`buffer-overlay.js` holds at most **one override per editor session**, keyed by
+`{ sessionId, generation, path }`. It performs byte substitution for a path that is
+**already authorized** and does nothing else: it never authorizes a new path, never
+expands a World asset graph, never resolves a renderer-supplied path, never fetches
+remote content, never writes a temp file, never mutates the source, and never
+persists across restarts. It re-implements **none** of `src/editor/path-authorizer.js`
+or the World graph.
+
+### Authorization boundary (the narrow integration contract)
+`register()` **requires** an authorization *proof* that the owning main-process
+controller already obtained from the real authority:
+
+- **Mall** — `mallAuthorization(path)` → `{ ok:true, profile:'mall',
+  source:'mall-session', path }`; the caller supplies this only when `path` is the
+  session's held Mall source.
+- **World** — `worldAuthorization(path, { inGraph })` → `{ ok, profile:'world',
+  source:'world-graph', inGraph, path }`; the caller sets `inGraph:true` only when
+  the path is a member of the current scan's authorized WRL set
+  (`buildAuthorizedSet`), confined to the project root by the existing realpath rule.
+
+`defaultVerifyAuthorization` rejects any proof that is missing, `ok:false`, for a
+different path/profile, or carries the wrong `source`/`inGraph`. The overlay thus
+cannot invent a grant; it can only substitute bytes for a path the caller already
+proved. A later controller may inject a stricter verifier, never a looser one.
+
+### Version & generation model (monotonic integers, never timestamps)
+- **`bufferVersion`** — the renderer's per-edit monotonic version, promoted onto the
+  register call. A newer version replaces; a `register()` with a version `<=` the
+  stored one for the same document is rejected (`ESTALEVERSION`). A newer buffer
+  version is never replaced by an older one.
+- **`generation`** — a per-session monotonic preview-attempt counter.
+  `beginGeneration()` bumps it; `acceptGeneration()` accepts **only** the current
+  generation (an older one is `stale`, an already-accepted one is `replayed`).
+  `resolve()` serves the overlay **only** when the request's generation equals the
+  session's current generation, else `stale`.
+
+`resolve()` returns a six-way structured result and **never reads disk**: `overlay`
+(serve buffer text), `disk` (a different authorized path — caller does its normal
+disk read), `missing` (open session, no overlay), `stale` (older generation),
+`unauthorized` (identity spoof — path matches but profile/doc does not), `closed`
+(unknown/closed session).
+
+### Size thresholds
+`classifyBufferSize()` bands a buffer into three tiers, so later UI can decide how it
+refreshes — **without ever silently truncating text**:
+
+| Tier | Bound | Behavior |
+|---|---|---|
+| `auto` | ≤ 1 MiB (`AUTO_REFRESH_MAX_BYTES`) | eligible for debounced auto-refresh |
+| `manual` | 1 MiB – 8 MiB | valid preview, **manual Update only** |
+| `refused` | > 8 MiB (`HARD_MAX_BYTES`) | hard refusal — `register()` throws `EBUFFERTOOLARGE`, stores nothing |
+
+The 8 MiB hard ceiling bounds worst-case transient in-memory copies (overlay + IPC +
+X_ITE parse) while clearing every realistic source — a WRL's bulk is binary textures,
+not VRML text, and the largest measured perf fixture is ~1.3 MB.
+
+### Last-valid-scene state machine (`preview-state.js`)
+A pure, frozen-state machine over `idle · updating · current · failed ·
+showing-last-valid · outdated · closed`. Its guarantee: a **failed newer render keeps
+the last valid scene on screen** (`showing-last-valid`) rather than clearing the
+canvas, and an **older success or failure never changes the state once a newer
+generation has begun** (completions are ignored unless `generation ===
+requestedGeneration`). It tracks requested/displayed/last-valid generations, current
+& displayed buffer versions, a `haveLastValid` flag, and a distinct `failureCategory`
+(`syntax` / `parser` / `scene-load` / `missing-asset`) so the four error surfaces
+never blur. It is independent of user-facing wording — 7C2 maps states to copy.
+
+### Debounce / coalescing (`preview-scheduler.js`)
+A clock-**injected** coordinator (no real timer; tests pass an `at` millisecond
+value): auto-refresh coalesces rapid edits into the newest pending version and slides
+the due time to `newest-edit + 700 ms`; an explicit Update bypasses the debounce;
+buffers over 1 MiB are declined for auto but allowed for manual; exactly one pending
+request is held per session; `cancel()` clears it on document switch / session close.
+
+### Cleanup lifecycle (no overlay survives its session)
+`invalidateDocument()` drops the entry but keeps the session open (document
+close/switch) and bumps the generation so in-flight requests go stale;
+`invalidateSession()` drops the entry and marks the session **closed forever** (a
+later `resolve` returns `closed`, a later `register`/`beginGeneration` throws
+`ECLOSED`); `clear()` wipes everything (renderer reload / shutdown). A failed
+registration stores nothing. Leak-assertion surface for QA: `size`,
+`activeGenerationCount`, `sessionIdsWithEntries()`, and text-free `describe()` — which
+**never** exposes buffer contents.
+
+### Phase 7C2 integration contract (for the next lane)
+`preview:load` gains an **editor-session buffer-source mode**: the renderer sends the
+editor `sessionId` (never a path); main resolves the held path + the overlay by
+`sessionId`, calls `resolve()`, and passes `overlay.text` to `createX3DFromString`
+with the unchanged `file://` base URL. For World nested WRLs, a `resolve()` override
+check goes at the **top of `resolveWorldRequest`** (before the disk read); the
+allow-list, exact-case, and root confinement still gate it. Main drives
+`beginGeneration`/`acceptGeneration`, feeds the scheduler a single real timer, and
+maps `preview-state` to release-quality chip copy. None of that exists yet.

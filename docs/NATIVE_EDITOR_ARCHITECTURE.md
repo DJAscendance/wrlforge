@@ -346,3 +346,15 @@ last good editor state in place.
 (`src/editor/editor-locator.js`). Previews in 7B continue to use files **saved on
 disk**. Phase 7C will add unsaved-buffer X_ITE preview and last-valid-scene
 behavior — **not built here** (no renderer is added; X_ITE stays the only engine).
+
+**Phase 7C1 (built) — the pure foundation only.** The main-process-ready model for
+the unsaved-buffer preview now exists as three dependency-free `src/preview/` modules
+(`buffer-overlay.js`, `preview-state.js`, `preview-scheduler.js`; see
+`docs/PREVIEW_ARCHITECTURE.md` §"Phase 7C1"). They are **not wired into the editor
+page**: no X_ITE on `editor.html`, no CSP or scheme change, no `preview:load`/
+`world:previewLoad` buffer mode, no split-view. The editor still previews only
+saved-on-disk files. The overlay performs **byte substitution only** for an
+already-authorized path — registration requires an authorization proof the owning
+controller obtained from the Mall session or the World scan graph (it re-implements
+none of `path-authorizer.js`). Ordering is by monotonic `bufferVersion` (per edit)
+and `generation` (per attempt), never timestamps. 7C2/7C3 wire it in.

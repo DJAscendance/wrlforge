@@ -431,9 +431,11 @@ Mall/World validation profiles.
 **Status:** Phase 7A (parser) and Phase 7B (native editor) have **shipped** and are
 in production (see the ✅ sub-sections below). Within Phase 7C, planning (**7C0**) is
 complete, the **7C4** Windows-native QA harness is **built**, **7C4.1** (Windows
-Workspace Isolation Guard) is **built**, and **Feature A (Vision Accommodations)** is
-**built**; the unsaved-buffer preview itself (**7C1–7C3**) remains **unbuilt** — do
-not describe it as shipped. Phase 7D (beta polish) remains a **plan**. Anything still
+Workspace Isolation Guard) is **built**, **Feature A (Vision Accommodations)** is
+**built**, and **7C1** (the pure buffer-overlay foundation) is **built**; the
+unsaved-buffer preview UI + X_ITE integration (**7C2–7C3**) remains **unbuilt** — do
+not describe it as shipped (7C1 is the main-process-ready model only; nothing is wired
+into a preview page). Phase 7D (beta polish) remains a **plan**. Anything still
 plan-only ships no code without separate approval.
 
 ### Phase 7A — Parser Foundation ✅
@@ -548,12 +550,30 @@ chrome (a `--wrl-ui-scale` rem layer in `renderer/editor.html`); a fifth **High
 Contrast** theme; a toolbar zoom group. Pure zoom model in `src/editor/ui-state.js`;
 visual QA `qa/phase-7c-vision/` (`qa:vision`). No main/preload/IPC/CSP change.
 
-**Unbuilt (still plan-only): 7C1** (buffer-overlay foundation), **7C2** (Mall
-unsaved preview), **7C3** (World unsaved preview), **7C5** (cross-platform
-acceptance). The unsaved-buffer live preview is **not** shipped.
+**7C1 — Buffer-overlay foundation ✅ built.** The pure, main-process-ready model for
+previewing an unsaved buffer without writing a temp file — **no UI, no X_ITE, no CSP
+or scheme change, nothing wired into a preview page yet.** Three dependency-free
+modules under `src/preview/`: `buffer-overlay.js` (a session-scoped registry that
+performs **byte substitution only** — it never authorizes a path, expands a graph,
+resolves a renderer path, fetches, writes, or mutates a source; registration requires
+an authorization **proof** the owning controller already obtained from the Mall
+session / World scan graph, the narrow integration boundary), `preview-state.js` (the
+pure last-valid-scene state machine — a failed newer render keeps the last good scene;
+an older result never overrides a newer one), and `preview-scheduler.js` (a
+clock-injected 700 ms debounce / coalescing coordinator, no real timer). Ordering is
+by monotonic integers (`bufferVersion` per edit, `generation` per attempt) — never
+timestamps. Size bands: auto-refresh ≤ **1 MiB**, manual Update above that, hard
+refusal above **8 MiB** (refused, never truncated). 46 pure tests in
+`test/preview/buffer-overlay.test.js`; wired into the `check` gate. See
+`docs/PHASE_7C_PROPOSAL.md` §4–§10 and `docs/PREVIEW_ARCHITECTURE.md`.
 
-**Locked future-lane decisions (7C1–7C3, recorded — not yet implemented):**
-- Auto-preview debounce: **700 ms**.
+**Unbuilt (still plan-only): 7C2** (Mall unsaved preview UI + X_ITE), **7C3** (World
+unsaved preview), **7C5** (cross-platform acceptance). The unsaved-buffer live preview
+is **not** shipped — 7C1 is the foundation only.
+
+**Locked future-lane decisions (7C2–7C3, recorded — not yet implemented; the pure
+7C1 modules already encode the debounce and 1 MiB threshold):**
+- Auto-preview debounce: **700 ms** (implemented in `preview-scheduler.js`).
 - Default editor/preview split: **side-by-side 50/50**.
 - World "Find new files" (rescan): **manual only**.
 - Auto-refresh applies to buffers up to **1 MiB**; larger buffers use manual Update.
