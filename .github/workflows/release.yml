@@ -70,6 +70,20 @@ jobs:
       - run: npm run build:editor
       - name: Build NSIS + MSI + portable + ZIP
         run: npm run dist:windows
+      - name: Normalize ZIP name to canonical windows-x64
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          cd release
+          for z in WRL-Forge-*-x64.zip; do
+            [ -f "$z" ] || continue
+            case "$z" in
+              *"-windows-x64.zip") : ;;                    # already canonical
+              *) mv -v "$z" "WRL-Forge-${VERSION}-windows-x64.zip" ;;
+            esac
+          done
       - name: List Windows artifacts
         shell: bash
         run: ls -la release/

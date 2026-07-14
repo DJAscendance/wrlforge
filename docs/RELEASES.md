@@ -26,8 +26,8 @@ All releases are published on GitHub:
 **Status: Beta · Prerelease · Unsigned — not a stable release.**
 
 The first **public** beta of WRL Forge. (The earlier `1.3.0-beta.1` was a
-**private** beta.) The exact release commit SHA (`<release-commit-sha>`) and tag
-**`v1.3.0-beta.2`** are recorded on the GitHub release page:
+**private** beta.) The exact release commit and tag **`v1.3.0-beta.2`** are shown
+on the GitHub release page (which displays the tagged commit SHA):
 **https://github.com/DJAscendance/wrlforge/releases/tag/v1.3.0-beta.2**
 
 ### Highlights
