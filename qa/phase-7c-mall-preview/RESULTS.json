@@ -1,0 +1,538 @@
+{
+  "launchCount": 1,
+  "launchesUsed": 1,
+  "pids": [
+    785751
+  ],
+  "captureCount": 18,
+  "retries": 0,
+  "exitEvents": [
+    {
+      "pid": 785751,
+      "code": 0,
+      "graceful": true
+    }
+  ],
+  "survivors": [],
+  "runError": null,
+  "leak": {
+    "size": 0,
+    "sessions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18
+    ],
+    "overlays": [],
+    "activeGenerations": 0
+  },
+  "leakOk": true,
+  "perState": [
+    {
+      "id": "01-split-5050",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/01-split-5050.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "02-unsaved-original",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/02-unsaved-original.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "03-unsaved-fit",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/03-unsaved-fit.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "04-auto-update-after-edit",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/04-auto-update-after-edit.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": true,
+        "save": "Unsaved changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "05-manual-update",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/05-manual-update.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 3,
+        "requestedGeneration": 3,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": true,
+        "save": "Unsaved changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "06-updating",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/06-updating.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": true,
+        "save": "Unsaved changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "07-outdated-large",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/07-outdated-large.png",
+      "preview": {
+        "state": "outdated",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "manual",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Large file — use Update to refresh"
+      },
+      "editor": {
+        "file": "large.wrl",
+        "format": "Plain",
+        "dirty": true,
+        "save": "Unsaved changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "08-syntax-error-lastvalid",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/08-syntax-error-lastvalid.png",
+      "preview": {
+        "state": "showing-last-valid",
+        "failureCategory": "scene-load",
+        "displayedGeneration": 2,
+        "requestedGeneration": 3,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Showing last good version"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": true,
+        "save": "Unsaved changes",
+        "diag": "2",
+        "adv": "0",
+        "outlineRows": 2
+      },
+      "leak": null
+    },
+    {
+      "id": "09-recovery",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/09-recovery.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 3,
+        "requestedGeneration": 3,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": true,
+        "save": "Unsaved changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "10-saved-fallback",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/10-saved-fallback.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": true,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Showing saved version"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": true,
+        "save": "Unsaved changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "11-preview-max",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/11-preview-max.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "preview-max",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "12-editor-only",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/12-editor-only.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "editor-only",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "13-divider-moved",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/13-divider-moved.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "14-contrast-zoom",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/14-contrast-zoom.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 1,
+        "requestedGeneration": 1,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "15-local-texture",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/15-local-texture.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "textured.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 4
+      },
+      "leak": null
+    },
+    {
+      "id": "16-remote-blocked",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/16-remote-blocked.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "remote.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 4
+      },
+      "leak": null
+    },
+    {
+      "id": "17-large-manual",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/17-large-manual.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "manual",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "large.wrl",
+        "format": "Plain",
+        "dirty": false,
+        "save": "No changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": null
+    },
+    {
+      "id": "18-leak-after-close",
+      "out": "/home/ryan/Projects/cybertown/wrlforge/qa/phase-7c-mall-preview/screenshots/18-leak-after-close.png",
+      "preview": {
+        "state": "current",
+        "failureCategory": null,
+        "displayedGeneration": 2,
+        "requestedGeneration": 2,
+        "haveLastValid": true,
+        "saved": false,
+        "sizeTier": "auto",
+        "layout": "split",
+        "split": 0.2,
+        "chip": "Live"
+      },
+      "editor": {
+        "file": "item.wrl",
+        "format": "Plain",
+        "dirty": true,
+        "save": "Unsaved changes",
+        "diag": "0",
+        "adv": "0",
+        "outlineRows": 6
+      },
+      "leak": {
+        "size": 0,
+        "sessions": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        "overlays": [],
+        "activeGenerations": 0
+      }
+    }
+  ]
+}

@@ -30,6 +30,7 @@ spike now references them, no duplicate implementations):
 | `buffer-overlay.js` | pure (Phase 7C1) | session-scoped unsaved-buffer registry — byte substitution only, never a new grant |
 | `preview-state.js` | pure (Phase 7C1) | last-valid-scene state machine (idle/updating/current/failed/showing-last-valid/outdated/closed) |
 | `preview-scheduler.js` | pure (Phase 7C1) | clock-injected 700 ms debounce / coalescing coordinator (no real timer) |
+| `mall-preview-bridge.js` | pure/injectable (Phase 7C2) | main-process Mall authorizer: session→proof→overlay register + generation; renderer never supplies a path |
 
 Pure/browser modules keep no Electron or filesystem dependency, so they are
 unit-tested under `node:test` (`test/preview/*.test.js`) independent of the
@@ -329,12 +330,62 @@ registration stores nothing. Leak-assertion surface for QA: `size`,
 `activeGenerationCount`, `sessionIdsWithEntries()`, and text-free `describe()` — which
 **never** exposes buffer contents.
 
-### Phase 7C2 integration contract (for the next lane)
-`preview:load` gains an **editor-session buffer-source mode**: the renderer sends the
-editor `sessionId` (never a path); main resolves the held path + the overlay by
-`sessionId`, calls `resolve()`, and passes `overlay.text` to `createX3DFromString`
-with the unchanged `file://` base URL. For World nested WRLs, a `resolve()` override
-check goes at the **top of `resolveWorldRequest`** (before the disk read); the
-allow-list, exact-case, and root confinement still gate it. Main drives
-`beginGeneration`/`acceptGeneration`, feeds the scheduler a single real timer, and
-maps `preview-state` to release-quality chip copy. None of that exists yet.
+### Phase 7C2 integration contract (for the next lane) — realized for Mall
+The Mall half of this contract is now **built** (see "Phase 7C2" below). The World
+half (a `resolve()` override at the top of `resolveWorldRequest`, a World primary
+buffer-source, viewpoint preservation, "Find new files") remains **7C3, unbuilt**.
+
+## Phase 7C2 — Mall unsaved-buffer live preview (built)
+
+A split-view X_ITE preview of the **in-memory Mall editor buffer**, with no temp file
+and no new scheme. The edited document is already fed to X_ITE as a string, so
+previewing the unsaved primary is a **string-swap** with the same `file://` base URL —
+relative local textures resolve from the source directory exactly as the on-disk
+preview does; remote URLs stay blocked by the existing network guard + URL policy.
+
+**Trust boundary (main-process authorizer).** `src/preview/mall-preview-bridge.js` is
+pure/injectable and is the ONLY place a buffer becomes an authorized render target. The
+renderer sends only `{sessionId, text, bufferVersion}` — never a path/base/root/URL.
+`load()`:
+1. resolves the editor session (injected `describeSession`),
+2. requires it OPEN, the caller's `sessionId` to match, and `context === 'mall'`,
+3. confirms the held `sourcePath` equals the active **authorized** Mall source
+   (`getAuthorizedMallSource`, i.e. the Mall workspace's held item) — realpath-identity,
+4. builds `mallAuthorization(heldPath)` from THAT path (never a renderer path),
+5. `register()`s the bytes in the 7C1 overlay (byte-substitution only) and
+   `beginGeneration()`s, then reads the text back **through** `resolve()` so what it
+   returns is provably the registered, authorized copy for this generation.
+`saved()` reads the on-disk source (gzip-decompressed) for "Show saved version" and
+never touches the overlay. `accept()` confirms a generation (older/replayed refused).
+A manual Update of the **same** `bufferVersion` is an idempotent re-render — a fresh
+generation over the existing overlay entry — while a strictly-older version stays stale.
+
+**Renderer.** `renderer/editor-preview.js` orchestrates: the pure `preview-state`
+machine drives the chip; the pure `preview-scheduler` (one real `setTimeout`) drives
+the 700 ms debounce with coalescing; **one render runs at a time** (serial in-flight),
+so completions can't land out of order. It **reuses `renderer/preview.js` verbatim**
+(the Mall X_ITE render + Cybertown-Fit math + bbox traversal + guides + fit report)
+through an injected `source` loader, so Original/Fit/guides parity is free and the fit
+is computed from the displayed unsaved scene. `editor.html` gains a `.preview-col` +
+draggable divider (role=separator, keyboard-accessible, clamped 20–80%); layout mode
+(`split`/`preview-max`/`editor-only`) and split fraction persist in localStorage. The
+CSP is widened to the **Mall X_ITE superset** (`index.html`'s), not the World one — no
+`wrlworld:` scheme. Status copy is release-quality via `ui-state.js` `previewStatusModel`
+(Live / Updating… / Outdated / Showing last good version / Showing saved version / Some
+parts missing / large-file / too-large) — no engineering jargon reaches the user.
+
+**Size bands** (from the overlay): auto-refresh ≤ 1 MiB (debounced), manual Update
+1–8 MiB, refused > 8 MiB (never truncated). **Last-valid**: a newer render that X_ITE
+rejects keeps the last good scene on screen. **Cleanup**: document close/switch drops
+the overlay; editor close / navigate-away / renderer reload invalidate the session
+(`editor:previewClose` + a `beforeunload` best-effort); after close the overlay and
+active-generation counts are **0** (QA leak assertion).
+
+**Dual-export gotcha.** `preview-state.js` / `preview-scheduler.js` are loaded on
+`editor.html` as plain `<script>`s alongside `ui-state.js`, which share ONE global
+lexical scope — so each uses a **module-unique** top-level const name
+(`PREVIEW_STATE_API` / `PREVIEW_SCHEDULER_API`); a generic `const API` collided with
+`ui-state.js` and silently rejected the whole script.
+
+**Not built (7C3):** World primary/nested buffer overrides, the `resolveWorldRequest`
+override, viewpoint preservation, and the "Find new files" rescan.

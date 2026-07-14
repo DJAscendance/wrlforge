@@ -5,8 +5,8 @@
   "node": "20.20.2",
   "electron": null,
   "chrome": null,
-  "total": 45,
-  "passed": 45,
+  "total": 52,
+  "passed": 52,
   "failed": 0,
   "results": [
     {
@@ -28,6 +28,26 @@
       "name": "win32 isAbsolute drive letter",
       "pass": true,
       "detail": ""
+    },
+    {
+      "name": "workspace guard: local C:\\Projects\\wrlforge accepted",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "workspace guard: UNC host share rejected",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "workspace guard: mapped network drive rejected",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "workspace guard: this workspace on the real host",
+      "pass": true,
+      "detail": "non-windows"
     },
     {
       "name": "detects gzip magic",
@@ -122,7 +142,7 @@
     {
       "name": "scans a path with spaces + non-ASCII",
       "pass": true,
-      "detail": "/tmp/wrlbeta-GEG639/a b — wörld"
+      "detail": "/tmp/wrlbeta-RfVvcd/a b — wörld"
     },
     {
       "name": "editor: clear not-found message (VSCodium absent)",
@@ -197,7 +217,7 @@
     {
       "name": "editor safe-save (plain): atomic write + backup, on-disk matches buffer",
       "pass": true,
-      "detail": "item.wrl.bak-2026-07-12T14-00-05-231Z"
+      "detail": "item.wrl.bak-2026-07-14T06-18-03-799Z"
     },
     {
       "name": "editor safe-save (gzip): round-trips as gzip on disk",
@@ -231,6 +251,21 @@
     },
     {
       "name": "explicit external action launches on the working copy (recreates if missing)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "7C2 preview bridge authorizes the open Mall buffer + host-correct base URL",
+      "pass": true,
+      "detail": "file:///tmp/wrlforge-7c2-VxJO41/"
+    },
+    {
+      "name": "7C2 preview bridge rejects a session whose held path != the authorized source",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "7C2 preview bridge refuses an >8 MiB buffer and leaves zero overlays after close",
       "pass": true,
       "detail": ""
     }

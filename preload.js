@@ -58,5 +58,16 @@ contextBridge.exposeInMainWorld('vrmlpad', {
     openInExternal: (sessionId) => ipcRenderer.invoke('editor:openInExternal', { sessionId }),
     close: (sessionId) => ipcRenderer.invoke('editor:close', { sessionId }),
     restore: () => ipcRenderer.invoke('editor:restore'),
+    // Live in-editor preview (Phase 7C2). The renderer sends only the opaque
+    // sessionId + buffer text + monotonic bufferVersion (never a path): main
+    // authorizes the session as the open Mall source, byte-substitutes the
+    // unsaved buffer through the overlay, and returns the render payload. saved
+    // renders the on-disk source; accept confirms a generation; close/leak are
+    // cleanup + the QA leak assertion. No write path is exposed.
+    previewLoad: (sessionId, text, bufferVersion) => ipcRenderer.invoke('editor:previewLoad', { sessionId, text, bufferVersion }),
+    previewSaved: (sessionId) => ipcRenderer.invoke('editor:previewSaved', { sessionId }),
+    previewAccept: (sessionId, generation) => ipcRenderer.invoke('editor:previewAccept', { sessionId, generation }),
+    previewClose: (sessionId) => ipcRenderer.invoke('editor:previewClose', { sessionId }),
+    previewLeak: () => ipcRenderer.invoke('editor:previewLeak'),
   },
 });

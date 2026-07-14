@@ -53,6 +53,87 @@ function zoomModel(level) {
   return { level: lv, codeFontPx, chromeScale: factor, label: Math.round(factor * 100) + '%' };
 }
 
+// --- live-preview layout + status models (Phase 7C2) -------------------------
+// Pure view-models for the in-editor live preview: the split-view layout, the
+// draggable divider fraction, and the release-quality status chip. DOM-free so
+// they unit-test in Node; renderer/editor-preview.js maps them onto elements.
+// Internal state-machine names (from src/preview/preview-state.js) NEVER reach
+// the user -- previewStatusModel is the single mapping to plain wording.
+
+const PREVIEW_LAYOUTS = Object.freeze(['split', 'preview-max', 'editor-only']);
+const PREVIEW_LAYOUT_DEFAULT = 'split';
+const SPLIT_MIN = 0.2;   // keep at least 20% for whichever pane is shrinking
+const SPLIT_MAX = 0.8;   // ...and no more than 80%, so both stay usable
+const SPLIT_DEFAULT = 0.5; // locked 50/50 default
+
+function resolvePreviewLayout(raw) {
+  return PREVIEW_LAYOUTS.includes(raw) ? raw : PREVIEW_LAYOUT_DEFAULT;
+}
+// Clamp a split fraction (editor's share of the work area) to a usable range.
+function clampSplit(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return SPLIT_DEFAULT;
+  return Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, n));
+}
+// Step the split by a delta (keyboard divider control), staying clamped.
+function splitStep(fraction, delta) {
+  return clampSplit(clampSplit(fraction) + (Number(delta) || 0));
+}
+// The derived layout view-model: which panes show, the clamped fraction, and a
+// whole-percent label for the divider's aria-valuenow.
+function previewLayoutModel(layout, split) {
+  const l = resolvePreviewLayout(layout);
+  const f = clampSplit(split);
+  return {
+    layout: l,
+    split: f,
+    splitPercent: Math.round(f * 100),
+    editorVisible: l !== 'preview-max',
+    previewVisible: l !== 'editor-only',
+    sidebarVisible: l === 'split', // maximized/editor-only reclaim the sidebar space
+    maximized: l === 'preview-max',
+  };
+}
+// Maximize toggle (Ctrl/Cmd+Shift+Enter): split <-> preview-max. From
+// editor-only, maximizing goes straight to preview-max.
+function togglePreviewMaximize(current) {
+  return resolvePreviewLayout(current) === 'preview-max' ? 'split' : 'preview-max';
+}
+
+// Map an INTERNAL preview state (src/preview/preview-state.js) + size tier to the
+// release-quality chip the user sees. No engineering jargon ever leaves here.
+// `saved` overrides everything (the "Show saved version" display); an oversized
+// buffer is refused with plain wording; the manual band explains why auto stops.
+function previewStatusModel({ state, failureCategory, saved, sizeTier } = {}) {
+  if (saved) return { key: 'saved', label: 'Showing saved version', tone: 'info' };
+  if (sizeTier === 'refused') {
+    return {
+      key: 'too-large',
+      label: 'This file is too large to display from unsaved changes. Save it, then use the saved version.',
+      tone: 'warn',
+    };
+  }
+  switch (state) {
+    case 'current': return { key: 'live', label: 'Live', tone: 'ok' };
+    case 'updating': return { key: 'updating', label: 'Updating…', tone: 'info' };
+    case 'outdated':
+      return sizeTier === 'manual'
+        ? { key: 'manual', label: 'Large file — use Update to refresh', tone: 'warn' }
+        : { key: 'outdated', label: 'Outdated', tone: 'warn' };
+    case 'showing-last-valid':
+      return failureCategory === 'missing-asset'
+        ? { key: 'missing', label: 'Some parts missing', tone: 'warn' }
+        : { key: 'last-valid', label: 'Showing last good version', tone: 'warn' };
+    case 'failed':
+      return failureCategory === 'missing-asset'
+        ? { key: 'missing', label: 'Some parts missing', tone: 'warn' }
+        : { key: 'failed', label: 'Can’t display latest', tone: 'err' };
+    case 'closed': return { key: 'idle', label: 'Preview', tone: 'muted' };
+    case 'idle':
+    default: return { key: 'idle', label: 'Preview', tone: 'muted' };
+  }
+}
+
 const FORMAT_LABEL = { plain: 'Plain', gzip: 'gzip' };
 function formatLabel(format) { return FORMAT_LABEL[format] || 'Plain'; }
 
@@ -176,6 +257,9 @@ function resolveShortcut({ key, ctrlOrMeta, shift } = {}) {
   if (k === '=' || k === '+' || k === 'add') return 'zoomIn';
   if (k === '-' || k === '_' || k === 'subtract') return 'zoomOut';
   if (k === '0') return 'zoomReset';
+  // Live-preview accelerators (Phase 7C2): Ctrl/Cmd+Enter updates the preview,
+  // Ctrl/Cmd+Shift+Enter toggles preview-maximize.
+  if (k === 'enter') return shift ? 'previewMaximize' : 'previewUpdate';
   return null;
 }
 
@@ -193,6 +277,10 @@ const API = {
   capDiagnostics, statusModel, toolbarModel, flattenOutline,
   originNav, conflictDecision, needsUnsavedConfirm, resolveShortcut, isFreshAnalysis,
   isValidTheme, resolveTheme, clampZoom, resolveZoom, zoomStep, zoomModel,
+  // Phase 7C2 live-preview view-models.
+  PREVIEW_LAYOUTS, PREVIEW_LAYOUT_DEFAULT, SPLIT_MIN, SPLIT_MAX, SPLIT_DEFAULT,
+  resolvePreviewLayout, clampSplit, splitStep, previewLayoutModel,
+  togglePreviewMaximize, previewStatusModel,
 };
 
 // Dual use: CommonJS for Node unit tests, a window global for the renderer (this

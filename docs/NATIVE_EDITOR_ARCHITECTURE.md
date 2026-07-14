@@ -343,18 +343,28 @@ last good editor state in place.
 ### External editor + Phase 7C boundary
 
 "Open in External Editor" stays **optional**, reusing the cross-platform locator
-(`src/editor/editor-locator.js`). Previews in 7B continue to use files **saved on
-disk**. Phase 7C will add unsaved-buffer X_ITE preview and last-valid-scene
-behavior — **not built here** (no renderer is added; X_ITE stays the only engine).
+(`src/editor/editor-locator.js`).
 
-**Phase 7C1 (built) — the pure foundation only.** The main-process-ready model for
-the unsaved-buffer preview now exists as three dependency-free `src/preview/` modules
+**Phase 7C1 (built) — the pure foundation.** The main-process-ready model for the
+unsaved-buffer preview is three dependency-free `src/preview/` modules
 (`buffer-overlay.js`, `preview-state.js`, `preview-scheduler.js`; see
-`docs/PREVIEW_ARCHITECTURE.md` §"Phase 7C1"). They are **not wired into the editor
-page**: no X_ITE on `editor.html`, no CSP or scheme change, no `preview:load`/
-`world:previewLoad` buffer mode, no split-view. The editor still previews only
-saved-on-disk files. The overlay performs **byte substitution only** for an
-already-authorized path — registration requires an authorization proof the owning
-controller obtained from the Mall session or the World scan graph (it re-implements
-none of `path-authorizer.js`). Ordering is by monotonic `bufferVersion` (per edit)
-and `generation` (per attempt), never timestamps. 7C2/7C3 wire it in.
+`docs/PREVIEW_ARCHITECTURE.md` §"Phase 7C1"). The overlay performs **byte substitution
+only** for an already-authorized path — registration requires an authorization proof
+the owning controller obtained from the Mall session or the World scan graph (it
+re-implements none of `path-authorizer.js`). Ordering is by monotonic `bufferVersion`
+(per edit) and `generation` (per attempt), never timestamps.
+
+**Phase 7C2 (built) — the Mall unsaved-buffer live preview.** The native editor now
+shows a split-view X_ITE preview of the **in-memory Mall buffer** with no temp file.
+`editor.html` gains a `.preview-col` + draggable divider and its CSP is widened to the
+**Mall X_ITE superset** (string-swap + `file://` base URL, no new scheme).
+`renderer/editor-preview.js` orchestrates the 7C1 state machine + scheduler and reuses
+`renderer/preview.js` verbatim for the render/fit/report. The trust boundary is
+`src/preview/mall-preview-bridge.js`: the renderer sends only `{sessionId, text,
+bufferVersion}` (never a path); main confirms the held source equals the active
+authorized Mall item, builds the `mallAuthorization` proof from that path, and
+byte-substitutes the buffer through the overlay (`editor:previewLoad`/`previewSaved`/
+`previewAccept`/`previewClose`). Last-valid retention, 700 ms debounce/coalescing,
+1/8 MiB size bands, layout/split persistence, and deterministic overlay cleanup on
+close all apply. **World unsaved preview (7C3) is still not built** — the editor
+previews Mall buffers live and World documents from disk.

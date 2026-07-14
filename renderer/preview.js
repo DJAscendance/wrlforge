@@ -121,16 +121,25 @@ ${body}
     s.style.color = isError ? '#ff9b9b' : '#9ab';
   }
 
-  // ---- public: (re)load the current edit file into the preview -----------
-  async function load() {
+  // The default source: the Mall workspace's read-only disk loader. The editor
+  // live-preview lane (Phase 7C2) passes its own `source` returning the authorized
+  // UNSAVED-buffer payload -- same {text, baseURL, sourcePath, remoteUrls} shape,
+  // so the render/fit/report path below is reused verbatim, never forked.
+  const defaultSource = () => window.vrmlpad.loadPreview('edit');
+
+  // ---- public: (re)load the current source into the preview --------------
+  // Returns a small status object so an orchestrator (the editor lane) can drive
+  // its own state machine: { ok:true } | { ok:false, parseError } | { ok:false, error }.
+  async function load(opts = {}) {
+    const source = (opts && opts.source) || defaultSource;
     await ensureBrowser();
     setStatus('Loading preview…');
     let loaded;
     try {
-      loaded = await window.vrmlpad.loadPreview('edit');
+      loaded = await source();
     } catch (err) {
       setStatus('No file to preview: ' + (err && err.message || err), true);
-      return;
+      return { ok: false, error: String((err && err.message) || err) };
     }
 
     textureWarnings.length = 0;
@@ -146,7 +155,7 @@ ${body}
       // scene, warn, and allow a manual retry. Do NOT clear the canvas.
       setStatus('Parse error — keeping last valid preview. Fix the file and Refresh. (' + (err && err.message || err) + ')', true);
       renderReport({ parseError: String(err && err.message || err) });
-      return;
+      return { ok: false, parseError: String((err && err.message) || err) };
     }
 
     // Give relative textures a moment to attempt loading before snapshotting.
@@ -166,6 +175,7 @@ ${body}
 
     setStatus(meta.wasGzipped ? 'Preview loaded (from gzip source).' : 'Preview loaded.');
     renderReport({});
+    return { ok: true, textureWarnings: dedupe(textureWarnings).length };
   }
 
   async function switchMode(next) {
@@ -278,15 +288,21 @@ ${body}
 
   // ---- wire controls -----------------------------------------------------
   function wire() {
-    el('modeOriginal').addEventListener('change', () => switchMode('original'));
-    el('modeFit').addEventListener('change', () => switchMode('fit'));
+    const mo = el('modeOriginal'); if (mo) mo.addEventListener('change', () => switchMode('original'));
+    const mf = el('modeFit'); if (mf) mf.addEventListener('change', () => switchMode('fit'));
     document.querySelectorAll('input.guide').forEach((c) => c.addEventListener('change', refreshGuides));
-    el('refreshBtn').addEventListener('click', () => load());
+    // The Mall workspace has its own Refresh button; the editor lane drives load()
+    // through its own Update control, so this binding is optional.
+    const rb = el('refreshBtn'); if (rb) rb.addEventListener('click', () => load());
   }
 
   window.wrlPreview = {
     load,
     wire,
+    // Report whether a scene is currently displayed (used by the editor lane to
+    // know a last-valid scene exists without reaching into internals).
+    hasScene: () => lastGoodText != null,
+    currentMode: () => mode,
     // exposed for the electron preview harness (test only)
     _debug: () => ({ bbox, fit, remoteUrls: meta && meta.remoteUrls, textureWarnings: dedupe(textureWarnings) }),
   };

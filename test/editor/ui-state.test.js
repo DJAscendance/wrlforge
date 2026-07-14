@@ -202,3 +202,77 @@ test('isFreshAnalysis rejects an older analysis version', () => {
   assert.strictEqual(ui.isFreshAnalysis(2, 3), false, 'a late older parse is dropped');
   assert.strictEqual(ui.isFreshAnalysis(undefined, 3), false);
 });
+
+// --- Phase 7C2 live-preview view-models -------------------------------------
+
+test('resolvePreviewLayout defaults unknown/absent to split', () => {
+  assert.strictEqual(ui.resolvePreviewLayout('split'), 'split');
+  assert.strictEqual(ui.resolvePreviewLayout('preview-max'), 'preview-max');
+  assert.strictEqual(ui.resolvePreviewLayout('editor-only'), 'editor-only');
+  assert.strictEqual(ui.resolvePreviewLayout('nonsense'), 'split');
+  assert.strictEqual(ui.resolvePreviewLayout(null), 'split');
+});
+
+test('clampSplit keeps the divider fraction inside a usable range', () => {
+  assert.strictEqual(ui.clampSplit(0.5), 0.5);
+  assert.strictEqual(ui.clampSplit(0.05), ui.SPLIT_MIN, 'too-small clamps up');
+  assert.strictEqual(ui.clampSplit(0.99), ui.SPLIT_MAX, 'too-large clamps down');
+  assert.strictEqual(ui.clampSplit('garbage'), ui.SPLIT_DEFAULT, 'non-number -> default');
+  assert.strictEqual(ui.clampSplit(undefined), ui.SPLIT_DEFAULT);
+});
+
+test('splitStep moves the fraction by a delta, staying clamped', () => {
+  assert.ok(Math.abs(ui.splitStep(0.5, 0.05) - 0.55) < 1e-9);
+  assert.strictEqual(ui.splitStep(0.2, -0.5), ui.SPLIT_MIN);
+  assert.strictEqual(ui.splitStep(0.8, 0.5), ui.SPLIT_MAX);
+});
+
+test('previewLayoutModel derives pane visibility + percent for the divider', () => {
+  const split = ui.previewLayoutModel('split', 0.5);
+  assert.deepStrictEqual(
+    { e: split.editorVisible, p: split.previewVisible, s: split.sidebarVisible, m: split.maximized, pct: split.splitPercent },
+    { e: true, p: true, s: true, m: false, pct: 50 },
+  );
+  const max = ui.previewLayoutModel('preview-max', 0.5);
+  assert.strictEqual(max.editorVisible, false);
+  assert.strictEqual(max.previewVisible, true);
+  assert.strictEqual(max.sidebarVisible, false, 'maximize reclaims the sidebar space');
+  assert.strictEqual(max.maximized, true);
+  const only = ui.previewLayoutModel('editor-only', 0.7);
+  assert.strictEqual(only.previewVisible, false);
+  assert.strictEqual(only.editorVisible, true);
+});
+
+test('togglePreviewMaximize flips split <-> preview-max', () => {
+  assert.strictEqual(ui.togglePreviewMaximize('split'), 'preview-max');
+  assert.strictEqual(ui.togglePreviewMaximize('preview-max'), 'split');
+  assert.strictEqual(ui.togglePreviewMaximize('editor-only'), 'preview-max');
+});
+
+test('resolveShortcut maps the preview accelerators', () => {
+  assert.strictEqual(ui.resolveShortcut({ key: 'Enter', ctrlOrMeta: true }), 'previewUpdate');
+  assert.strictEqual(ui.resolveShortcut({ key: 'Enter', ctrlOrMeta: true, shift: true }), 'previewMaximize');
+  assert.strictEqual(ui.resolveShortcut({ key: 'Enter' }), null, 'preview accelerators need the modifier');
+});
+
+test('previewStatusModel maps INTERNAL states to release-quality copy (no jargon)', () => {
+  const label = (opts) => ui.previewStatusModel(opts).label;
+  assert.strictEqual(label({ state: 'current' }), 'Live');
+  assert.strictEqual(label({ state: 'updating' }), 'Updating…');
+  assert.strictEqual(label({ state: 'outdated' }), 'Outdated');
+  assert.strictEqual(label({ state: 'failed' }), 'Can’t display latest');
+  assert.strictEqual(label({ state: 'showing-last-valid' }), 'Showing last good version');
+  assert.strictEqual(label({ state: 'showing-last-valid', failureCategory: 'missing-asset' }), 'Some parts missing');
+  assert.strictEqual(label({ state: 'failed', failureCategory: 'missing-asset' }), 'Some parts missing');
+  assert.strictEqual(label({ saved: true }), 'Showing saved version');
+  assert.strictEqual(label({ state: 'outdated', sizeTier: 'manual' }), 'Large file — use Update to refresh');
+  assert.match(label({ sizeTier: 'refused' }), /too large/i);
+  // No engineering jargon leaks into any surface.
+  const states = ['idle', 'updating', 'current', 'failed', 'showing-last-valid', 'outdated', 'closed'];
+  for (const s of states) {
+    const l = ui.previewStatusModel({ state: s }).label.toLowerCase();
+    for (const banned of ['generation', 'overlay', 'stale', 'buffer version', 'state machine', 'phase', 'experimental']) {
+      assert.ok(!l.includes(banned), `"${l}" must not contain "${banned}"`);
+    }
+  }
+});

@@ -62,10 +62,10 @@ const BANNED = [
   // The native editor SHIPS -- it must never be described to users as planned/upcoming.
   ['native editor planned', /native editor\b[^.]{0,40}\b(planned|coming soon|upcoming|not yet|will be)/i],
   ['planned native editor', /(planned|upcoming|future|forthcoming)\b[^.]{0,20}\bnative editor/i],
-  // The unsaved-buffer X_ITE preview is Phase 7C and is NOT built -- the UI must not
-  // claim you can preview an unsaved buffer / live edits.
-  ['unsaved-buffer preview claim', /(preview|render)[^.]{0,30}\bunsaved\b/i],
-  ['unsaved-buffer preview claim (reverse)', /\bunsaved\b[^.]{0,30}(preview|render)/i],
+  // NOTE: The Mall unsaved-buffer X_ITE preview SHIPS as of Phase 7C2, so wording
+  // like "renders your unsaved edits" is now accurate and no longer banned. (World
+  // unsaved preview is still Phase 7C3; the World workspace must not claim it -- but
+  // world.html contains no such claim, and this guard is about ABSENT features.)
 ];
 
 test('no prototype / unavailable-feature wording in the user-facing surface', () => {

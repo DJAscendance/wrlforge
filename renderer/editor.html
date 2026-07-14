@@ -3,26 +3,45 @@
 <head>
 <meta charset="utf-8">
 <!-- Strict CSP: no remote origins anywhere. The CodeMirror bundle is the app's
-     own local file (vendor/wrl-editor.bundle.js, 'self'); it injects its editor
-     styles via <style> (covered by 'unsafe-inline' style-src). No eval, no wasm,
-     no network -- the native editor never fetches. main.js also cancels remote
-     requests at the network layer, so this is a layered control. -->
+     own local file (vendor/wrl-editor.bundle.js, 'self'). Phase 7C2 adds an
+     embedded X_ITE live preview of the UNSAVED buffer, so the local schemes X_ITE
+     needs are permitted -- the SAME superset the Mall page (index.html) ships:
+     'wasm-unsafe-eval' for X_ITE's local WASM decoders, blob: workers, and
+     file:/data:/blob: for the item's own local textures. No http(s)/ws origin
+     appears anywhere; this is layered over main.js's network guard
+     (session.webRequest cancels remote requests). No new scheme is introduced --
+     the Mall buffer renders by direct string-swap with a file:// base URL. -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'none';
-  script-src 'self' file:;
+  script-src 'self' file: 'wasm-unsafe-eval';
   style-src 'self' 'unsafe-inline';
   img-src 'self' file: data: blob:;
+  media-src 'self' file: data: blob:;
+  connect-src 'self' file: data: blob:;
   font-src 'self' file: data:;
-  connect-src 'none';
+  worker-src 'self' blob:;
+  child-src blob:;
   object-src 'none';
   base-uri 'none';
 ">
 <title>WRL Forge — Native Editor</title>
-<!-- The CodeMirror 6 assembly (window.WrlEditor), then the pure UI view-models
-     (window.WrlEditorUI), then the DOM binding. All local, all defer. -->
+<!-- The CodeMirror 6 assembly (window.WrlEditor); the X_ITE engine + shared
+     preview modules (Phase 7C2 live preview); the pure view-models
+     (window.WrlEditorUI, window.WrlPreviewState, window.WrlPreviewScheduler); the
+     REUSED Mall render/fit engine (window.wrlPreview); then the DOM bindings. All
+     local, all defer -- they execute in order before the bindings run. -->
 <script defer src="vendor/wrl-editor.bundle.js"></script>
+<script defer src="../node_modules/x_ite/dist/x_ite.min.js"></script>
+<script defer src="../src/preview/extrusion-bounds.js"></script>
+<script defer src="../src/preview/bbox-traversal.js"></script>
+<script defer src="../src/preview/guides.js"></script>
+<script defer src="../src/preview/fit-math.js"></script>
 <script defer src="../src/editor/ui-state.js"></script>
+<script defer src="../src/preview/preview-state.js"></script>
+<script defer src="../src/preview/preview-scheduler.js"></script>
+<script defer src="preview.js"></script>
 <script defer src="editor.js"></script>
+<script defer src="editor-preview.js"></script>
 <style>
   /* --wrl-ui-scale scales the whole app chrome (toolbar, sidebar, status bar,
      modal) via a single root font-size: chrome sizes below are in `rem`, so the
@@ -56,11 +75,87 @@
   button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
     outline: 3px solid #7db3ff; outline-offset: 2px;
   }
-  .main { flex: 1 1 auto; display: flex; min-height: 0; }
-  .editor-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  /* The workspace row: editor | divider | live preview | sidebar. The editor and
+     preview share the work area via --wrl-split (editor's fraction); the divider
+     drags it. In preview-max the editor collapses and the sidebar hides so the
+     model fills the screen (the low-vision requirement); in editor-only the
+     preview hides and X_ITE stays idle. --wrl-split is a plain layout fraction --
+     it never CSS-transforms the X_ITE canvas (which renders at device pixels). */
+  .main { flex: 1 1 auto; display: flex; min-height: 0; --wrl-split: 0.5; }
+  .editor-col { flex: var(--wrl-split, 0.5) 1 0; min-width: 0; display: flex; flex-direction: column; }
   /* The code area font is owned by CodeMirror (font compartment), not by rem. */
   #editor { flex: 1 1 auto; min-height: 0; overflow: hidden; }
   .cm-editor { height: 100%; }
+
+  .preview-divider {
+    flex: 0 0 6px; cursor: col-resize; background: #2a2a2a;
+    border-left: 1px solid #333; border-right: 1px solid #333;
+  }
+  .preview-divider:hover, .preview-divider:focus-visible { background: #3a78ee; }
+  .preview-col {
+    flex: calc(1 - var(--wrl-split, 0.5)) 1 0; min-width: 0;
+    display: flex; flex-direction: column; overflow: auto;
+    background: #141414; border-left: 1px solid #333;
+  }
+  /* Layout modes. */
+  .main.layout-preview-max .editor-col { flex: 0 0 2.2rem; min-width: 0; overflow: hidden; }
+  .main.layout-preview-max .preview-col { flex: 1 1 auto; }
+  .main.layout-preview-max .sidebar { display: none; }
+  .main.layout-editor-only .preview-col { display: none; }
+  .main.layout-editor-only .editor-col { flex: 1 1 auto; }
+
+  .preview-header {
+    display: flex; flex-wrap: wrap; gap: 0.46rem; align-items: center;
+    padding: 0.46rem 0.62rem; background: #1c1c1c; border-bottom: 1px solid #2a2a2a;
+  }
+  .preview-header h2 { font-size: 0.85rem; margin: 0 0.4rem 0 0; color: #9a9a9a; text-transform: uppercase; letter-spacing: 0.05em; }
+  .preview-chip {
+    display: inline-block; padding: 0.15rem 0.6rem; border-radius: 10px;
+    font-size: 0.82rem; font-weight: 700; white-space: nowrap;
+  }
+  .preview-chip.tone-ok { background: #123d1a; color: #7fe08a; }
+  .preview-chip.tone-info { background: #10314a; color: #7db3ff; }
+  .preview-chip.tone-warn { background: #3a2f10; color: #ffce6a; }
+  .preview-chip.tone-err { background: #401414; color: #ff8b8b; }
+  .preview-chip.tone-muted { background: #262626; color: #9a9a9a; }
+  .preview-header .spacer { flex: 1 1 auto; }
+  .preview-header select {
+    background: #333; color: #fff; border: 1px solid #444; border-radius: 4px;
+    padding: 0.3rem 0.5rem; font-size: 0.85rem;
+  }
+  .preview-body { padding: 0.46rem 0.62rem; display: flex; flex-direction: column; gap: 0.5rem; min-height: 0; }
+  x3d-canvas#preview {
+    display: block; width: 100%; height: 46vh; min-height: 12rem;
+    background: #0e0e10; border: 1px solid #333; border-radius: 6px;
+  }
+  .main.layout-preview-max x3d-canvas#preview { height: 74vh; }
+  .preview-status-line { font-size: 0.82rem; color: #9ab; min-height: 1.2em; }
+  .preview-controls { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; align-items: center; }
+  .preview-controls fieldset { border: 1px solid #333; border-radius: 6px; margin: 0; padding: 0.3rem 0.7rem 0.5rem; }
+  .preview-controls legend { color: #888; font-size: 0.72rem; text-transform: uppercase; padding: 0 0.25rem; }
+  .preview-controls label.inline { display: inline-flex; align-items: center; gap: 0.35rem; margin-right: 0.7rem; font-size: 0.85rem; }
+  .preview-hint { color: #777; font-size: 0.78rem; }
+  .preview-report { display: flex; flex-direction: column; gap: 0.5rem; }
+  .preview-report .panel { background: #111; border-radius: 6px; padding: 0.6rem 0.7rem; }
+  .preview-report table.kv { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .preview-report table.kv th, .preview-report table.kv td { text-align: left; padding: 0.18rem 0.4rem; border-bottom: 1px solid #222; }
+  .preview-report table.kv th { color: #888; font-weight: 500; }
+  .preview-report table.kv td.num { font-family: monospace; text-align: right; }
+  .preview-report .scale-proposed { color: #7db3ff; font-weight: 600; }
+  .preview-report .scale-reduced { color: #ffb648; }
+  .badge-pill { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.72rem; font-weight: 700; }
+  .conf-exact { background: #123d1a; color: #7fe08a; }
+  .conf-conservative { background: #3a2f10; color: #ffce6a; }
+  .conf-unavailable { background: #401414; color: #ff8b8b; }
+  .preview-report .check { padding: 0.35rem 0.5rem; border-radius: 4px; margin-bottom: 0.25rem; font-size: 0.82rem; display: flex; gap: 0.5rem; align-items: baseline; }
+  .preview-report .check.pass { background: #123; }
+  .preview-report .check.fail.soft { background: #3a2f10; }
+  .preview-report .check .badge { font-weight: 700; width: 4.2rem; flex: none; }
+  .preview-report .check.pass .badge { color: #5fd06a; }
+  .preview-report .check.fail .badge { color: #ff8b3d; }
+  .warn { background: #3a2f10; color: #ffce6a; border-radius: 4px; padding: 0.35rem 0.5rem; margin: 0.25rem 0; font-size: 0.8rem; }
+  .warn.err { background: #401414; color: #ff9b9b; }
+  .hint { color: #777; font-size: 0.75rem; }
   .toolbar select {
     background: #333; color: #fff; border: 1px solid #444; border-radius: 4px;
     padding: 0.38rem 0.62rem; font-size: 0.96rem;
@@ -156,10 +251,78 @@
 
   <div id="editorMsg" class="editor-msg" style="display:none" role="status" aria-live="polite"></div>
 
-  <div class="main">
+  <div class="main layout-split" id="editorMain">
     <div class="editor-col">
       <div id="editor" aria-label="VRML97 source editor"></div>
     </div>
+
+    <div id="previewDivider" class="preview-divider" role="separator"
+         aria-orientation="vertical" aria-label="Resize editor and preview"
+         tabindex="0" aria-valuemin="20" aria-valuemax="80" aria-valuenow="50"></div>
+
+    <!-- Live X_ITE preview of the UNSAVED buffer (Phase 7C2). Reuses the Mall
+         render/fit engine (preview.js) via the same control + report ids; the
+         editor-preview orchestrator drives auto/manual updates and the chip. -->
+    <section class="preview-col" aria-label="Live preview">
+      <div class="preview-header">
+        <h2>Preview</h2>
+        <span id="previewChip" class="preview-chip tone-muted" role="status" aria-live="polite">Preview</span>
+        <span class="spacer"></span>
+        <button id="previewUpdateBtn" title="Update the preview (Ctrl+Enter)">Update</button>
+        <button id="previewSavedBtn" class="secondary" title="Show the last-saved version from disk">Show saved version</button>
+        <button id="previewMaxBtn" class="secondary" title="Maximize the preview (Ctrl+Shift+Enter)" aria-pressed="false">Maximize</button>
+        <label class="theme">Layout
+          <select id="previewLayoutSelect" aria-label="Preview layout">
+            <option value="split">Split</option>
+            <option value="preview-max">Preview maximized</option>
+            <option value="editor-only">Editor only</option>
+          </select>
+        </label>
+      </div>
+      <div class="preview-body">
+        <x3d-canvas id="preview" tabindex="0" aria-label="Embedded X_ITE 3D preview of the unsaved buffer"></x3d-canvas>
+        <div class="preview-status-line" id="previewStatus" role="status" aria-live="polite">Preview idle.</div>
+        <div class="preview-controls">
+          <fieldset class="modes">
+            <legend>View mode</legend>
+            <label class="inline"><input type="radio" name="mode" id="modeOriginal" value="original" checked> Original</label>
+            <label class="inline"><input type="radio" name="mode" id="modeFit" value="fit"> Cybertown Fit</label>
+          </fieldset>
+          <fieldset id="guideControls" disabled>
+            <legend>Fit guides</legend>
+            <label class="inline"><input type="checkbox" class="guide" value="ground" checked> Ground</label>
+            <label class="inline"><input type="checkbox" class="guide" value="center" checked> Center</label>
+            <label class="inline"><input type="checkbox" class="guide" value="zlimit" checked> Z limit</label>
+            <label class="inline"><input type="checkbox" class="guide" value="cage" checked> 10m cage</label>
+            <label class="inline"><input type="checkbox" class="guide" value="itemBox"> Item box</label>
+          </fieldset>
+        </div>
+        <div class="preview-hint">Renders your unsaved edits. Fit mode adds a preview-only parent transform + non-exported guides. Nothing here is written to your file.</div>
+        <div class="preview-report">
+          <div class="panel">
+            <div><strong style="font-size:0.82rem;color:#9a9a9a;">Cybertown Fit</strong> <span id="confidencePill" class="badge-pill conf-unavailable">—</span></div>
+            <table class="kv">
+              <tr><th>Requested scale</th><td class="num" id="reqScale">—</td></tr>
+              <tr><th>Max compliant scale</th><td class="num" id="maxScale">—</td></tr>
+              <tr><th>Proposed applied scale</th><td class="num scale-proposed" id="propScale">—</td></tr>
+              <tr><th>Offset X / Y / Z</th><td class="num" id="offsets">—</td></tr>
+            </table>
+          </div>
+          <div class="panel">
+            <table class="kv" id="boundsTable">
+              <thead><tr><th></th><th>min</th><th>max</th><th>size</th></tr></thead>
+              <tbody id="boundsBody"><tr><td colspan="4" class="hint">No bounds yet.</td></tr></tbody>
+            </table>
+            <div class="hint" id="centerLine"></div>
+          </div>
+          <div class="panel">
+            <div class="rulelist" id="rules"></div>
+          </div>
+          <div id="previewWarnings"></div>
+        </div>
+      </div>
+    </section>
+
     <aside class="sidebar" aria-label="Document panels">
       <section class="outline">
         <h2>Outline</h2>

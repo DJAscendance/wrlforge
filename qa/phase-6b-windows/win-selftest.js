@@ -36,6 +36,8 @@ const { resolveEditor, buildLaunch } = req('src/editor/editor-locator.js');
 const { loadSettings } = req('src/settings/app-settings.js');
 const { windowStatePath, legacyWindowStatePath } = req('src/settings/window-state.js');
 const { classifyWorkspace, assertLocalWorkspace } = req('qa/visual-qa/workspace-guard.js');
+const { createMallPreviewBridge, HARD_MAX_BYTES } = req('src/preview/mall-preview-bridge.js');
+const { fileDirUrl } = req('src/preview/texture-base.js');
 
 const FIX = path.join(ROOT, 'test', 'fixtures', 'world');
 const results = [];
@@ -460,6 +462,59 @@ check('explicit external action launches on the working copy (recreates if missi
   const res = openExternalEditor({ mallPath: file, editFile }, deps);
   assert(res.created && fs.existsSync(editFile), 'missing working copy recreated by explicit action');
   assert(launched.length === 1 && launched[0] === editFile, 'launched exactly once, on the working copy');
+});
+
+// ---- Phase 7C2 Mall live-preview bridge (packed-runtime + Windows paths) ----
+// The bridge resolves the SOURCE directory as the X_ITE base URL; on Windows that
+// means a drive-letter path -> file:/// URL. It authorizes only the held Mall
+// source, byte-substitutes the unsaved buffer, and never writes a file. These run
+// under the packed runtime to prove the new module ships and behaves on NTFS.
+function mkBridge(srcAbs) {
+  return createMallPreviewBridge({
+    describeSession: () => ({ open: true, sessionId: 1, context: 'mall', sourcePath: srcAbs }),
+    getAuthorizedMallSource: () => srcAbs,
+    scanRemoteUrls: () => [],
+    readSaved: () => ({ text: '#VRML V2.0 utf8\n# disk\n', wasGzipped: false }),
+  });
+}
+
+check('7C2 preview bridge authorizes the open Mall buffer + host-correct base URL', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrlforge-7c2-'));
+  const src = path.join(dir, 'item.wrl');
+  fs.writeFileSync(src, '#VRML V2.0 utf8\nShape { geometry Box {} }\n');
+  const b = mkBridge(src);
+  const res = b.load({ sessionId: 1, text: '#VRML V2.0 utf8\nShape {}\n', bufferVersion: 1 });
+  assert(res.ok, 'load ok');
+  // The base URL is the SOURCE directory (a file:// URL) -- host path.dirname is used,
+  // so this must be correct on Windows drive-letter paths too.
+  assert(res.baseURL === fileDirUrl(src), `baseURL ${res.baseURL}`);
+  assert(res.baseURL.startsWith('file:'), 'file scheme base URL');
+  return res.baseURL;
+});
+
+check('7C2 preview bridge rejects a session whose held path != the authorized source', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrlforge-7c2-'));
+  const src = path.join(dir, 'item.wrl');
+  const b = createMallPreviewBridge({
+    describeSession: () => ({ open: true, sessionId: 1, context: 'mall', sourcePath: src }),
+    getAuthorizedMallSource: () => path.join(dir, 'OTHER.wrl'),
+    readSaved: () => ({ text: '', wasGzipped: false }),
+  });
+  const res = b.load({ sessionId: 1, text: 'x', bufferVersion: 1 });
+  assert(!res.ok && res.reason === 'source-mismatch', JSON.stringify(res));
+});
+
+check('7C2 preview bridge refuses an >8 MiB buffer and leaves zero overlays after close', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrlforge-7c2-'));
+  const src = path.join(dir, 'item.wrl');
+  const b = mkBridge(src);
+  const huge = b.load({ sessionId: 1, text: 'x'.repeat(HARD_MAX_BYTES + 8), bufferVersion: 1 });
+  assert(!huge.ok && huge.reason === 'too-large', JSON.stringify({ ok: huge.ok, reason: huge.reason }));
+  assert(b.describe(1).hasOverlay === false, 'oversized buffer stored nothing');
+  b.load({ sessionId: 1, text: '#VRML V2.0 utf8\n', bufferVersion: 2 });
+  b.invalidateSession(1);
+  const leak = b.leak();
+  assert(leak.size === 0 && leak.activeGenerations === 0, JSON.stringify(leak));
 });
 
 // ---- summarize + write result ----

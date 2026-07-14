@@ -25,6 +25,7 @@ const { resolveEditor, buildLaunch } = require('./src/editor/editor-locator');
 const { loadSettings } = require('./src/settings/app-settings');
 const { EditorController } = require('./src/editor/editor-controller');
 const { openMallItem, openExternalEditor } = require('./src/editor/mall-edit-flow');
+const { createMallPreviewBridge } = require('./src/preview/mall-preview-bridge');
 
 // The World Project preview scheme (Phase 4B) is a privileged, standard, LOCAL
 // scheme. This MUST run before app 'ready'. It does NOT bypass CSP -- world.html
@@ -64,6 +65,13 @@ let mainWindow = null;
 // document and every path decision; the renderer supplies only text + intent (and
 // a World reference to OPEN, which is authorized against the scan graph below).
 let editorController = null;
+
+// The Mall live-preview bridge (Phase 7C2). Turns the native editor's UNSAVED
+// buffer into an authorized X_ITE preview payload without writing any temp file.
+// It owns the 7C1 BufferOverlay; the renderer sends only { sessionId, text,
+// bufferVersion } and never a path. Instantiated in whenReady alongside the
+// editor controller (it reads the live currentSession / editor describe).
+let mallPreviewBridge = null;
 
 // Renderer pages the app may navigate between (whitelist -- never a path from
 // the renderer). Both share the one BrowserWindow, preload, and security config.
@@ -359,14 +367,57 @@ function createWindow() {
           await new Promise((r) => setTimeout(r, SETTLE_MS));
         }
 
+        // Phase 7C2 live-preview steps (Mall editor only). These drive the SAME
+        // preview controls the user uses, through the page's own __wrlEditor hooks
+        // -- no new capability. The preview authorizes against currentSession
+        // (the scratch mallPath set above), so it renders the unsaved buffer.
+        if (e.previewLayout) {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.previewLayout(${JSON.stringify(e.previewLayout)})`);
+          await new Promise((r) => setTimeout(r, 500));
+        }
+        if (e.fitMode) {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.fitMode(${JSON.stringify(e.fitMode)})`);
+          await new Promise((r) => setTimeout(r, SETTLE_MS));
+        }
+        if (e.previewStepSplit) {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.previewStepSplit(${JSON.stringify(e.previewStepSplit)})`);
+          await new Promise((r) => setTimeout(r, 400));
+        }
+        if (e.previewStep === 'update') {
+          await win.webContents.executeJavaScript('window.__wrlEditor.previewUpdate()');
+          await new Promise((r) => setTimeout(r, SETTLE_MS));
+        } else if (e.previewStep === 'saved') {
+          await win.webContents.executeJavaScript('window.__wrlEditor.previewSaved()');
+          await new Promise((r) => setTimeout(r, SETTLE_MS));
+        } else if (e.previewStep === 'maximize') {
+          await win.webContents.executeJavaScript('window.__wrlEditor.previewMaximize()');
+          await new Promise((r) => setTimeout(r, 500));
+        }
+        // A second edit (used for the temporary-syntax-error / recovery captures).
+        if (typeof e.text2 === 'string') {
+          await win.webContents.executeJavaScript(`window.__wrlEditor.setText(${JSON.stringify(e.text2)})`);
+          await new Promise((r) => setTimeout(r, SETTLE_MS));
+        }
+
         const status = await win.webContents.executeJavaScript(
           '(window.__wrlEditor && window.__wrlEditor.status) ? JSON.stringify(window.__wrlEditor.status()) : "null"'
         );
         payload.editor = JSON.parse(status);
+        const pv = await win.webContents.executeJavaScript(
+          '(window.__wrlEditor && window.__wrlEditor.previewState) ? JSON.stringify(window.__wrlEditor.previewState()) : "null"'
+        );
+        payload.preview = JSON.parse(pv);
         if (job.out) {
           const img = await win.webContents.capturePage();
           fs.writeFileSync(job.out, img.toPNG());
           payload.out = job.out;
+        }
+        // Leak assertion: after closing the editor session, no overlay/generation
+        // may remain for it (Phase 7C2 resource-cleanup gate).
+        if (e.leakAfterClose) {
+          const sid = editorController.describe().sessionId;
+          if (sid != null) mallPreviewBridge.invalidateSession(sid);
+          payload.leak = mallPreviewBridge.leak();
         }
         return payload;
       }
@@ -628,6 +679,14 @@ app.whenReady().then(() => {
   installPreviewNetworkGuard();
   installWorldPreviewProtocol();
   editorController = createEditorController();
+  mallPreviewBridge = createMallPreviewBridge({
+    // The renderer never supplies a path: the bridge resolves the editor session
+    // itself and confirms the held source equals the authorized Mall item.
+    describeSession: () => editorController.describe(),
+    getAuthorizedMallSource: () => (currentSession ? currentSession.mallPath : null),
+    scanRemoteUrls,
+    readSaved: (absPath) => readWrlSource(absPath),
+  });
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -998,8 +1057,31 @@ ipcMain.handle('editor:saveAs', async (_evt, { sessionId, text, format } = {}) =
 ipcMain.handle('editor:reload', async (_evt, { sessionId } = {}) => editorController.reload(sessionId));
 ipcMain.handle('editor:checkConflict', async (_evt, { sessionId } = {}) => editorController.checkConflict(sessionId));
 ipcMain.handle('editor:openInExternal', async (_evt, { sessionId } = {}) => editorController.openInExternal(sessionId));
-ipcMain.handle('editor:close', async (_evt, { sessionId } = {}) => editorController.close(sessionId));
+ipcMain.handle('editor:close', async (_evt, { sessionId } = {}) => {
+  // Closing an editor session must leave no live preview overlay behind.
+  if (mallPreviewBridge && sessionId != null) mallPreviewBridge.invalidateSession(sessionId);
+  return editorController.close(sessionId);
+});
 ipcMain.handle('editor:restore', async () => editorController.restore());
+
+// ---------------------------------------------------------------------------
+// Mall live-preview IPC (Phase 7C2). The renderer sends ONLY { sessionId, text,
+// bufferVersion } -- never a path/base/root/url/scheme. The bridge resolves the
+// editor session, confirms it is the AUTHORIZED Mall source, byte-substitutes the
+// unsaved buffer through the 7C1 overlay, and returns the render payload. No file
+// is written; there is no channel by which the renderer names a path to read.
+// ---------------------------------------------------------------------------
+ipcMain.handle('editor:previewLoad', async (_evt, { sessionId, text, bufferVersion } = {}) =>
+  mallPreviewBridge.load({ sessionId, text, bufferVersion }));
+ipcMain.handle('editor:previewSaved', async (_evt, { sessionId } = {}) =>
+  mallPreviewBridge.saved({ sessionId }));
+ipcMain.handle('editor:previewAccept', async (_evt, { sessionId, generation } = {}) =>
+  mallPreviewBridge.accept({ sessionId, generation }));
+ipcMain.handle('editor:previewClose', async (_evt, { sessionId } = {}) => {
+  if (mallPreviewBridge && sessionId != null) mallPreviewBridge.invalidateSession(sessionId);
+  return { ok: true };
+});
+ipcMain.handle('editor:previewLeak', async () => (mallPreviewBridge ? mallPreviewBridge.leak() : null));
 
 function safeSize(p) {
   try { return fs.statSync(p).size; } catch { return null; }

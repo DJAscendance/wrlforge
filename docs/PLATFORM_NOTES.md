@@ -64,6 +64,28 @@ verified on Linux via the serialized `VisualQaRunner`
 (`qa/phase-7b-native-editor/`); the Windows GUI run is the interactive WinBoat
 step, consistent with how the Phase 6B GUI was verified.
 
+## Mall live preview — cross-platform behavior (Phase 7C2)
+
+The Mall unsaved-buffer live preview is portable by construction and packaged with
+the app (new files fall under the existing `src/**/*` + `renderer/**/*` build globs;
+`x_ite` is already a runtime dependency bundled for the Mall page):
+
+- The X_ITE base URL is `fileDirUrl(heldSource)` — `path.dirname` of the source, so
+  it is correct on Windows **drive-letter** paths (`C:\…\item.wrl → file:///C:/…/`).
+  Covered by three Phase 7C2 cases in the Windows self-test
+  (`qa/phase-6b-windows/win-selftest.js`: base URL, source-mismatch rejection, and
+  the 8 MiB refusal + zero-overlay-after-close leak check).
+- No temp file is written for preview; the buffer renders by string-swap. Path
+  authorization is main-owned (`src/preview/mall-preview-bridge.js`) — the renderer
+  never supplies a path, so there is no separator-sensitive renderer path handling.
+- The pure preview modules (`preview-state.js`/`preview-scheduler.js`) are also
+  loaded as browser `<script>`s and use module-unique global names to avoid a
+  shared-scope `const` collision (a browser-only concern, platform-independent).
+
+**Windows GUI acceptance of the live preview is deferred to Phase 7C5** (the full
+WinBoat run), consistent with 7B/6B; 7C2's Windows coverage here is the packaged
+self-test + build-config inclusion, not an interactive GUI pass.
+
 ## Path separators
 
 All path construction in this codebase uses `path.join`/`path.dirname`/`path.basename`/`path.extname` (see `src/files/vrml-file.js`, `src/files/backups.js`, `src/settings/window-state.js`, `src/editor/*`) — never string-concatenated `/`. New code should follow the same rule; it's what makes the existing `node:test` suite's path assertions portable without modification.

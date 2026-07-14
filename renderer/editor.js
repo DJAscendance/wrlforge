@@ -74,10 +74,15 @@ const S = {
   saving: false,
   saveState: null,        // overrides derived clean/dirty during the save lifecycle
   zoom: 0,                // current zoom level (persisted); scales code + chrome
+  bufferVersion: 0,       // monotonic per-edit counter promoted onto preview requests
 };
 
 function currentText() { return S.handle ? S.handle.getText() : S.baseline; }
 function isDirty() { return UI.isDirty(currentText(), S.baseline); }
+
+// The live-preview orchestrator (renderer/editor-preview.js), present only when
+// the preview lane is loaded. Guarded so the editor works without it.
+const EP = () => window.wrlEditorPreview;
 
 // --- rendering ---------------------------------------------------------------
 function render() {
@@ -311,6 +316,9 @@ async function doReload(force) {
   S.handle.setDoc(res.text);
   S.baseline = res.text; S.format = res.format; S.gzip = res.format === 'gzip';
   S.saveState = UI.SAVE_STATE.CLEAN; showMsg('', false); render();
+  // The buffer now matches the reloaded disk source: refresh the live preview.
+  S.bufferVersion += 1;
+  if (EP()) EP().onEdit();
 }
 
 async function doGotoLine() {
@@ -342,17 +350,21 @@ async function doExternal() {
 async function doClose() {
   if (!(await confirmUnsaved('Close'))) return;
   const back = UI.originNav(S.context);
+  if (EP()) EP().stop();  // tear down preview timers + drop the overlay in main
   try { await bridge.close(S.sessionId); } catch (e) { /* nothing open */ }
   await window.vrmlpad.goto(back.page);
 }
 
 async function doBack() {
   // Preserve the (possibly unsaved) buffer in the main-process session so it
-  // survives the page switch, then navigate. The session stays open.
+  // survives the page switch, then navigate. The session stays open, but the
+  // preview overlay is dropped (the editor page is leaving); it re-registers on
+  // return. This is the navigate-away cleanup path.
   const back = UI.originNav(S.context);
   if (S.handle && S.sessionId != null) {
     try { await bridge.setText(S.sessionId, currentText()); } catch (e) { /* session may be gone */ }
   }
+  if (EP()) EP().stop();
   await window.vrmlpad.goto(back.page);
 }
 
@@ -385,6 +397,8 @@ function wireButtons() {
     else if (cmd === 'zoomIn') applyZoom(UI.zoomStep(S.zoom, +1));
     else if (cmd === 'zoomOut') applyZoom(UI.zoomStep(S.zoom, -1));
     else if (cmd === 'zoomReset') applyZoom(UI.ZOOM_DEFAULT);
+    else if (cmd === 'previewUpdate') { if (EP()) EP().manualUpdate(); }
+    else if (cmd === 'previewMaximize') { if (EP()) EP().toggleMaximize(); }
   });
 }
 
@@ -410,7 +424,12 @@ function mountEditor(text, profile) {
     profile,
     theme: savedTheme(),
     fontSize: UI.zoomModel(savedZoom()).codeFontPx,
-    onChange: () => { if (S.saveState !== UI.SAVE_STATE.CONFLICT) S.saveState = null; render(); },
+    onChange: () => {
+      if (S.saveState !== UI.SAVE_STATE.CONFLICT) S.saveState = null;
+      S.bufferVersion += 1;               // monotonic; promoted onto preview requests
+      if (EP()) EP().onEdit();            // schedule a debounced live-preview refresh
+      render();
+    },
     onCursor: (c) => { S.cursor = c; els.stCursor.textContent = UI.cursorLabel(c); },
     onAnalysis: (a) => {
       if (!UI.isFreshAnalysis(a.version, S.appliedAnalysisVersion)) return;
@@ -446,6 +465,16 @@ async function init() {
   mountEditor(d.text, profile);
   render();
   S.handle.focus();
+
+  // Live preview is a Mall-lane feature in Phase 7C2 (World is 7C3). Start it only
+  // for an open Mall document; the orchestrator sends only text+version to main.
+  if (S.context === 'mall' && EP()) {
+    EP().start({
+      sessionId: S.sessionId,
+      getText: currentText,
+      getVersion: () => S.bufferVersion,
+    });
+  }
 }
 
 // Exposed only for the serialized visual-QA capture harness (main.js editor
@@ -465,6 +494,16 @@ window.__wrlEditor = {
   setZoom: (n) => { applyZoom(n); return S.zoom; },
   clickFirst: (sel) => { const n = document.querySelector(sel); if (n) n.click(); return !!n; },
   modalVisible: () => el('modalBackdrop').classList.contains('show'),
+  // Live-preview QA hooks (Phase 7C2): each wraps an action the page performs
+  // through its own preview controls. No buffer text is exposed.
+  previewUpdate: () => { if (window.wrlEditorPreview) window.wrlEditorPreview.manualUpdate(); },
+  previewSaved: () => { if (window.wrlEditorPreview) window.wrlEditorPreview.showSaved(); },
+  previewLayout: (m) => { if (window.wrlEditorPreview) window.wrlEditorPreview.setLayout(m); },
+  previewMaximize: () => { if (window.wrlEditorPreview) window.wrlEditorPreview.toggleMaximize(); },
+  previewStepSplit: (d) => { if (window.wrlEditorPreview) window.wrlEditorPreview.stepSplit(d); },
+  previewState: () => (window.wrlEditorPreview ? window.wrlEditorPreview._state() : null),
+  previewLeak: () => (window.wrlEditorPreview ? window.wrlEditorPreview._leak() : null),
+  fitMode: (m) => { const n = el(m === 'fit' ? 'modeFit' : 'modeOriginal'); if (n) { n.checked = true; n.dispatchEvent(new Event('change')); } },
   status: () => ({
     file: els.stFile.textContent, format: els.stFormat.textContent, dirty: isDirty(),
     save: els.stSave.textContent, diag: els.stDiag.textContent, adv: els.stAdv.textContent,

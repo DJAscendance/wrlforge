@@ -147,7 +147,10 @@ function close(s) {
   return freeze({ ...s, state: PREVIEW_STATES.CLOSED });
 }
 
-module.exports = {
+// A module-unique name: this file is ALSO loaded as a plain browser <script>
+// alongside ui-state.js / preview-scheduler.js, which share one global lexical
+// scope -- a generic `const API` would collide and reject the whole script.
+const PREVIEW_STATE_API = {
   PREVIEW_STATES,
   FAILURE,
   createPreviewState,
@@ -159,3 +162,8 @@ module.exports = {
   switchDocument,
   close,
 };
+
+// Dual use: CommonJS for main/tests (require('./preview-state')) AND a window
+// global for the renderer (editor.html loads this via a plain <script>, no bundler).
+if (typeof module !== 'undefined' && module.exports) module.exports = PREVIEW_STATE_API;
+if (typeof window !== 'undefined') window.WrlPreviewState = PREVIEW_STATE_API; // eslint-disable-line no-undef

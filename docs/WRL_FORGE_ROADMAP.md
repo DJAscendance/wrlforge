@@ -432,11 +432,12 @@ Mall/World validation profiles.
 in production (see the ✅ sub-sections below). Within Phase 7C, planning (**7C0**) is
 complete, the **7C4** Windows-native QA harness is **built**, **7C4.1** (Windows
 Workspace Isolation Guard) is **built**, **Feature A (Vision Accommodations)** is
-**built**, and **7C1** (the pure buffer-overlay foundation) is **built**; the
-unsaved-buffer preview UI + X_ITE integration (**7C2–7C3**) remains **unbuilt** — do
-not describe it as shipped (7C1 is the main-process-ready model only; nothing is wired
-into a preview page). Phase 7D (beta polish) remains a **plan**. Anything still
-plan-only ships no code without separate approval.
+**built**, **7C1** (the pure buffer-overlay foundation) is **built**, and **7C2** (the
+Mall unsaved-buffer live preview) is **built** and shipped in the native editor; the
+**World** unsaved-buffer preview + X_ITE integration (**7C3**) remains **unbuilt**, as
+does **7C5** (cross-platform acceptance) — do not describe World live preview as
+shipped. Phase 7D (beta polish) remains a **plan**. Anything still plan-only ships no
+code without separate approval.
 
 ### Phase 7A — Parser Foundation ✅
 **Shipped (parser-only lane).** A dependency-free, token-driven VRML97 tokenizer +
@@ -567,11 +568,33 @@ refusal above **8 MiB** (refused, never truncated). 46 pure tests in
 `test/preview/buffer-overlay.test.js`; wired into the `check` gate. See
 `docs/PHASE_7C_PROPOSAL.md` §4–§10 and `docs/PREVIEW_ARCHITECTURE.md`.
 
-**Unbuilt (still plan-only): 7C2** (Mall unsaved preview UI + X_ITE), **7C3** (World
-unsaved preview), **7C5** (cross-platform acceptance). The unsaved-buffer live preview
-is **not** shipped — 7C1 is the foundation only.
+**7C2 — Mall unsaved-buffer live preview ✅ built.** A split-view X_ITE preview of the
+in-memory Mall editor buffer with **no temp file**. The renderer sends only
+`{sessionId, text, bufferVersion}`; `src/preview/mall-preview-bridge.js` (pure/injectable,
+`node:test`-able) resolves the editor session, confirms the held source **equals the
+active authorized Mall item**, builds the `mallAuthorization` proof from *that* path, and
+byte-substitutes the buffer through the 7C1 overlay (`editor:previewLoad`/`previewSaved`/
+`previewAccept`/`previewClose` IPC). `renderer/editor-preview.js` + `editor.html`'s
+`.preview-col` + draggable divider are the split-view (layout mode + split fraction
+persisted; `Ctrl+Enter` Update, `Ctrl+Shift+Enter` maximize), **reusing `renderer/
+preview.js` verbatim** (Original/Cybertown-Fit/guides/fit-report, remote-URL block) via an
+injected source loader. Transport is direct string-swap with a `file://` base URL — **no
+new scheme, no CSP origin** beyond the Mall X_ITE superset now on `editor.html`. Release
+copy via `ui-state.js` `previewStatusModel` (Live / Updating… / Outdated / Showing last
+good version / Showing saved version / Some parts missing / large-file / too-large). Auto
+≤ 1 MiB (700 ms debounce, coalesced), manual Update 1–8 MiB, refused > 8 MiB. Last-valid
+scene survives a temporary syntax error; older generations never replace newer; overlay +
+generation counts are **0** after close (QA leak assertion). Nonvisual tests:
+`test/preview/mall-preview-bridge.test.js` + `ui-state` preview models. Visual QA
+`qa/phase-7c-mall-preview/` (`qa:mall-preview`): 18/18, 1 reused Electron process, 0
+survivors, leak-clean; perf/stress `stress.js` (100 edits → 1 render). See
+`docs/PREVIEW_ARCHITECTURE.md` §"Phase 7C2".
 
-**Locked future-lane decisions (7C2–7C3, recorded — not yet implemented; the pure
+**Unbuilt (still plan-only): 7C3** (World unsaved preview), **7C5** (cross-platform
+acceptance). World live preview (primary + nested WRL buffer overrides, viewpoint
+preservation, "Find new files" rescan) is **not** shipped.
+
+**Locked future-lane decisions (7C3, recorded — not yet implemented; the pure
 7C1 modules already encode the debounce and 1 MiB threshold):**
 - Auto-preview debounce: **700 ms** (implemented in `preview-scheduler.js`).
 - Default editor/preview split: **side-by-side 50/50**.

@@ -93,8 +93,14 @@ function createPreviewScheduler(opts = {}) {
   };
 }
 
-module.exports = {
+// A module-unique name (see preview-state.js): loaded as a plain browser <script>
+// in a shared global scope, a generic `const API` would collide with ui-state.js.
+const PREVIEW_SCHEDULER_API = {
   createPreviewScheduler,
   DEFAULT_DEBOUNCE_MS,
   AUTO_REFRESH_MAX_BYTES,
 };
+
+// Dual use: CommonJS for main/tests AND a window global for the renderer.
+if (typeof module !== 'undefined' && module.exports) module.exports = PREVIEW_SCHEDULER_API;
+if (typeof window !== 'undefined') window.WrlPreviewScheduler = PREVIEW_SCHEDULER_API; // eslint-disable-line no-undef

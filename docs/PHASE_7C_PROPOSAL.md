@@ -2,13 +2,15 @@
 
 Status: **PARTIALLY BUILT.** This document is the architecture proposal; the design
 below is the authority for the whole lane. **Built so far:** 7C4 (Windows QA
-harness), 7C4.1 (workspace guard), Feature A (vision accommodations), and **7C1 —
-the pure buffer-overlay foundation** (`src/preview/buffer-overlay.js`,
-`preview-state.js`, `preview-scheduler.js`; §4–§10, §12 first block). **Not built:**
-7C2 (Mall unsaved preview UI + X_ITE), 7C3 (World unsaved preview), 7C5 (acceptance).
-7C1 adds **no** editor preview UI, no X_ITE on the editor page, no CSP or scheme
-change, and nothing wired into `preview:load`/`world:previewLoad` — it is the
-main-process-ready model only. The Windows-native QA workflow that Phase 7C's
+harness), 7C4.1 (workspace guard), Feature A (vision accommodations), **7C1 — the
+pure buffer-overlay foundation** (`src/preview/buffer-overlay.js`, `preview-state.js`,
+`preview-scheduler.js`; §4–§10, §12 first block), and **7C2 — the Mall unsaved-buffer
+live preview** (`src/preview/mall-preview-bridge.js` authorizer, `editor:preview*` IPC,
+`renderer/editor-preview.js` split-view reusing `renderer/preview.js`, Mall-superset CSP
+on `editor.html`; §4–§10 realized for the Mall profile, no new scheme). **Not built:**
+7C3 (World unsaved preview), 7C5 (cross-platform acceptance). 7C2 ships **only** the
+Mall profile — the World primary/nested buffer override, World-graph rescan, and
+viewpoint preservation stay in 7C3. The Windows-native QA workflow that Phase 7C's
 cross-platform acceptance depends on is a companion document:
 **`docs/WINDOWS_NATIVE_QA_PLAN.md`**.
 
@@ -491,8 +493,18 @@ sequence"** (shared with the Windows harness slice). Summary:
   authorization proof boundary, the last-valid state machine, the debounce coordinator,
   and 46 pure tests (`test/preview/buffer-overlay.test.js`). **No editor UI integration
   — nothing is wired into a preview page.**
-- **7C2 — Mall unsaved preview.** Editor split-view integration, Original/Fit from the
-  buffer, last-valid, debounce, Linux QA.
+- **7C2 — Mall unsaved preview. ✅ built.** `src/preview/mall-preview-bridge.js` (pure
+  main-process authorizer: renderer sends only `{sessionId, text, bufferVersion}`, never
+  a path; held source must equal the active authorized Mall item), `editor:previewLoad`/
+  `previewSaved`/`previewAccept`/`previewClose` IPC, `renderer/editor-preview.js` split-
+  view (reuses `renderer/preview.js` verbatim via an injected source loader; layout/split
+  persisted; `Ctrl+Enter`/`Ctrl+Shift+Enter`), Mall-superset CSP on `editor.html` (string-
+  swap + `file://` base URL, **no new scheme**), release copy via `ui-state.js`
+  `previewStatusModel`. Tests: `test/preview/mall-preview-bridge.test.js` + `ui-state`
+  models; visual QA `qa/phase-7c-mall-preview/` (18/18, 0 survivors, leak-clean) + pure
+  `stress.js`. An idempotent-re-render note: a manual Update of the **same** bufferVersion
+  re-renders the same authorized bytes (a fresh generation over the existing overlay
+  entry); only a strictly-older version is refused as stale.
 - **7C3 — World unsaved preview.** Primary override, nested-dependency override, viewpoint
   preservation, asset-graph interaction, "Rescan for preview", Linux QA.
 - **7C4 — Windows-native QA harness.** See the Windows plan; **independent of 7C1–7C3**
