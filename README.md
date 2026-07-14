@@ -142,7 +142,8 @@ WRL Forge is inspired by the builders, coders, and community members who made Cy
 - LSS
 - Wovencroft
 - GeordieJohn
-- ComTech and the broader coder community
+- Gammonbrat
+- The entire CT ComTech and city coding community <3
 
 Naming these people reflects gratitude and inspiration only. It implies **no endorsement, employment, ownership, or official Cybertown affiliation**, and this project is not presented as their work.
 
