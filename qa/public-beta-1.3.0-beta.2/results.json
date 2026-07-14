@@ -1,0 +1,32 @@
+{
+  "release": "1.3.0-beta.2",
+  "title": "WRL Forge 1.3.0-beta.2 — First Public Beta",
+  "date": "2026-07-14",
+  "repo": "DJAscendance/wrlforge",
+  "tag": "v1.3.0-beta.2",
+  "releaseCommit": "2eea330",
+  "posture": { "beta": true, "prerelease": true, "unsigned": true, "arch": "x64", "license": "UNLICENSED", "openSource": false },
+  "copyright": "Copyright © 2026 Ryan Bundy. All rights reserved.",
+  "push": { "phase7c51": "c95b5a5..3ddd370", "prep": "3ddd370..2eea330", "historyRewritten": false },
+  "audit": {
+    "secrets": "CLEAR",
+    "assetRedistribution": "no-blocker",
+    "piiSanitized": true,
+    "thirdPartyNotices": true,
+    "verdict": "PASS"
+  },
+  "ci": { "ubuntu": "pass", "windows": "pass" },
+  "release_workflow": "success",
+  "artifacts": {
+    "linux-appimage": { "name": "WRL-Forge-1.3.0-beta.2-linux-x64.AppImage", "bytes": 134154440, "sha256": "26c58a83a634c910a575a1f6287cc510b29445e89a23f486355dc5222e3b5b67", "verify": "launch+zero-survivors" },
+    "linux-targz": { "name": "WRL-Forge-1.3.0-beta.2-linux-x64.tar.gz", "bytes": 127284232, "sha256": "68ca2d3b679b5f079ef4c5140c43f46fe5bccdb37d26d292fb66531dfd5eaff8", "verify": "runnable-dir" },
+    "win-nsis": { "name": "WRL-Forge-Setup-1.3.0-beta.2-x64.exe", "bytes": 109791533, "sha256": "286c94c57183c6a197108722294e78b9d1a5ac1b6780c6d7eddf73951c3b27f4", "verify": "install+v1.3.0-beta.2+uninstall-clean" },
+    "win-msi": { "name": "WRL-Forge-1.3.0-beta.2-x64.msi", "bytes": 126255104, "sha256": "29f59abfc4b6effd44cee8983409975dd6b18ac757fd3b5a16be12f44a507bd7", "verify": "install+v1.3.0.0+uninstall-clean" },
+    "win-portable": { "name": "WRL-Forge-Portable-1.3.0-beta.2-x64.exe", "bytes": 109572720, "sha256": "dce1fd99ab6a1fc5ff309bee1da500d0fe89c773d43320ea8505199aa014f4f0", "verify": "documented-stdout-handshake-limitation" },
+    "win-zip": { "name": "WRL-Forge-1.3.0-beta.2-windows-x64.zip", "bytes": 161843941, "sha256": "38599dadc68206cc140065161291c2c50169c06931086c214c1a491bb6844c9d", "verify": "extract-runnable-app" }
+  },
+  "checksumsVerified": true,
+  "docs": { "relativeLinks": "51/51 ok", "yaml": "valid", "wordingSweep": "clean" },
+  "github": { "issues": true, "discussions": true, "wiki": false, "labels": 21, "topics": 11 },
+  "verdict": "GO"
+}
