@@ -138,7 +138,7 @@ To report a security vulnerability, please use GitHub's private vulnerability re
 WRL Forge is inspired by the builders, coders, and community members who made Cybertown a memorable creative place. With thanks to:
 
 - Morning.star
-- scott99 (whose name is Mark)
+- scott99 (whose name is Matt)
 - LSS
 - Wovencroft
 - GeordieJohn
