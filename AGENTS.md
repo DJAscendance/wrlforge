@@ -29,6 +29,7 @@ Prefer open-source components; the current stack is:
 - **VSCodium** — **optional** external editor (not bundled; the user's existing installation, with the `create3000.x-ite-vscode` / `create3000.x3d-vscode-syntax-highlighting` extensions). Optional, not required — a native editor is now built (Phase 7B).
 - **X_ITE** (MIT) — the approved VRML/X3D rendering and preview engine, both for VSCodium's live-preview extension today and for the embedded-preview direction below. See `spikes/xite-mall-fit/` for the Phase 2A technical spike and `spikes/xite-mall-fit/NOTES.md` for what was verified about its API.
 - **Node.js built-ins** — `zlib`, `fs`, `path`, `child_process`, `node:test` — preferred over adding a dependency where they suffice (e.g. no external test framework; see `package.json`'s `test`/`check` scripts).
+- **@resvg/resvg-js** (MPL-2.0, **devDependency**, Phase 7C5.1) — SVG→PNG rasterizer used **only** by `scripts/build-icons.js` to turn the four approved `assets/wrl-forge-*.svg` sources into the committed platform icon assets under `assets/generated/icons/`. Build/tooling-only: it is never `require`d by `main.js`/`preload.js`/`renderer` and adds nothing to the runtime, which stays `x_ite`-only. The multi-resolution `.ico` container is assembled in pure Node (no ICO/image-encoding dependency). See `docs/ICONS.md`.
 
 Do not build a custom VRML/X3D renderer under any circumstances — X_ITE is the approved engine for that.
 

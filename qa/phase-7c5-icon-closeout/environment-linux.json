@@ -1,0 +1,10 @@
+{
+  "platform": "linux",
+  "arch": "x64",
+  "node": "v20.20.2",
+  "npm": "11.17.0",
+  "electron": "41.7.1",
+  "electronBuilder": "26.15.3",
+  "resvg": "2.6.2",
+  "commitBase": "c95b5a5"
+}

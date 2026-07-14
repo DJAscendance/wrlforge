@@ -638,6 +638,20 @@ immediately-ended `process.stdin`, so the capture server reads jobs from
 `WRL_FORGE_CAPTURE_JOBS_FILE` there (`qa/visual-qa/transport.js`); the POSIX stdin
 path is unchanged.
 
+**7C5.1 — App-icon integration + QA-record closeout ✅ complete.** Scoped closeout,
+not a new product phase. The four owner-approved `assets/wrl-forge-*.svg` sources are
+integrated; `npm run build:icons` (`scripts/build-icons.js`, `@resvg/resvg-js`
+devDependency + pure-Node ICO assembler) deterministically produces the committed
+platform icons under `assets/generated/icons/`. **Cyan opaque** is the single
+executable identity (window/exe/installer/shortcut/taskbar); all four variants ship
+in the install (`resources/icons/`) so a user can repoint a shortcut via Windows
+**Change Icon**, and `WRL_FORGE_ICON` selects a build's identity. The retired
+placeholder (`assets/icon.ico`/`_make-icon.js`) is removed. The independent
+`qa/phase-7c-windows/gemini-qa-report-7c5.md` was corrected against real evidence
+(Linux 567/567 across 55 test files, not "224/224"; evidence-based cleanup wording;
+registry-confirmed `DisplayVersion`). See `docs/ICONS.md` and
+`qa/phase-7c5-icon-closeout/`.
+
 ### Phase 7D — Beta Polish
 Keyboard accessibility, performance on large worlds, crash recovery, session
 restoration, Windows + Linux verification (through the sanctioned VisualQaRunner —

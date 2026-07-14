@@ -142,3 +142,30 @@ test('opening a file does not passively surface an "editor not found" message', 
   const applyState = rjs.slice(rjs.indexOf('function applyState'), rjs.indexOf('function startPolling'));
   assert.doesNotMatch(applyState, /showEditorStatus\(data\.editorStatus\)/);
 });
+
+test('the app icon identity is cyan WRL Forge branding, generated from an approved SVG', () => {
+  // Phase 7C5.1: the four owner-approved SVGs are the ONLY source artwork, and
+  // cyan opaque is the single executable identity. Yellow is an approved alternate
+  // but must never silently become the primary icon, and no build config may point
+  // back at the retired placeholder (assets/icon.ico) or a hand-authored binary.
+  const build = JSON.parse(read('package.json')).build;
+  assert.equal(build.win.icon, 'assets/generated/icons/windows/wrl-forge-cyan.ico');
+  assert.doesNotMatch(build.win.icon, /yellow/i, 'yellow must not be the executable identity');
+  assert.doesNotMatch(build.win.icon, /assets\/icon\.ico/, 'the retired placeholder icon must not be referenced');
+  for (const name of ['wrl-forge-cyan.svg', 'wrl-forge-cyan-transparent.svg', 'wrl-forge-yellow.svg', 'wrl-forge-yellow-transparent.svg']) {
+    assert.ok(fs.existsSync(path.join(ROOT, 'assets', name)), `approved source artwork ${name} must be present`);
+  }
+});
+
+test('no release binaries or installers are committed anywhere in the repo', () => {
+  // QA-evidence guard: .exe / installer / unpacked-app artifacts must never be
+  // committed (release/ is git-ignored; evidence dirs hold only text + screenshots).
+  const tracked = require('child_process')
+    .execSync('git ls-files', { cwd: ROOT, encoding: 'utf8' })
+    .split('\n').filter(Boolean);
+  const banned = tracked.filter((f) => /\.(exe|msi|dll|node|appx|dmg|blockmap)$/i.test(f)
+    || /-setup\.exe$|-portable\.exe$/i.test(f)
+    || /(^|\/)win-unpacked\//i.test(f)
+    || /(^|\/)release\//i.test(f));
+  assert.deepEqual(banned, [], `release binaries must not be committed: ${banned.join(', ')}`);
+});

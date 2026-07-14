@@ -183,8 +183,10 @@ installer). Targets: a single-file **portable** `.exe` and an **NSIS installer**
 (per-user, user-choosable install dir, Start-menu/desktop shortcuts). Config lives
 in `package.json` `build`; `electron` moved to `devDependencies` (it is the build
 runtime, not an app npm dependency), leaving `x_ite` as the only runtime
-`dependency`. The app icon is a **neutral placeholder** (`assets/icon.ico`, not
-final branding). Artifacts are labelled **Private Test Build — Unsigned** and land
+`dependency`. The app icon is the approved **WRL Forge cyan** branding
+(`assets/generated/icons/windows/wrl-forge-cyan.ico`, generated from
+`assets/wrl-forge-cyan.svg` by `npm run build:icons`; see `docs/ICONS.md`).
+Artifacts are labelled **Private Test Build — Unsigned** and land
 in `release/` (git-ignored). See `docs/BUILD.md`.
 
 **Unsigned warning.** No Authenticode certificate is applied, so Windows

@@ -230,6 +230,11 @@ function createWindow() {
     y: state.y,
     width: state.width,
     height: state.height,
+    // Cyan opaque is the primary WRL Forge identity (assets/wrl-forge-cyan.svg,
+    // rasterized deterministically by `npm run build:icons`). Sets the Linux
+    // window icon and the Windows dev-mode window/taskbar icon; packaged Windows
+    // builds embed the .ico via electron-builder (build.win.icon).
+    icon: path.join(__dirname, 'assets', 'generated', 'icons', 'runtime', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

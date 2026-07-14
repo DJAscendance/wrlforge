@@ -26,10 +26,21 @@ npm run check      # npm test + node --check syntax gate over all source
 
 ## Icon
 
-The app icon is a **neutral placeholder** (not final branding):
-`assets/icon.ico` (256×256), reproducible via `npm run make-icon`
-(`assets/_make-icon.js`). Replace it with approved branding art before any public
-build.
+The app icon is the approved **WRL Forge cyan** branding, rasterized
+deterministically from `assets/wrl-forge-cyan.svg`:
+
+```bash
+npm run build:icons   # SVG -> assets/generated/icons/{windows,linux,runtime}
+```
+
+Cyan opaque is the single executable identity. All four approved variants
+(`wrl-forge-{cyan,cyan-transparent,yellow,yellow-transparent}.svg`) are also
+rasterized to multi-resolution `.ico` files and shipped inside the installed app
+(`resources/icons/`), so a user can repoint their own shortcut to any of them via
+Windows' **Change Icon** dialog. A build may start from a different variant with
+`WRL_FORGE_ICON=cyan|cyan-transparent|yellow|yellow-transparent`. The four source
+SVGs must never be modified; only owner-approved artwork may replace them. Full
+detail — sizes, determinism, regeneration, verification — is in **`docs/ICONS.md`**.
 
 ## Windows beta build (unsigned)
 
@@ -77,8 +88,10 @@ electron-builder bundles `main.js`, `preload.js`, `validator.js`, `src/**`, and
 dependency. This includes the native editor: `renderer/editor.html`/`editor.js`,
 the generated CodeMirror bundle `renderer/vendor/wrl-editor.bundle.js`, and every
 `src/editor/*` module. Tests, QA harnesses, fixtures, docs, and the generators
-(`*.test.js`, `_generate.js`, `_make-icon.js`) are excluded (see the `build.files`
-globs in `package.json`).
+(`*.test.js`, `_generate.js`) are excluded (see the `build.files` globs in
+`package.json`). The runtime window-icon PNGs (`assets/generated/icons/runtime/`)
+are included; the Windows `.ico` files are wired via `build.win.icon` and
+`build.extraResources` rather than the app `files` globs.
 
 **Native-editor bundle:** `npm run build:win` runs `npm run build:editor` first
 (esbuild → `renderer/vendor/wrl-editor.bundle.js`), so the bundle is always fresh

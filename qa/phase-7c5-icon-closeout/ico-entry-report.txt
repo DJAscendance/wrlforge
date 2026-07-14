@@ -1,0 +1,4 @@
+wrl-forge-cyan-transparent.ico: 7 entries: 16(16x16) 24(24x24) 32(32x32) 48(48x48) 64(64x64) 128(128x128) 256(256x256)
+wrl-forge-cyan.ico: 7 entries: 16(16x16) 24(24x24) 32(32x32) 48(48x48) 64(64x64) 128(128x128) 256(256x256)
+wrl-forge-yellow-transparent.ico: 7 entries: 16(16x16) 24(24x24) 32(32x32) 48(48x48) 64(64x64) 128(128x128) 256(256x256)
+wrl-forge-yellow.ico: 7 entries: 16(16x16) 24(24x24) 32(32x32) 48(48x48) 64(64x64) 128(128x128) 256(256x256)

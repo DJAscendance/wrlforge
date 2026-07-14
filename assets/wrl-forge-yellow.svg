@@ -1,0 +1,71 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+  <!-- flat banded violet background, no smooth gradients -->
+  <rect width="512" height="512" fill="#0a0618"/>
+  <rect x="30" y="30" width="452" height="452" fill="#150c2c"/>
+  <rect x="60" y="60" width="392" height="392" fill="#1c1238"/>
+
+  <!-- ground shadow: hard flat silhouette, no blur -->
+  <g transform="translate(10,12)" stroke-linejoin="miter" stroke-linecap="square" fill="none" stroke="#050309">
+    <polyline points="70,160 105,360 150,250 195,360 230,160" stroke-width="40"/>
+    <polyline points="255,160 255,360" stroke-width="40"/>
+    <polyline points="255,160 315,160 325,195 255,205" stroke-width="34"/>
+    <polyline points="272,205 335,360" stroke-width="36"/>
+    <polyline points="365,160 365,360 440,360" stroke-width="40"/>
+  </g>
+
+  <!-- extrusion base (shadow face, offset down-right) -->
+  <g transform="translate(9,9)" stroke-linejoin="miter" stroke-linecap="square" fill="none" stroke="#6b330d">
+    <polyline points="70,160 105,360 150,250 195,360 230,160" stroke-width="38"/>
+    <polyline points="255,160 255,360" stroke-width="38"/>
+    <polyline points="255,160 315,160 325,195 255,205" stroke-width="32"/>
+    <polyline points="272,205 335,360" stroke-width="34"/>
+    <polyline points="365,160 365,360 440,360" stroke-width="38"/>
+  </g>
+
+  <!-- main face (mid amber, no offset) -->
+  <g stroke-linejoin="miter" stroke-linecap="square" fill="none" stroke="#e8862a">
+    <polyline points="70,160 105,360 150,250 195,360 230,160" stroke-width="38"/>
+    <polyline points="255,160 255,360" stroke-width="38"/>
+    <polyline points="255,160 315,160 325,195 255,205" stroke-width="32"/>
+    <polyline points="272,205 335,360" stroke-width="34"/>
+    <polyline points="365,160 365,360 440,360" stroke-width="38"/>
+  </g>
+
+  <!-- top bevel (highlight face, offset up-left) -->
+  <g transform="translate(-7,-8)" stroke-linejoin="miter" stroke-linecap="square" fill="none" stroke="#ffb23c">
+    <polyline points="70,160 105,360 150,250 195,360 230,160" stroke-width="38"/>
+    <polyline points="255,160 255,360" stroke-width="38"/>
+    <polyline points="255,160 315,160 325,195 255,205" stroke-width="32"/>
+    <polyline points="272,205 335,360" stroke-width="34"/>
+    <polyline points="365,160 365,360 440,360" stroke-width="38"/>
+  </g>
+
+  <!-- hard specular bevel edge, thin bright line, same offset as top face -->
+  <g transform="translate(-7,-8)" stroke-linejoin="miter" stroke-linecap="square" fill="none" stroke="#fff3d9" stroke-width="4" opacity="0.9">
+    <polyline points="70,160 105,360 150,250 195,360 230,160"/>
+    <polyline points="255,160 255,360"/>
+    <polyline points="255,160 315,160 325,195 255,205"/>
+    <polyline points="272,205 335,360"/>
+    <polyline points="365,160 365,360 440,360"/>
+  </g>
+
+  <!-- cyan VRML vertex nodes at structural joints -->
+  <g fill="#4dfaff" stroke="#050309" stroke-width="1.5">
+    <polygon points="70,168 78,176 70,184 62,176"/>
+    <polygon points="230,168 238,176 230,184 222,176"/>
+    <polygon points="150,258 158,266 150,274 142,266"/>
+    <polygon points="255,168 263,176 255,184 247,176"/>
+    <polygon points="365,168 373,176 365,184 357,176"/>
+  </g>
+  <g fill="#eafeff">
+    <circle cx="70" cy="168" r="2.2"/>
+    <circle cx="230" cy="168" r="2.2"/>
+    <circle cx="150" cy="258" r="2.2"/>
+    <circle cx="255" cy="168" r="2.2"/>
+    <circle cx="365" cy="168" r="2.2"/>
+  </g>
+
+  <!-- small tight caption -->
+  <text x="430" y="440" font-family="Roboto, Arial, Helvetica, sans-serif" font-weight="700"
+        font-size="24" letter-spacing="6" fill="#4dfaff" stroke="#000000" stroke-width="1" text-anchor="end">FORGE</text>
+</svg>

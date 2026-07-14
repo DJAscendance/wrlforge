@@ -19,14 +19,33 @@
 //   node scripts/build-win.js --win portable
 
 const { spawnSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
+const icons = require('./build-icons.js');
 
 const passthrough = process.argv.slice(2);
 const env = { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'false' };
 const binName = process.platform === 'win32' ? 'electron-builder.cmd' : 'electron-builder';
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', binName);
 
-const res = spawnSync(bin, [...passthrough, '--publish', 'never'], {
+// Icons must exist before packaging. Regenerate deterministically if the
+// generated tree is missing (e.g. a fresh checkout) so a build never packages
+// with a stale or absent icon. Committed output makes this a no-op in practice.
+const primaryDefault = path.join(__dirname, '..', 'assets', 'generated', 'icons', 'windows', icons.icoName(icons.PRIMARY_VARIANT));
+if (!fs.existsSync(primaryDefault)) {
+  console.log('build-win: generated icons missing -> running build:icons');
+  icons.generate();
+}
+
+// WRL_FORGE_ICON selects which approved variant becomes THIS build's executable
+// identity (cyan | cyan-transparent | yellow | yellow-transparent). Default is
+// cyan opaque. All four variants ship inside the app regardless, so users can
+// repoint their own shortcut afterwards. Unknown values fall back to cyan.
+const sel = icons.resolvePrimaryIcon(process.env.WRL_FORGE_ICON);
+const iconOverride = sel.isDefault ? [] : [`--config.win.icon=${sel.relPath}`];
+if (!sel.isDefault) console.log(`build-win: WRL_FORGE_ICON=${sel.variant} -> exe icon ${sel.relPath}`);
+
+const res = spawnSync(bin, [...passthrough, ...iconOverride, '--publish', 'never'], {
   stdio: 'inherit',
   env,
   cwd: path.join(__dirname, '..'),

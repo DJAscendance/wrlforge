@@ -1,0 +1,110 @@
+{
+  "generator": "scripts/build-icons.js",
+  "rasterizer": "@resvg/resvg-js@2.6.2",
+  "note": "System fonts disabled for cross-machine determinism; the SVG \"FORGE\" caption is intentionally not rasterized.",
+  "primaryVariant": "cyan",
+  "primaryIcon": "assets/generated/icons/windows/wrl-forge-cyan.ico",
+  "choosableVariants": [
+    "cyan",
+    "cyan-transparent",
+    "yellow",
+    "yellow-transparent"
+  ],
+  "icoSizes": [
+    16,
+    24,
+    32,
+    48,
+    64,
+    128,
+    256
+  ],
+  "pngSizes": [
+    16,
+    24,
+    32,
+    48,
+    64,
+    128,
+    256,
+    512
+  ],
+  "sourceHashes": {
+    "wrl-forge-cyan.svg": "f9b9063d27ce32cff7b7d76dbdfc8ea5b514342e21884b82e9721abdcf843e99",
+    "wrl-forge-cyan-transparent.svg": "5a0e2094d53d7edefd210b21ae98732b1f385b23da54a0dc073f90e19e7657b1",
+    "wrl-forge-yellow.svg": "4da6f88a48563e58c1b53bf2d6ac24d25f46344fbf4652a38d3d4291b94a505c",
+    "wrl-forge-yellow-transparent.svg": "7ac1b165ce5bede52faa315bbf1a011056ad4234055d79871f1e722e32d04255"
+  },
+  "outputs": [
+    {
+      "file": "assets/generated/icons/linux/128x128.png",
+      "bytes": 2574,
+      "sha256": "2e8fc807ce3fbfb7799706f3ddbcbd6c479a45a1e78c5d559bf6a12907948d9a"
+    },
+    {
+      "file": "assets/generated/icons/linux/16x16.png",
+      "bytes": 327,
+      "sha256": "0ad76b0ec3bea82eda86a1baaca1c213361547e4ae295cab01e530b71648e68e"
+    },
+    {
+      "file": "assets/generated/icons/linux/24x24.png",
+      "bytes": 405,
+      "sha256": "2309bb56e6e51ec5b0b112516031005e5a0b0595f82d84c31d500179d75c064a"
+    },
+    {
+      "file": "assets/generated/icons/linux/256x256.png",
+      "bytes": 6665,
+      "sha256": "7a11a19db3c6eebb086868f7721a291fa6d39e626ae25529ef6757e0415fd9eb"
+    },
+    {
+      "file": "assets/generated/icons/linux/32x32.png",
+      "bytes": 532,
+      "sha256": "6a5afa725db1081f3a330df3ae6f0bbee1770515634fced598c252db633d2bba"
+    },
+    {
+      "file": "assets/generated/icons/linux/48x48.png",
+      "bytes": 792,
+      "sha256": "9ddd5f0c0df4bfaad6253b0b1242d0094fa1c6b18395ef2538ad013f45672a2e"
+    },
+    {
+      "file": "assets/generated/icons/linux/512x512.png",
+      "bytes": 16969,
+      "sha256": "88cf260d8b783116736b4a979c70044399ba636ebb1b4a83b0d4909708b4c717"
+    },
+    {
+      "file": "assets/generated/icons/linux/64x64.png",
+      "bytes": 1084,
+      "sha256": "205ae2a8b1a4f0281f4970e5b9265c49ca22ada02f7022eb67e6f077f2511fe5"
+    },
+    {
+      "file": "assets/generated/icons/runtime/about-logo.png",
+      "bytes": 6861,
+      "sha256": "4ce3c2e45494af709c13ad6220aec1773cb10882e4e0dad945a92a77356a1a72"
+    },
+    {
+      "file": "assets/generated/icons/runtime/icon.png",
+      "bytes": 6665,
+      "sha256": "7a11a19db3c6eebb086868f7721a291fa6d39e626ae25529ef6757e0415fd9eb"
+    },
+    {
+      "file": "assets/generated/icons/windows/wrl-forge-cyan-transparent.ico",
+      "bytes": 12656,
+      "sha256": "a12b19deae38ed6582e167299e89b59d1d51e000ee3ac5332460485cf1d32e4b"
+    },
+    {
+      "file": "assets/generated/icons/windows/wrl-forge-cyan.ico",
+      "bytes": 12497,
+      "sha256": "35b1abde3f72ecf3d3063e82433e0206a9c1ee7a4bef3d15dfa5df4703186947"
+    },
+    {
+      "file": "assets/generated/icons/windows/wrl-forge-yellow-transparent.ico",
+      "bytes": 12815,
+      "sha256": "4653500c14a83c301e5dbdb3c9689f2f2748e93ce9a872994618ea4d069a932b"
+    },
+    {
+      "file": "assets/generated/icons/windows/wrl-forge-yellow.ico",
+      "bytes": 12638,
+      "sha256": "a9ba44005cb9da205141f0c93fefbb1a99966b6059e89192ed8c1257eb9b01e9"
+    }
+  ]
+}
