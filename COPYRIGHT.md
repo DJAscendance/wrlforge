@@ -2,34 +2,29 @@
 
 **WRL Forge**
 
-`Copyright © 2026 Ryan Bundy. All rights reserved.`
+`Copyright © 2026 Ryan Bundy (BassMekanik2000).`
 
-## Source-available, not open source
+## Open source (MIT)
 
-The WRL Forge source code is **publicly viewable** — it is made **source-available for
-inspection** so that users and the community can read, audit, and understand how the
-software works. WRL Forge is **not open source**, and being able to view the source does
-**not** grant any license to use the code beyond reading it.
+WRL Forge is **open source**, licensed under the **MIT License** — see
+[`LICENSE`](LICENSE) for the full text. You are free to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the software, subject to the
+one condition below.
 
-## No rights granted
+## The one condition: keep the copyright notice
 
-**No permission is granted** to any person to copy, modify, adapt, translate, redistribute,
-publish, sublicense, sell, host, or incorporate WRL Forge (in whole or in part, in source or
-compiled form) into any other work or product, except where such permission is **separately
-authorized in writing by Ryan Bundy**.
+The MIT copyright notice above and the permission notice in [`LICENSE`](LICENSE) must
+be included in all copies or substantial portions of the software. In other words, the
+code is yours to use — just keep Ryan Bundy's (BassMekanik2000) copyright line intact.
 
-All rights not expressly granted in writing are reserved by Ryan Bundy.
-
-If you would like to use WRL Forge or any part of it in a way that is not covered above,
-please ask first — open a discussion or contact the owner through the project's GitHub
-repository at <https://github.com/DJAscendance/wrlforge>.
+The software is provided "as is", without warranty of any kind; see [`LICENSE`](LICENSE).
 
 ## Third-party components
 
 WRL Forge bundles and builds upon third-party components. Those components remain the
-property of their respective authors and are governed by **their own licenses**, not by this
-notice. Nothing here restricts your rights under those third-party licenses, and nothing in
-those licenses grants you rights to the WRL Forge code covered above.
+property of their respective authors and are governed by **their own licenses**. The
+MIT license above applies to WRL Forge's own code; it does not override or relicense
+the third-party components.
 
 See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for the third-party attributions and
 license texts.

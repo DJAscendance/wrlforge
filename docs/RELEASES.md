@@ -15,9 +15,9 @@ All releases are published on GitHub:
   the beta). SmartScreen/Defender may warn on first launch — this is expected.
 - **x64 only.** Linux x64 and Windows x64. No ARM64, no macOS, no
   Snap/Flatpak/Store package.
-- **Source available, not open source.** The source is publicly viewable for
-  inspection; the project is **all rights reserved** (`package.json` license =
-  `UNLICENSED`). Third-party components keep their own licenses.
+- **Open source (MIT).** The project is MIT-licensed (`package.json` license =
+  `MIT`) — use it freely, just keep the copyright notice. Third-party components
+  keep their own licenses.
 
 ---
 
