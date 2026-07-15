@@ -7,20 +7,16 @@ Please read this first, because WRL Forge is not a typical open-source project.
 
 ## Important: licensing posture
 
-WRL Forge is **source-available for inspection**, but it is **all rights reserved** — see
-[`COPYRIGHT.md`](COPYRIGHT.md) and [`LICENSE`](LICENSE). The source is **publicly viewable**
-so the community can read and audit it, but **no license is granted** to copy, modify,
-redistribute, or reuse the code.
+WRL Forge is **open source under the MIT License** — see [`LICENSE`](LICENSE) and
+[`COPYRIGHT.md`](COPYRIGHT.md). You are free to fork, use, modify, and redistribute the
+code; the only condition is keeping the copyright notice intact.
 
-Because of this:
+A few notes on contributions:
 
-- This is **not** an invitation to freely fork, reuse, or redistribute WRL Forge's code.
-- There is **no Contributor License Agreement (CLA)** and **no transfer of rights** implied or
-  requested here. Please **do not** submit large or substantial code changes as a surprise
-  pull request expecting them to be merged.
-- If you have an idea for a substantial code change, **discuss it first** (see below) so we
-  can talk through scope, design, and how any such change would be handled — **before** you
-  write it.
+- By submitting a contribution you agree it is licensed to the project under the same
+  **MIT License**. There is no separate Contributor License Agreement (CLA).
+- For anything large or substantial, **discuss it first** (see below) so we can talk
+  through scope and design before you invest the time — this is courtesy, not a barrier.
 
 ## Ways to contribute that are always welcome
 

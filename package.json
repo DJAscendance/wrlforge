@@ -43,8 +43,8 @@
     "cybertown",
     "digital-preservation"
   ],
-  "author": "Ryan Bundy",
-  "license": "UNLICENSED",
+  "author": "Ryan Bundy (BassMekanik2000)",
+  "license": "MIT",
   "private": true,
   "type": "commonjs",
   "dependencies": {
@@ -66,7 +66,7 @@
   "build": {
     "appId": "com.wrlforge.app",
     "productName": "WRL Forge",
-    "copyright": "Copyright © 2026 Ryan Bundy. All rights reserved.",
+    "copyright": "Copyright © 2026 Ryan Bundy (BassMekanik2000)",
     "artifactName": "WRL-Forge-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release",

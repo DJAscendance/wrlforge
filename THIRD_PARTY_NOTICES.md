@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-WRL Forge (`Copyright © 2026 Ryan Bundy. All rights reserved.`) bundles and builds upon
+WRL Forge (`Copyright © 2026 Ryan Bundy (BassMekanik2000)`, MIT-licensed) bundles and builds upon
 third-party components. **WRL Forge does not own these components.** They remain the property
 of their respective authors and are governed by their own licenses, reproduced or referenced
 below. Nothing in this file grants any rights to the WRL Forge code itself — see

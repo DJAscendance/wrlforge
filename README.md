@@ -148,6 +148,6 @@ Naming these people reflects gratitude and inspiration only. It implies **no end
 
 ## Copyright
 
-`Copyright © 2026 Ryan Bundy. All rights reserved.`
+`Copyright © 2026 Ryan Bundy (BassMekanik2000).`
 
-WRL Forge is source-available for inspection but is **not** licensed as open source (`package.json` license: `UNLICENSED`). Third-party components retain their own licenses. See [COPYRIGHT.md](COPYRIGHT.md) for details.
+WRL Forge is **open source** under the **MIT License** — use it freely, just keep the copyright notice ([`LICENSE`](LICENSE)). Third-party components retain their own licenses. See [COPYRIGHT.md](COPYRIGHT.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for details.
