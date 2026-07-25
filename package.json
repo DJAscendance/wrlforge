@@ -13,6 +13,7 @@
   },
   "scripts": {
     "start": "electron .",
+    "install:desktop": "bash scripts/install-linux-shortcut.sh",
     "build:editor": "esbuild src/editor/browser/editor-view.js --bundle --format=iife --target=chrome122 --legal-comments=none --outfile=renderer/vendor/wrl-editor.bundle.js",
     "prestart": "npm run build:editor",
     "test": "node scripts/run-tests.js",
@@ -66,6 +67,18 @@
   "build": {
     "appId": "com.wrlforge.app",
     "productName": "WRL Forge",
+    "fileAssociations": [
+      {
+        "ext": [
+          "wrl",
+          "wrz"
+        ],
+        "name": "VRML97 file",
+        "description": "VRML97 scene or Cybertown item",
+        "mimeType": "model/vrml",
+        "role": "Editor"
+      }
+    ],
     "copyright": "Copyright © 2026 Ryan Bundy (BassMekanik2000)",
     "artifactName": "WRL-Forge-${version}-${os}-${arch}.${ext}",
     "directories": {
@@ -89,6 +102,16 @@
         "filter": [
           "*.ico"
         ]
+      }
+    ],
+    "extraFiles": [
+      {
+        "from": "scripts/install-linux-shortcut.sh",
+        "to": "install-linux-shortcut.sh"
+      },
+      {
+        "from": "assets/wrl-forge-cyan.svg",
+        "to": "wrl-forge.svg"
       }
     ],
     "extraMetadata": {

@@ -132,7 +132,15 @@ a simulated case-insensitive fs).
 
 ## Desktop launcher vs. Windows shortcut
 
-`wrl-forge.desktop` is a Linux/XDG desktop-entry file (`Exec=`/`Path=` pointing at `launch.sh`), installed both in-repo and to `~/.local/share/applications/`. This mechanism doesn't exist on Windows — the equivalent is a Start-Menu/desktop shortcut (`.lnk`), which the **Phase 6A NSIS installer** creates for the user (the portable build needs none). The Linux `.desktop` launcher is unchanged.
+`wrl-forge.desktop` is the path-neutral Linux/XDG desktop-entry definition used
+by packaged integration. Source checkouts use `npm run install:desktop`; the
+installer derives the checkout path, writes a per-user entry under
+`$XDG_DATA_HOME/applications` (or `~/.local/share/applications`), copies the
+approved cyan SVG into the per-user hicolor icon tree, and registers WRL/WRZ as
+an **Open With** choice without changing the current default application. The
+same helper ships beside the executable in Linux tar/unpacked builds. This
+mechanism doesn't exist on Windows — the equivalent is a Start-Menu/desktop
+shortcut (`.lnk`), which the NSIS installer creates for the user.
 
 ## Electron `userData` locations
 

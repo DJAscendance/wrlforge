@@ -87,20 +87,21 @@ not to use an AppImage.
    the directory intact — run the binary from within it, don't move the binary
    out on its own.)
 
-**Optional desktop shortcut.** If you want a menu entry, create an XDG desktop
-entry that points at the extracted executable, for example
-`~/.local/share/applications/wrl-forge.desktop`:
+**Optional desktop integration.** The extracted directory includes a helper that
+installs a per-user application-menu entry, the approved cyan SVG icon, and the
+`.wrl` / `.wrz` **Open With WRL Forge** association:
 
-```ini
-[Desktop Entry]
-Type=Application
-Name=WRL Forge
-Exec=/home/user/Projects/wrlforge/wrl-forge
-Icon=/home/user/Projects/wrlforge/resources/icon.png
-Categories=Graphics;Development;
+```bash
+cd wrl-forge-*/
+./install-linux-shortcut.sh
 ```
 
-Adjust the paths to wherever you extracted the tarball.
+The helper discovers the extracted location automatically, supports paths with
+spaces and other shell-sensitive characters, backs up a customized existing
+entry before replacing it, and does not change your default VRML application.
+Files opened this way enter the Mall Item lane; use the World Project workspace
+for a world and its dependency folder. If you move the extracted application
+directory later, rerun the helper from its new location.
 
 **Updating.** Extract the new tarball and replace the old application directory
 with it (delete the previous directory, or extract alongside and repoint your
