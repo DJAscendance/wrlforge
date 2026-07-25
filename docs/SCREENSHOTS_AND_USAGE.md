@@ -2,7 +2,7 @@
 
 A screenshot-guided tour of everyday tasks in WRL Forge, the Linux-first, Windows-supported desktop tool for classic VRML97 `.wrl` content. Follow along with your own copy and compare against the pictured states.
 
-> These screenshots reflect the current **1.3.0-beta.2** (first public beta) views. WRL Forge is a beta, unsigned prerelease; exact pixels may shift slightly between builds. It is an independent community project and is **not affiliated with, endorsed by, or officially connected to Cybertown** or its current/former operators.
+> These screenshots reflect the current **1.3.0-beta.3** public beta. WRL Forge is a beta, unsigned prerelease; exact pixels may shift slightly between builds. It is an independent community project and is **not affiliated with, endorsed by, or officially connected to Cybertown** or its current/former operators.
 
 New here? See [INSTALLATION.md](INSTALLATION.md) to get the app, and [TROUBLESHOOTING.md](TROUBLESHOOTING.md) if something looks off. For the project overview, see the [README](../README.md).
 

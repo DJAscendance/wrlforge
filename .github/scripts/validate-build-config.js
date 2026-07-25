@@ -11,9 +11,10 @@ const problems = [];
 const req = (cond, msg) => { if (!cond) problems.push(msg); };
 
 // --- top-level metadata ---
-req(pkg.version === '1.3.0-beta.2', `version must be 1.3.0-beta.2 (got ${pkg.version})`);
+req(pkg.version === '1.3.0-beta.3', `version must be 1.3.0-beta.3 (got ${pkg.version})`);
 req(pkg.author === 'Ryan Bundy (BassMekanik2000)', `author must be "Ryan Bundy (BassMekanik2000)" (got ${JSON.stringify(pkg.author)})`);
 req(pkg.license === 'MIT', `license must be MIT (got ${JSON.stringify(pkg.license)})`);
+req(pkg.homepage === 'https://wrlforge.com', `homepage must be https://wrlforge.com (got ${JSON.stringify(pkg.homepage)})`);
 
 const b = pkg.build || {};
 req(b.copyright === 'Copyright © 2026 Ryan Bundy (BassMekanik2000)', `build.copyright must be the Ryan Bundy (BassMekanik2000) copyright line (got ${JSON.stringify(b.copyright)})`);

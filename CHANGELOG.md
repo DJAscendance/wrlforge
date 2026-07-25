@@ -8,6 +8,39 @@ and this project uses semantic-style version numbers with beta/prerelease tags.
 WRL Forge is in **public beta**: releases are **beta / prerelease** and Windows
 builds are **unsigned by design**. Not a stable/production release.
 
+## [1.3.0-beta.3] - 2026-07-25
+
+A small public-beta maintenance release focused on opening files from the
+desktop and making portable Linux installs feel at home.
+
+### Added
+
+- Linux file-manager integration for `.wrl` and `.wrz` files. WRL Forge now
+  appears as an **Open With** choice and accepts files passed from a desktop
+  shortcut, command line, or an existing running instance.
+- A portable per-user Linux shortcut installer for source checkouts and
+  extracted tarball builds. It installs the approved cyan SVG icon and uses the
+  standard XDG application and icon folders without hardcoded user paths.
+- Packaged file-association metadata for `.wrl` and `.wrz`.
+
+### Fixed
+
+- Desktop startup and later file-open requests now use one serialized path, so
+  overlapping requests cannot leave an older file on screen.
+- File-URL handling and its tests now behave consistently on Linux and Windows.
+- The source launcher forwards command-line file arguments to Electron.
+
+### Notes
+
+- Files opened from the desktop enter the **Mall Item** lane. World Projects
+  remain an explicit workspace because they need a project root and dependency
+  scan.
+- WRL Forge registers itself as an **Open With** option but does not take over as
+  the default VRML application.
+- The project homepage is **https://wrlforge.com**. Download data on the site
+  comes from published GitHub releases.
+- This remains an unsigned, x64-only beta for Linux and Windows.
+
 ## [1.3.0-beta.2] - 2026-07-14
 
 First **public** beta. (The earlier `1.3.0-beta.1` was a private beta.)

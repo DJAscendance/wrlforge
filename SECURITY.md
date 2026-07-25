@@ -7,7 +7,8 @@ issues seriously and appreciate reports that are made responsibly and privately.
 
 | Version | Supported |
 |---|---|
-| `1.3.0-beta.2` (public beta) | ✅ Yes — current public beta |
+| `1.3.0-beta.3` (public beta) | ✅ Yes — current public beta |
+| `1.3.0-beta.2` (public beta) | ❌ No — update to beta.3 |
 | Earlier / private betas | ❌ No |
 
 WRL Forge is prerelease, **beta**, and **unsigned** software. Only the current public beta
@@ -31,7 +32,7 @@ investigated.
 
 To help us reproduce and assess the issue, please include as much of the following as you can:
 
-- The **version** affected (for example, `1.3.0-beta.2`).
+- The **version** affected (for example, `1.3.0-beta.3`).
 - The **download type** you are running (Linux AppImage / tar.gz, or Windows Setup EXE / MSI /
   portable EXE / ZIP).
 - Your **operating system and architecture** (Linux x64 or Windows x64).

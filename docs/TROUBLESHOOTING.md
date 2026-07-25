@@ -1,6 +1,6 @@
 # Troubleshooting WRL Forge
 
-This page covers the issues most likely to come up in the **1.3.0-beta.2**
+This page covers the issues most likely to come up in the **1.3.0-beta.3**
 public beta. Each entry is **symptom → likely cause → what to do**.
 
 If your problem isn't here, or a fix doesn't work, please open an issue and
@@ -146,7 +146,7 @@ Authenticode certificate).
 - Click **More info**, then **Run anyway**.
 - This is expected for an unsigned beta and is not a defect. Code signing would
   not, by itself, remove SmartScreen prompts, and none is claimed for this beta.
-- Verify your download's SHA-256 against `SHA256SUMS-1.3.0-beta.2.txt` for peace
+- Verify your download's SHA-256 against `SHA256SUMS-1.3.0-beta.3.txt` for peace
   of mind (see [INSTALLATION.md](INSTALLATION.md#verifying-your-download)).
 
 ---
@@ -196,7 +196,7 @@ limitation** in the QA capture path.
 When you open an issue at
 **https://github.com/DJAscendance/wrlforge/issues**, please include:
 
-- **WRL Forge version** (e.g. `1.3.0-beta.2`) and which **download** you used
+- **WRL Forge version** (e.g. `1.3.0-beta.3`) and which **download** you used
   (AppImage / tar.gz / Setup EXE / MSI / Portable EXE / ZIP).
 - **OS and version** (e.g. Linux distro + version, or Windows 11 23H2), and
   confirm it's **x64**.

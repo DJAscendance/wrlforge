@@ -21,6 +21,64 @@ All releases are published on GitHub:
 
 ---
 
+## 1.3.0-beta.3 — Desktop Open With Update
+
+**Status: Beta · Prerelease · Unsigned — not a stable release.**
+
+This is a small maintenance update for the public beta. It makes WRL Forge work
+properly when a `.wrl` or `.wrz` is opened from the Linux desktop, a file
+manager, or the command line. It also packages the shortcut installer and cyan
+icon so extracted Linux builds can register themselves without a hardcoded
+install location.
+
+The exact release commit and tag are shown on the GitHub release page:
+**https://github.com/DJAscendance/wrlforge/releases/tag/v1.3.0-beta.3**
+
+### What changed
+
+- WRL Forge can open `.wrl` and `.wrz` arguments at startup and forward a later
+  **Open With** request to the already-running app.
+- Startup, second-instance, and desktop file-open requests are serialized so an
+  older request cannot win a race and replace the file you opened most recently.
+- Linux packages include a path-neutral, per-user shortcut installer. It adds
+  WRL Forge to the application menu, installs the approved cyan SVG icon, and
+  registers VRML files as an **Open With** choice.
+- The source launcher now forwards command-line arguments correctly.
+- File-URL parsing and tests are portable across Linux and Windows.
+- Public package metadata now points to **https://wrlforge.com**.
+
+Files opened from the desktop enter the **Mall Item** lane. World Projects still
+open through their own workspace because WRL Forge needs the project root to
+scan and authorize dependencies. The Linux helper does not force WRL Forge to
+become your default VRML application.
+
+### Downloads
+
+Start at **https://wrlforge.com**, or download directly from the
+[GitHub release](https://github.com/DJAscendance/wrlforge/releases/tag/v1.3.0-beta.3).
+
+**Linux x64**
+
+- `WRL-Forge-1.3.0-beta.3-linux-x64.AppImage` — recommended
+- `WRL-Forge-1.3.0-beta.3-linux-x64.tar.gz` — portable app directory
+
+**Windows x64**
+
+- `WRL-Forge-Setup-1.3.0-beta.3-x64.exe` — recommended
+- `WRL-Forge-1.3.0-beta.3-x64.msi`
+- `WRL-Forge-Portable-1.3.0-beta.3-x64.exe`
+- `WRL-Forge-1.3.0-beta.3-windows-x64.zip`
+
+**Checksums**
+
+- `SHA256SUMS-1.3.0-beta.3.txt`
+
+This release is still **beta, prerelease, unsigned, and x64-only**. Windows may
+show an unknown-publisher warning. There is no auto-update, telemetry, direct
+Cybertown upload, or automatic submission.
+
+---
+
 ## 1.3.0-beta.2 — First Public Beta
 
 **Status: Beta · Prerelease · Unsigned — not a stable release.**

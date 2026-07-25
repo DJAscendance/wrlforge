@@ -2,18 +2,19 @@
 
 WRL Forge is a desktop application for inspecting, editing, and previewing
 classic VRML97 `.wrl` content. This guide covers every download for the
-**1.3.0-beta.2** public beta.
+**1.3.0-beta.3** public beta.
 
-> **Beta / Prerelease / Unsigned.** This is the first public beta. Windows
+> **Beta / Prerelease / Unsigned.** This is still a beta. Windows
 > builds are **not code-signed** (unsigned by design for this beta), so Windows
 > SmartScreen/Defender may warn on first launch — see the Windows sections below.
 > WRL Forge is **x64 only** (Linux x64 and Windows x64). There is no ARM64 build,
 > no macOS build, and no Snap/Flatpak/Store package.
 
-All downloads are on the release page:
-**https://github.com/DJAscendance/wrlforge/releases/latest**
+Recommended downloads are on **https://wrlforge.com**. Every package and its
+checksum are also available from:
+**https://github.com/DJAscendance/wrlforge/releases**
 
-Verify your download against `SHA256SUMS-1.3.0-beta.2.txt` before running it
+Verify your download against `SHA256SUMS-1.3.0-beta.3.txt` before running it
 (see [Verifying your download](#verifying-your-download)).
 
 | Platform | Recommended | Alternative |
@@ -28,18 +29,18 @@ Ordinary users: on Linux download the **AppImage**; on Windows download the
 
 ## Linux — AppImage (recommended)
 
-**File:** `WRL-Forge-1.3.0-beta.2-linux-x64.AppImage`
+**File:** `WRL-Forge-1.3.0-beta.3-linux-x64.AppImage`
 
 An AppImage is a single self-contained file that runs without installation.
 
 1. Download the `.AppImage` file.
 2. Make it executable:
    ```bash
-   chmod +x WRL-Forge-1.3.0-beta.2-linux-x64.AppImage
+   chmod +x WRL-Forge-1.3.0-beta.3-linux-x64.AppImage
    ```
 3. Launch it:
    ```bash
-   ./WRL-Forge-1.3.0-beta.2-linux-x64.AppImage
+   ./WRL-Forge-1.3.0-beta.3-linux-x64.AppImage
    ```
 
 **Desktop integration.** The first time you run the AppImage, your desktop
@@ -57,7 +58,7 @@ options:
   Debian/Ubuntu, `fuse` on Fedora), then run the AppImage again; or
 - Extract and run without FUSE:
   ```bash
-  ./WRL-Forge-1.3.0-beta.2-linux-x64.AppImage --appimage-extract
+  ./WRL-Forge-1.3.0-beta.3-linux-x64.AppImage --appimage-extract
   ./squashfs-root/AppRun
   ```
 
@@ -68,14 +69,14 @@ of the old one. You can delete the previous file.
 
 ## Linux — tar.gz (portable app directory)
 
-**File:** `WRL-Forge-1.3.0-beta.2-linux-x64.tar.gz`
+**File:** `WRL-Forge-1.3.0-beta.3-linux-x64.tar.gz`
 
 This is the unpacked application directory in a tarball — useful if you prefer
 not to use an AppImage.
 
 1. Extract it to a location of your choice:
    ```bash
-   tar -xzf WRL-Forge-1.3.0-beta.2-linux-x64.tar.gz
+   tar -xzf WRL-Forge-1.3.0-beta.3-linux-x64.tar.gz
    ```
    This creates a WRL Forge application directory.
 2. Launch the executable **inside** the extracted directory:
@@ -111,12 +112,12 @@ shortcut).
 
 ## Windows — Setup EXE / NSIS installer (recommended)
 
-**File:** `WRL-Forge-Setup-1.3.0-beta.2-x64.exe`
+**File:** `WRL-Forge-Setup-1.3.0-beta.3-x64.exe`
 
 A standard Windows installer that adds a Start Menu entry and (optionally)
 desktop shortcut.
 
-1. Download and run `WRL-Forge-Setup-1.3.0-beta.2-x64.exe`.
+1. Download and run `WRL-Forge-Setup-1.3.0-beta.3-x64.exe`.
 2. **SmartScreen / unknown publisher.** Because this beta is **unsigned by
    design**, Windows SmartScreen may show *"Windows protected your PC"* with an
    *unknown publisher*. This is expected and not a defect. To continue, click
@@ -136,7 +137,7 @@ shortcuts; your own `.wrl` files and world projects are untouched.
 
 ## Windows — MSI installer
 
-**File:** `WRL-Forge-1.3.0-beta.2-x64.msi`
+**File:** `WRL-Forge-1.3.0-beta.3-x64.msi`
 
 An MSI package for the same app, aimed at managed / enterprise deployment
 (Group Policy, `msiexec`, software-distribution tooling).
@@ -146,11 +147,11 @@ An MSI package for the same app, aimed at managed / enterprise deployment
   — proceed the same way (**More info → Run anyway**).
 - **Silent / scripted install** (elevated command prompt):
   ```bat
-  msiexec /i WRL-Forge-1.3.0-beta.2-x64.msi /qn
+  msiexec /i WRL-Forge-1.3.0-beta.3-x64.msi /qn
   ```
 - **Uninstall:**
   ```bat
-  msiexec /x WRL-Forge-1.3.0-beta.2-x64.msi /qn
+  msiexec /x WRL-Forge-1.3.0-beta.3-x64.msi /qn
   ```
   or via *Settings → Apps → Installed apps*.
 
@@ -164,10 +165,10 @@ MSI exists mainly for administrators who standardize on MSI-based deployment.
 Two portable options — neither runs an installer and neither adds Start Menu
 entries.
 
-- **Portable EXE:** `WRL-Forge-Portable-1.3.0-beta.2-x64.exe` — a single-file
+- **Portable EXE:** `WRL-Forge-Portable-1.3.0-beta.3-x64.exe` — a single-file
   portable app. Download it and run it directly. On first run, SmartScreen may
   warn (unsigned by design) — **More info → Run anyway**.
-- **Portable ZIP:** `WRL-Forge-1.3.0-beta.2-windows-x64.zip` — the unpacked
+- **Portable ZIP:** `WRL-Forge-1.3.0-beta.3-windows-x64.zip` — the unpacked
   application directory. Extract it (right-click → *Extract All*, or your archive
   tool) to a folder such as `C:\Projects\wrlforge`, keep the folder intact, and
   run the WRL Forge executable inside it.
@@ -193,21 +194,21 @@ across them. To reset WRL Forge to defaults, close it and remove that folder.
 ## Verifying your download
 
 Every artifact is listed with its SHA-256 hash in
-`SHA256SUMS-1.3.0-beta.2.txt` on the release page. Verify before running.
+`SHA256SUMS-1.3.0-beta.3.txt` on the release page. Verify before running.
 
 **Linux:**
 ```bash
-sha256sum -c SHA256SUMS-1.3.0-beta.2.txt
+sha256sum -c SHA256SUMS-1.3.0-beta.3.txt
 ```
 Run it from the folder containing both the checksum file and the downloaded
 artifacts; each line should report `OK`.
 
 **Windows (PowerShell):**
 ```powershell
-Get-FileHash .\WRL-Forge-Setup-1.3.0-beta.2-x64.exe -Algorithm SHA256
+Get-FileHash .\WRL-Forge-Setup-1.3.0-beta.3-x64.exe -Algorithm SHA256
 ```
 Compare the printed hash against the matching line in
-`SHA256SUMS-1.3.0-beta.2.txt`.
+`SHA256SUMS-1.3.0-beta.3.txt`.
 
 ---
 
