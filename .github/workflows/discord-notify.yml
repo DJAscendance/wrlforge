@@ -1,11 +1,11 @@
-name: Discord Release Notify
+name: Discord Update Notify
 
-# Posts a message to Discord when a WRL Forge release is published.
+# Posts a message to Discord when WRL Forge is updated on main.
 # Requires a DISCORD_WEBHOOK_URL repository secret.
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
 
 jobs:
   notify:
@@ -13,19 +13,13 @@ jobs:
     steps:
       - name: Send Discord message
         run: |
-          TAG="${{ github.event.release.tag_name }}"
-          NAME="${{ github.event.release.name }}"
-          URL="${{ github.event.release.html_url }}"
-          PRERELEASE="${{ github.event.release.prerelease }}"
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          ACTOR="${{ github.actor }}"
+          COMMIT_MESSAGE=$(printf '%s' "${{ github.event.head_commit.message }}" | head -n 1)
+          URL="${{ github.event.compare }}"
 
-          if [ "$PRERELEASE" = "true" ]; then
-            LABEL="🧪 New Pre-release"
-          else
-            LABEL="🚀 New Release"
-          fi
-
-          PAYLOAD=$(printf '{"embeds":[{"title":"%s: %s","description":"**%s**\\n\\n[View release on GitHub](%s)","color":5793266}]}' \
-            "$LABEL" "$TAG" "$NAME" "$URL")
+          PAYLOAD=$(printf '{"embeds":[{"title":"🛠️ WRL Forge updated on %s","description":"**%s** pushed an update to `%s`.\\n\\n**Latest commit:** %s\\n\\n[View changes on GitHub](%s)","color":5793266}]}' \
+            "$BRANCH" "$ACTOR" "$BRANCH" "$COMMIT_MESSAGE" "$URL")
 
           curl -s -o /dev/null -w "%{http_code}" \
             -H "Content-Type: application/json" \
