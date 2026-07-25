@@ -157,6 +157,27 @@ test('the app icon identity is cyan WRL Forge branding, generated from an approv
   }
 });
 
+test('Linux desktop integration is path-neutral and ships with portable builds', () => {
+  const desktop = read('wrl-forge.desktop');
+  assert.match(desktop, /^Exec=wrl-forge %f$/m);
+  assert.match(desktop, /^Icon=wrl-forge$/m);
+  assert.match(desktop, /^MimeType=model\/vrml;$/m);
+  assert.doesNotMatch(desktop, /\/home\/[^/]+\//, 'the distributable desktop entry must not contain a user path');
+
+  const pkg = JSON.parse(read('package.json'));
+  const association = pkg.build.fileAssociations.find((entry) => entry.mimeType === 'model/vrml');
+  assert.ok(association, 'the packaged app must register the VRML MIME type');
+  assert.deepEqual([...association.ext].sort(), ['wrl', 'wrz']);
+
+  const extras = pkg.build.extraFiles.map((entry) => `${entry.from}:${entry.to}`);
+  assert.ok(extras.includes('scripts/install-linux-shortcut.sh:install-linux-shortcut.sh'));
+  assert.ok(extras.includes('assets/wrl-forge-cyan.svg:wrl-forge.svg'));
+
+  const installer = read('scripts/install-linux-shortcut.sh');
+  assert.doesNotMatch(installer, /\/home\/[^/]+\//, 'the installer must derive paths at runtime');
+  assert.match(installer, /XDG_DATA_HOME/);
+});
+
 test('no release binaries or installers are committed anywhere in the repo', () => {
   // QA-evidence guard: .exe / installer / unpacked-app artifacts must never be
   // committed (release/ is git-ignored; evidence dirs hold only text + screenshots).

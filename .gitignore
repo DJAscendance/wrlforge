@@ -30,6 +30,9 @@ graphify-out/
 # from src/editor/browser/; regenerated on start/build, never committed)
 renderer/vendor/
 
+# Website lives in its own repository; never include it in the app repository.
+/site/
+
 # OS / editor junk
 .DS_Store
 Thumbs.db

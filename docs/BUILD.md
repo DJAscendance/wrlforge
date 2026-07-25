@@ -22,6 +22,7 @@ install/testing instructions are in `docs/BETA_RELEASE_NOTES.md`.
 npm start          # launch the app
 npm test           # non-visual unit tests (no window opens)
 npm run check      # npm test + node --check syntax gate over all source
+npm run install:desktop  # per-user Linux menu/icon + .wrl/.wrz Open With entry
 ```
 
 ## Icon

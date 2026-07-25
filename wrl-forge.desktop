@@ -2,9 +2,10 @@
 Type=Application
 Name=WRL Forge
 Comment=A modern VRML97 creation, inspection, validation, and packaging workbench for Cybertown items and worlds.
-Exec=/home/user/Projects/wrlforge/launch.sh
-Path=/home/user/Projects/wrlforge
-Icon=applications-development
+TryExec=wrl-forge
+Exec=wrl-forge %f
+Icon=wrl-forge
 Terminal=false
-Categories=Development;
+Categories=Graphics;
+MimeType=model/vrml;
 StartupNotify=true

@@ -2,8 +2,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const zlib = require('zlib');
 const { isGzip, editPathFor } = require('../src/files/vrml-file');
+const { findVrmlFileArgument } = require('../src/app/file-open');
+
+function desktopOpenDeps(files) {
+  const known = new Set(files);
+  return {
+    resolve: (value) => known.has(value) || value.startsWith('/') ? value : `/work/${value}`,
+    existsSync: (value) => known.has(value),
+    statSync: (value) => ({ isFile: () => known.has(value) }),
+  };
+}
 
 test('isGzip detects the gzip magic bytes', () => {
   const gz = zlib.gzipSync(Buffer.from('hello', 'utf8'));
@@ -32,4 +43,36 @@ test('editPathFor strips a .wrz extension', () => {
 
 test('editPathFor handles a path with no directory component', () => {
   assert.equal(editPathFor('chair.wrl'), path.join('.', 'chair.edit.wrl'));
+});
+
+test('desktop file-open accepts WRL/WRZ arguments and ignores Electron app argv', () => {
+  assert.equal(
+    findVrmlFileArgument(['/electron', '.', '/models/Item.WRL'], desktopOpenDeps(['/models/Item.WRL'])),
+    '/models/Item.WRL',
+  );
+  assert.equal(
+    findVrmlFileArgument(['/app/wrl-forge', '/models/world.wrz'], desktopOpenDeps(['/models/world.wrz'])),
+    '/models/world.wrz',
+  );
+});
+
+test('desktop file-open accepts encoded file URLs', () => {
+  const expected = path.resolve('models', 'My Item.wrl');
+  const fileUrl = pathToFileURL(expected).href;
+  assert.equal(
+    findVrmlFileArgument([fileUrl], desktopOpenDeps([expected])),
+    expected,
+  );
+});
+
+test('desktop file-open rejects options, directories, unsupported, and missing files', () => {
+  const custom = {
+    resolve: (value) => value,
+    existsSync: (value) => value !== '/missing.wrl',
+    statSync: (value) => ({ isFile: () => value !== '/folder.wrl' }),
+  };
+  assert.equal(
+    findVrmlFileArgument(['--inspect', '/folder.wrl', '/image.png', '/missing.wrl'], custom),
+    null,
+  );
 });

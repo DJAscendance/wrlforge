@@ -27,6 +27,7 @@ const { EditorController } = require('./src/editor/editor-controller');
 const { openMallItem, openExternalEditor } = require('./src/editor/mall-edit-flow');
 const { createMallPreviewBridge } = require('./src/preview/mall-preview-bridge');
 const { createWorldPreviewBridge } = require('./src/preview/world-preview-bridge');
+const { findVrmlFileArgument } = require('./src/app/file-open');
 
 // The World Project preview scheme (Phase 4B) is a privileged, standard, LOCAL
 // scheme. This MUST run before app 'ready'. It does NOT bypass CSP -- world.html
@@ -60,6 +61,14 @@ const worldSession = new ProjectSession();
 // The main window, used for Mall<->World page navigation (main keeps control of
 // which local page loads; the renderer cannot navigate to an arbitrary URL).
 let mainWindow = null;
+
+// A desktop/file-manager launch may arrive before Electron is ready, while a
+// second launch is forwarded after the window already exists. Keep only the
+// newest explicit file request; this app has one active Mall Item session.
+let pendingOpenFile = findVrmlFileArgument(process.argv);
+let desktopOpenSequence = Promise.resolve();
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
 
 // The native editor controller (Phase 7B). Instantiated in whenReady (it needs
 // app.getPath('userData') for session restore). It owns the one open editor
@@ -117,6 +126,51 @@ async function gotoPage(page) {
   if (currentPage === page) return;
   await mainWindow.loadFile(path.join(__dirname, 'renderer', file));
   currentPage = page;
+}
+
+function waitForCurrentPageLoad() {
+  if (!mainWindow || !mainWindow.webContents.isLoadingMainFrame()) return Promise.resolve();
+  return new Promise((resolve) => mainWindow.webContents.once('did-finish-load', resolve));
+}
+
+async function openMallFileFromDesktop(mallPath) {
+  if (!mainWindow || !mallPath) return;
+  if (currentPage !== 'mall') await gotoPage('mall');
+  await waitForCurrentPageLoad();
+  const data = openMallFile(mallPath);
+  await mainWindow.webContents.executeJavaScript(
+    `window.__wrlForgeApplyOpen(${JSON.stringify(data)})`,
+  );
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function queueDesktopOpen(mallPath) {
+  if (!mallPath) return;
+  pendingOpenFile = mallPath;
+  if (!app.isReady() || !mainWindow) return;
+  const requested = pendingOpenFile;
+  pendingOpenFile = null;
+  // Serialize startup, second-instance, and macOS open-file events. The app has
+  // one active Mall session, so overlapping page loads must never race and
+  // leave an older request displayed after a newer one.
+  desktopOpenSequence = desktopOpenSequence
+    .then(() => openMallFileFromDesktop(requested))
+    .catch((err) => {
+      console.error('[wrl-forge] could not open desktop file:', err);
+      dialog.showErrorBox('Could not open VRML file', String(err && err.message || err));
+    });
+}
+
+if (hasSingleInstanceLock) {
+  app.on('second-instance', (_event, argv) => {
+    queueDesktopOpen(findVrmlFileArgument(argv));
+  });
+  app.on('open-file', (event, filePath) => {
+    event.preventDefault();
+    queueDesktopOpen(findVrmlFileArgument([filePath]));
+  });
 }
 
 // Flatten a session scan result into a JSON-safe payload for the renderer. The
@@ -770,7 +824,7 @@ function createEditorController() {
   });
 }
 
-app.whenReady().then(() => {
+if (hasSingleInstanceLock) app.whenReady().then(() => {
   installPreviewNetworkGuard();
   installWorldPreviewProtocol();
   editorController = createEditorController();
@@ -794,6 +848,7 @@ app.whenReady().then(() => {
     readSaved: (absPath) => readWrlSource(absPath),
   });
   createWindow();
+  if (pendingOpenFile) queueDesktopOpen(pendingOpenFile);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
