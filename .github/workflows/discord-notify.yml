@@ -16,12 +16,14 @@ jobs:
       - name: Send Discord message
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
-          ACTOR="${{ github.actor }}"
-          COMMIT_MESSAGE=$(printf '%s' "${{ github.event.head_commit.message }}" | head -n 1)
-          URL="${{ github.event.compare }}"
+          COMMIT_MESSAGE=${HEAD_COMMIT_MESSAGE%%$'\n'*}
 
-          PAYLOAD=$(printf '{"embeds":[{"title":"🛠️ WRL Forge updated on %s","description":"**%s** pushed an update to `%s`.\\n\\n**Latest commit:** %s\\n\\n[View changes on GitHub](%s)","color":5793266}]}' \
-            "$BRANCH" "$ACTOR" "$BRANCH" "$COMMIT_MESSAGE" "$URL")
+          PAYLOAD=$(jq -n \
+            --arg branch "$BRANCH" \
+            --arg actor "$ACTOR" \
+            --arg commit "$COMMIT_MESSAGE" \
+            --arg url "$COMPARE_URL" \
+            '{embeds:[{title:("🛠️ WRL Forge updated on " + $branch),description:("**" + $actor + "** pushed an update to `" + $branch + "`.\n\n**Latest commit:** " + $commit + "\n\n[View changes on GitHub](" + $url + ")"),color:5793266}]}')
 
           curl -s -o /dev/null -w "%{http_code}" \
             -H "Content-Type: application/json" \
@@ -29,3 +31,6 @@ jobs:
             "$DISCORD_WEBHOOK_URL" | grep -qE "^2" || { echo "Discord webhook failed"; exit 1; }
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          ACTOR: ${{ github.actor }}
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMPARE_URL: ${{ github.event.compare }}
