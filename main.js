@@ -66,6 +66,7 @@ let mainWindow = null;
 // second launch is forwarded after the window already exists. Keep only the
 // newest explicit file request; this app has one active Mall Item session.
 let pendingOpenFile = findVrmlFileArgument(process.argv);
+let desktopOpenSequence = Promise.resolve();
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
 
@@ -151,10 +152,15 @@ function queueDesktopOpen(mallPath) {
   if (!app.isReady() || !mainWindow) return;
   const requested = pendingOpenFile;
   pendingOpenFile = null;
-  openMallFileFromDesktop(requested).catch((err) => {
-    console.error('[wrl-forge] could not open desktop file:', err);
-    dialog.showErrorBox('Could not open VRML file', String(err && err.message || err));
-  });
+  // Serialize startup, second-instance, and macOS open-file events. The app has
+  // one active Mall session, so overlapping page loads must never race and
+  // leave an older request displayed after a newer one.
+  desktopOpenSequence = desktopOpenSequence
+    .then(() => openMallFileFromDesktop(requested))
+    .catch((err) => {
+      console.error('[wrl-forge] could not open desktop file:', err);
+      dialog.showErrorBox('Could not open VRML file', String(err && err.message || err));
+    });
 }
 
 if (hasSingleInstanceLock) {
@@ -842,14 +848,7 @@ if (hasSingleInstanceLock) app.whenReady().then(() => {
     readSaved: (absPath) => readWrlSource(absPath),
   });
   createWindow();
-  if (pendingOpenFile) {
-    const requested = pendingOpenFile;
-    pendingOpenFile = null;
-    openMallFileFromDesktop(requested).catch((err) => {
-      console.error('[wrl-forge] could not open startup file:', err);
-      dialog.showErrorBox('Could not open VRML file', String(err && err.message || err));
-    });
-  }
+  if (pendingOpenFile) queueDesktopOpen(pendingOpenFile);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
