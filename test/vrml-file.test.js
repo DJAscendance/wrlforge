@@ -2,6 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
+const { fileURLToPath } = require('url');
 const zlib = require('zlib');
 const { isGzip, editPathFor } = require('../src/files/vrml-file');
 const { findVrmlFileArgument } = require('../src/app/file-open');
@@ -9,7 +10,7 @@ const { findVrmlFileArgument } = require('../src/app/file-open');
 function desktopOpenDeps(files) {
   const known = new Set(files);
   return {
-    resolve: (value) => value.startsWith('/') ? value : `/work/${value}`,
+    resolve: (value) => known.has(value) || value.startsWith('/') ? value : `/work/${value}`,
     existsSync: (value) => known.has(value),
     statSync: (value) => ({ isFile: () => known.has(value) }),
   };
@@ -56,9 +57,10 @@ test('desktop file-open accepts WRL/WRZ arguments and ignores Electron app argv'
 });
 
 test('desktop file-open accepts encoded file URLs', () => {
+  const expected = fileURLToPath('file:///models/My%20Item.wrl');
   assert.equal(
-    findVrmlFileArgument(['file:///models/My%20Item.wrl'], desktopOpenDeps(['/models/My Item.wrl'])),
-    '/models/My Item.wrl',
+    findVrmlFileArgument(['file:///models/My%20Item.wrl'], desktopOpenDeps([expected])),
+    expected,
   );
 });
 
