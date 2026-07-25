@@ -9,7 +9,7 @@ A Linux-first, Windows-supported desktop tool for editing, previewing, inspectin
 **Status:** Public beta · prerelease · unsigned · x64 only
 **Platforms:** Linux x64 · Windows x64
 
-**➡️ [Download the latest release](https://github.com/DJAscendance/wrlforge/releases/latest)**
+**➡️ [Download WRL Forge](https://wrlforge.com)**
 
 > WRL Forge is an independent community project. It is **not affiliated with, endorsed by, sponsored by, or officially connected to** Cybertown or its current/former operators. "Cybertown" and related names belong to their respective owners.
 
@@ -38,7 +38,10 @@ Rendering is **X_ITE only** — the sole approved renderer.
 
 ## Download
 
-Get every artifact from the **[latest release](https://github.com/DJAscendance/wrlforge/releases/latest)**.
+Start at **[wrlforge.com](https://wrlforge.com)** for the recommended downloads,
+or browse [all GitHub releases](https://github.com/DJAscendance/wrlforge/releases)
+for every package and checksum file. The website reads the newest published
+GitHub release, including public beta releases.
 
 | Platform | Recommended | Alternative |
 |---|---|---|
@@ -50,14 +53,14 @@ Get every artifact from the **[latest release](https://github.com/DJAscendance/w
 Canonical artifact file names:
 
 - Linux x64
-  - `WRL-Forge-1.3.0-beta.2-linux-x64.AppImage` (recommended)
-  - `WRL-Forge-1.3.0-beta.2-linux-x64.tar.gz` (portable app directory)
+  - `WRL-Forge-1.3.0-beta.3-linux-x64.AppImage` (recommended)
+  - `WRL-Forge-1.3.0-beta.3-linux-x64.tar.gz` (portable app directory)
 - Windows x64
-  - `WRL-Forge-Setup-1.3.0-beta.2-x64.exe` (recommended — NSIS installer)
-  - `WRL-Forge-1.3.0-beta.2-x64.msi` (MSI installer)
-  - `WRL-Forge-Portable-1.3.0-beta.2-x64.exe` (portable, no install)
-  - `WRL-Forge-1.3.0-beta.2-windows-x64.zip` (portable unpacked app)
-- Checksums: `SHA256SUMS-1.3.0-beta.2.txt`
+  - `WRL-Forge-Setup-1.3.0-beta.3-x64.exe` (recommended — NSIS installer)
+  - `WRL-Forge-1.3.0-beta.3-x64.msi` (MSI installer)
+  - `WRL-Forge-Portable-1.3.0-beta.3-x64.exe` (portable, no install)
+  - `WRL-Forge-1.3.0-beta.3-windows-x64.zip` (portable unpacked app)
+- Checksums: `SHA256SUMS-1.3.0-beta.3.txt`
 
 These are **unsigned beta** builds. See [Known Limitations](#known-limitations) and [docs/INSTALLATION.md](docs/INSTALLATION.md) for install details.
 

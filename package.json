@@ -1,9 +1,9 @@
 {
   "name": "wrl-forge",
-  "version": "1.3.0-beta.2",
+  "version": "1.3.0-beta.3",
   "description": "A modern VRML97 creation, inspection, validation, and packaging workbench for Cybertown items and worlds.",
   "main": "main.js",
-  "homepage": "https://github.com/DJAscendance/wrlforge",
+  "homepage": "https://wrlforge.com",
   "repository": {
     "type": "git",
     "url": "https://github.com/DJAscendance/wrlforge.git"

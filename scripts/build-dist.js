@@ -1,5 +1,5 @@
 'use strict';
-// Platform-neutral unsigned electron-builder wrapper (public beta 1.3.0-beta.2).
+// Platform-neutral unsigned electron-builder wrapper for public beta builds.
 //
 // `npm run dist:linux` routes through here to produce the Linux AppImage +
 // tar.gz. It mirrors scripts/build-win.js: it guarantees the generated icon

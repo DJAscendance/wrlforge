@@ -22,7 +22,7 @@ body:
     id: version
     attributes:
       label: WRL Forge version
-      value: 1.3.0-beta.2
+      value: 1.3.0-beta.3
     validations:
       required: true
   - type: dropdown
