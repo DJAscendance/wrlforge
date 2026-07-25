@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
-const { fileURLToPath } = require('url');
+const { pathToFileURL } = require('url');
 const zlib = require('zlib');
 const { isGzip, editPathFor } = require('../src/files/vrml-file');
 const { findVrmlFileArgument } = require('../src/app/file-open');
@@ -57,9 +57,10 @@ test('desktop file-open accepts WRL/WRZ arguments and ignores Electron app argv'
 });
 
 test('desktop file-open accepts encoded file URLs', () => {
-  const expected = fileURLToPath('file:///models/My%20Item.wrl');
+  const expected = path.resolve('models', 'My Item.wrl');
+  const fileUrl = pathToFileURL(expected).href;
   assert.equal(
-    findVrmlFileArgument(['file:///models/My%20Item.wrl'], desktopOpenDeps([expected])),
+    findVrmlFileArgument([fileUrl], desktopOpenDeps([expected])),
     expected,
   );
 });
