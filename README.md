@@ -1,8 +1,11 @@
 <p align="center">
   <img src="assets/generated/icons/runtime/about-logo.png" width="120" alt="WRL Forge logo" />
+<br>
 </p>
 
 # WRL Forge
+
+[![DeepScan grade](https://deepscan.io/api/teams/30342/projects/32189/branches/1050698/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=30342&pid=32189&bid=1050698)
 
 A Linux-first, Windows-supported desktop tool for editing, previewing, inspecting, and packaging classic VRML97 `.wrl` content for Cybertown items and worlds.
 
