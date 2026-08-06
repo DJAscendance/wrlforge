@@ -1,0 +1,92 @@
+#VRML V2.0 utf8
+# WD1.4 spike fixture -- independently authored for this lane.
+#
+# NOT copied from the corpus, from White Dune, from RE artifacts, or from any
+# proprietary example. Written to exercise scenario S22, which found no qualifying
+# shape anywhere in the sampled corpus.
+#
+# It carries BOTH readings of "PROTO inside an MFNode array":
+#
+#   1. STANDARDS-CLEAN -- a PROTO declared at top level and INSTANTIATED inside a
+#      children[] MFNode array (`Marker` below). This is valid VRML97: an MFNode
+#      array may hold node statements, and a PROTO instance is a node statement.
+#
+#   2. LENIENT VENDOR SHAPE -- a PROTO DECLARATION (`InlineBadge`) appearing
+#      directly inside a children[] array. This is what S22 targets, and it is
+#      *** NOT valid ISO/IEC 14772-1 VRML97 ***: the standard permits only node
+#      statements in an MFNode array, not interface declarations. WRL Forge's
+#      parser accepts it deliberately, with zero diagnostics, as documented
+#      Cybertown/Blaxxun compatibility leniency (see src/vrml/parser.js).
+#
+# So this fixture proves S22 against the lenient shape the parser is built to
+# tolerate, NOT against a standards-conformant construct. Both PROTO *declarations*
+# are themselves well-formed, and every node type used is a standard VRML97 node.
+# The distinction matters: do not cite S22 as evidence about standard VRML97.
+
+PROTO Marker [
+  field SFVec3f markerPosition 0 0 0
+  field SFColor markerColor 0.8 0.2 0.2
+] {
+  Transform {
+    translation IS markerPosition
+    children [
+      DEF MarkerBodyShape Shape {
+        appearance Appearance {
+          material Material {
+            diffuseColor IS markerColor
+          }
+        }
+        geometry Box {
+          size 0.5 0.5 0.5
+        }
+      }
+    ]
+  }
+}
+
+DEF SceneRoot Group {
+  children [
+    Marker {
+      markerPosition 1 0 -3
+      markerColor 0.9 0.3 0.1
+    }
+    PROTO InlineBadge [
+      field SFFloat badgeRadius 0.25
+    ] {
+      Transform {
+        translation 0 2 0
+        children [
+          DEF BadgeShape Shape {
+            appearance Appearance {
+              material Material {
+                diffuseColor 0.15 0.45 0.85
+              }
+            }
+            geometry Sphere {
+              radius IS badgeRadius
+            }
+          }
+        ]
+      }
+    }
+    InlineBadge {
+      badgeRadius 0.4
+    }
+    DEF PlainAnchor Transform {
+      translation -2 0 0
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.3 0.7 0.3
+            }
+          }
+          geometry Cylinder {
+            radius 0.3
+            height 1.2
+          }
+        }
+      ]
+    }
+  ]
+}
