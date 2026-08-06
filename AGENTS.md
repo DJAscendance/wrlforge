@@ -116,9 +116,14 @@ approved engine.
 ### Tool availability on this machine (verify, don't assume)
 
 - `rg` — installed, the default.
-- **`ast-grep` is NOT installed.** `/usr/bin/sg` is shadow-utils' setgid tool, not
-  ast-grep — do not treat its presence as availability. The bullet above is
-  conditional (*"when installed"*); honour the condition.
+- **`ast-grep` — installed, version `0.45.0`** (as of 2026-08-06), at
+  `~/.local/bin/ast-grep`. That is the executable to invoke; the bullet above is
+  conditional (*"when installed"*) and the condition is now met.
+  **Always call `ast-grep` by name, never bare `sg`** — two different `sg`
+  binaries exist on this machine and which one a shell resolves depends on
+  `PATH` order: `~/.local/bin/sg` is ast-grep's own deprecated alias, while
+  `/usr/bin/sg` is the unrelated shadow-utils setgid command. Never assume which
+  one a shell will pick without checking.
 - `mgrep` — installed but **not usable**: the CLI has a token at `~/.mgrep/token.json`
   and no provisioned store (`404 Stores with identifiers 'mgrep' not found`), and
   `-s` does not create one. Don't route work through it until that is fixed.
