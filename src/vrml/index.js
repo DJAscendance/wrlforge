@@ -24,6 +24,9 @@ const { createSourceMap } = require('./source-map');
 // Span-patch algebra (WD1.2): pure text-in/text-out edits anchored to the exact
 // spans the parser and source map report. No callers in production yet.
 const edit = require('./edit');
+// Generated VRML97/X3D node + field schema (WD1.3). Data only -- committed, so
+// no generator or ISO mirror is needed at runtime. See scripts/build-node-schema.js.
+const nodeSchema = require('./node-schema');
 
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
 function parse(text, opts = {}) {
@@ -56,6 +59,7 @@ module.exports = {
   analyze,
   createSourceMap,
   edit,
+  nodeSchema,
   ast,
   diagnostics,
   assetRefs,
