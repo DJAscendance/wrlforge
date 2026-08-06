@@ -21,6 +21,9 @@ const diagnostics = require('./diagnostics');
 // Read-only offset -> token/node lookup over a parse result. Opt-in and lazy:
 // `parse()` does NOT build one, so nothing existing pays for it.
 const { createSourceMap } = require('./source-map');
+// Span-patch algebra (WD1.2): pure text-in/text-out edits anchored to the exact
+// spans the parser and source map report. No callers in production yet.
+const edit = require('./edit');
 
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
 function parse(text, opts = {}) {
@@ -52,6 +55,7 @@ module.exports = {
   tokenize,
   analyze,
   createSourceMap,
+  edit,
   ast,
   diagnostics,
   assetRefs,
