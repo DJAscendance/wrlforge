@@ -27,6 +27,51 @@ const edit = require('./edit');
 // Generated VRML97/X3D node + field schema (WD1.3). Data only -- committed, so
 // no generator or ISO mirror is needed at runtime. See scripts/build-node-schema.js.
 const nodeSchema = require('./node-schema');
+// Parse sessions + verified document transactions, and the two-tier stable node
+// identity built on them (WD1.4). Pure and browser-safe; no callers in
+// production yet -- this is the foundation a future scene tree / inspector
+// selection model resolves through, not a UI integration.
+//
+// NARROWED ON PURPOSE. Both modules export more than appears here: internal
+// predicates, the receipt's canonical edit view, and the session guards exist for
+// node-identity.js's own CommonJS composition and for focused tests. They are not
+// consumer-facing, and a facade is the wrong place to publish "you could also
+// reach in here". What follows is the whole intended public surface -- consumer
+// operations plus the constant tables a caller needs to branch on a `status` or a
+// `reason`. Adding to it is a decision, not a convenience.
+const documentTransaction = require('./document-transaction');
+const nodeIdentity = require('./node-identity');
+
+const publicDocumentTransaction = Object.freeze({
+  // Prove that an edit set is exactly what turned one exact text into another.
+  verifyTransaction: documentTransaction.verifyTransaction,
+  // A consumer holding a receipt across an async boundary can ask whether it is
+  // still a receipt at all before offering to re-anchor through it.
+  isVerifiedReceipt: documentTransaction.isVerifiedReceipt,
+  TX_ERROR: documentTransaction.TX_ERROR,
+  TX_STATUS: documentTransaction.TX_STATUS,
+  TX_REASON: documentTransaction.TX_REASON,
+});
+
+const publicNodeIdentity = Object.freeze({
+  // Sessions are created here rather than on the transaction facade because every
+  // identity call needs one and nothing else does.
+  createParseSession: documentTransaction.createParseSession,
+  createCurrentSelection: nodeIdentity.createCurrentSelection,
+  resolveCurrentSelection: nodeIdentity.resolveCurrentSelection,
+  createTransactionAnchor: nodeIdentity.createTransactionAnchor,
+  resolveTransactionAnchor: nodeIdentity.resolveTransactionAnchor,
+  createPersistentAnchor: nodeIdentity.createPersistentAnchor,
+  resolvePersistentAnchor: nodeIdentity.resolvePersistentAnchor,
+  isResolved: nodeIdentity.isResolved,
+  isAmbiguous: nodeIdentity.isAmbiguous,
+  isRefused: nodeIdentity.isRefused,
+  IDENTITY_ERROR: nodeIdentity.IDENTITY_ERROR,
+  IDENTITY_STATUS: nodeIdentity.IDENTITY_STATUS,
+  ANCHOR_STATUS: nodeIdentity.ANCHOR_STATUS,
+  IDENTITY_REASON: nodeIdentity.IDENTITY_REASON,
+  ANCHOR_KIND: nodeIdentity.ANCHOR_KIND,
+});
 
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
 function parse(text, opts = {}) {
@@ -60,6 +105,8 @@ module.exports = {
   createSourceMap,
   edit,
   nodeSchema,
+  documentTransaction: publicDocumentTransaction,
+  nodeIdentity: publicNodeIdentity,
   ast,
   diagnostics,
   assetRefs,
