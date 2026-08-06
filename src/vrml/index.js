@@ -18,6 +18,9 @@ const { analyze } = require('./analyze');
 const assetRefs = require('./asset-refs');
 const ast = require('./ast');
 const diagnostics = require('./diagnostics');
+// Read-only offset -> token/node lookup over a parse result. Opt-in and lazy:
+// `parse()` does NOT build one, so nothing existing pays for it.
+const { createSourceMap } = require('./source-map');
 
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
 function parse(text, opts = {}) {
@@ -48,6 +51,7 @@ module.exports = {
   parse,
   tokenize,
   analyze,
+  createSourceMap,
   ast,
   diagnostics,
   assetRefs,
