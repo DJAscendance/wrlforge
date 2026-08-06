@@ -1,5 +1,5 @@
 'use strict';
-// VRML97 DEF/USE scope graph (Phase WD1.5-P1).
+// VRML97 scope graph: DEF/USE (Phase WD1.5-P1) + node types (Phase WD1.5-P2A).
 //
 // PURE and browser-safe: requires only `src/vrml/ast.js` (the NODE type
 // discriminators) and `src/vrml/symbols.js` (the taxonomy and the frozen
@@ -73,6 +73,7 @@
 
 const { NODE } = require('./ast');
 const sym = require('./symbols');
+const nodeSchema = require('./node-schema');
 
 const {
   SCOPE_ERROR, SCOPE_KIND, STATUS, REASON, scopeError,
@@ -132,6 +133,8 @@ class Builder {
     this.scopes = [];
     this.symbols = [];
     this.references = [];
+    this.typeDecls = [];
+    this.typeRefs = [];
     // A hard parse cap did not merely damage a region: the tree is genuinely
     // aborted, so NO lexical scope in the document is provable. This matches
     // WD1.4 Tier 2's `document-parse-incomplete`.
@@ -172,6 +175,33 @@ class Builder {
     });
   }
 
+  addTypeDecl(kind, decl, scope) {
+    const declRange = decl.nameRange || decl.range;
+    this.typeDecls.push({
+      kind,
+      name: decl.name == null ? null : decl.name,
+      node: decl,
+      scopeIndex: scope.index,
+      declRange,
+      visibleFrom: endOffsetOf(decl.range),
+      sortOffset: offsetOf(declRange),
+      sortName: decl.name == null ? '' : String(decl.name),
+    });
+  }
+
+  addTypeRef(node, scope) {
+    const range = node.typeRange || node.range;
+    this.typeRefs.push({
+      name: node.nodeType == null ? null : node.nodeType,
+      node,
+      scopeIndex: scope.index,
+      range,
+      offset: offsetOf(range),
+      sortOffset: offsetOf(range),
+      sortName: node.nodeType == null ? '' : String(node.nodeType),
+    });
+  }
+
   addUse(use, scope, insideScript) {
     const range = use.nameRange || use.range;
     this.references.push({
@@ -203,6 +233,7 @@ function visitStatement(b, stmt, ctx) {
     case NODE.NODE: visitNode(b, stmt, ctx); return;
     case NODE.USE: b.addUse(stmt, ctx.scope, ctx.insideScript); return;
     case NODE.PROTO: visitProto(b, stmt, ctx); return;
+    case NODE.EXTERNPROTO: visitExternProto(b, stmt, ctx); return;
     // A ROUTE contributes route-node / route-event references, which are P2.
     // An EXTERNPROTO declares a node TYPE and has no body, so it owns no
     // DEF/USE scope and (4.9.1) carries no field defaults to descend into.
@@ -212,7 +243,12 @@ function visitStatement(b, stmt, ctx) {
   }
 }
 
+function visitExternProto(b, ext, ctx) {
+  b.addTypeDecl(sym.SYMBOL_KIND.EXTERNPROTO_DECL, ext, ctx.scope);
+}
+
 function visitProto(b, proto, ctx) {
+  b.addTypeDecl(sym.SYMBOL_KIND.PROTO_DECL, proto, ctx.scope);
   // A PROTO body owns a DEF scope with NO defParent. `typeParent` points at the
   // enclosing scope for P2's benefit and is never walked here.
   const body = b.addScope(SCOPE_KIND.PROTO_BODY, proto.range, {
@@ -248,6 +284,7 @@ function visitProto(b, proto, ctx) {
 
 function visitNode(b, node, ctx) {
   if (node.def != null) b.addDef(node, ctx.scope);
+  b.addTypeRef(node, ctx.scope);
 
   // 4.4.4 excludes a Script's descendants from the transformation hierarchy, so
   // the acyclicity rule must not fire below one. This is carried DOWN rather
@@ -293,8 +330,8 @@ function visitValue(b, value, ctx) {
     // array still opens a real body scope, and dropping it would lose every
     // DEF inside it.
     case NODE.PROTO: visitProto(b, value, ctx); return;
-    case NODE.ROUTE:
-    case NODE.EXTERNPROTO: return;
+    case NODE.EXTERNPROTO: visitExternProto(b, value, ctx); return;
+    case NODE.ROUTE: return;
     case NODE.ARRAY: {
       for (const item of value.items || []) visitValue(b, item, ctx);
       return;
@@ -416,6 +453,44 @@ function declaredOutsideChain(state, scope, name) {
   for (const owner of owners) if (!inChain.has(owner)) return true;
   return false;
 }
+// --- node-type lookup ------------------------------------------------------
+//
+// The SECOND, INDEPENDENT chain. Node names walk `defParent` (which is `null` on
+// a PROTO body -- 4.8.4 disjointness); node types walk `typeParent`, which
+// points OUTWARD, because 4.8.4 restricts where a nested declaration is VISIBLE
+// without blinding the nested body to its enclosing declarations (rule P6).
+//
+// `defParent` is never consulted here, and `typeParent` is never consulted by
+// the DEF/USE walk. Two namespaces, two chains, no shared map.
+function typeChainOf(scope) {
+  const out = [];
+  let cur = scope;
+  while (cur) {
+    out.push(cur);
+    cur = cur.typeParent;
+  }
+  return out;
+}
+
+function typeDeclsIn(state, scope, name) {
+  const table = state.typeDeclsByScope.get(scope);
+  if (!table) return [];
+  return table.get(name) || [];
+}
+
+// Declarations of `name` visible at `beforeOffset`. `<=` rather than `<`,
+// because `visibleFrom` is the declaration's END: an instance may begin at the
+// very next character, and 4.8.4 asks only that the definition be COMPLETE.
+function lookupType(state, scope, name, beforeOffset) {
+  const out = [];
+  for (const s of typeChainOf(scope)) {
+    for (const d of typeDeclsIn(state, s, name)) {
+      if (beforeOffset == null || d.visibleFrom <= beforeOffset) out.push(d);
+    }
+  }
+  return out;
+}
+
 
 // ---------------------------------------------------------------------------
 // Resolution
@@ -427,6 +502,7 @@ const result = (reference, status, reason, extra) => sym.createResolution({
   reason,
   symbol: extra && extra.symbol ? extra.symbol : null,
   candidateCount: extra && extra.candidateCount != null ? extra.candidateCount : 0,
+  detail: extra && extra.detail ? extra.detail : null,
   evidence: extra && extra.evidence ? extra.evidence : [],
 });
 
@@ -455,6 +531,10 @@ const result = (reference, status, reason, extra) => sym.createResolution({
 // So a lexical resolution is downgraded whenever the scope it was decided in, OR
 // the scope holding the declaration it found, could not be proven. Ambiguity is
 // left standing: it binds nothing, so it cannot be confidently wrong.
+//
+// DEF ONLY. The node-type namespace withholds ambiguity as well -- a duplicate
+// TYPE claim is an assertion recovery can fabricate by merging scopes. See
+// `typeChainWithholds`.
 function guardLexical(state, reference, resolution, symbol) {
   if (resolution.status !== STATUS.RESOLVED) return resolution;
   if (state.documentIncomplete) {
@@ -484,6 +564,190 @@ function downgradeIfRecovered(state, reference, status, reason, extra) {
       here.recoveredReason || REASON.SCOPE_RECOVERED, extra);
   }
   return result(reference, status, reason, extra);
+}
+
+// The same rule, widened to the shape a NODE TYPE lookup actually has.
+//
+// `guardLexical`/`downgradeIfRecovered` above check the reference's own scope and
+// (for a positive) the found declaration's scope. That is exactly right for a
+// USE: `defParent` is null on a proto body, so a DEF lookup never leaves its own
+// scope and there is no third scope to worry about.
+//
+// A type lookup is different in kind. It WALKS OUTWARD along `typeParent`
+// (4.8.4 P6), so its answer depends on every scope in that chain -- including
+// ones it never had to read because it found an answer first, or because it
+// found none at all. Any unprovable link can hold a same-name declaration that
+// would have changed the answer:
+//
+//   Group { children [ Shape { }     <- brace never closed: document scope damaged
+//   PROTO Inner [ ] { Transform { } } <- Inner's OWN body scope parses clean
+//
+// `Transform` inside `Inner` sits in a provably clean scope, so a guard that
+// looks only at that scope is satisfied -- yet the answer it returns ("built-in")
+// is a claim that NO `PROTO Transform` shadows it, and the damaged document scope
+// is precisely where such a declaration would live. 4.8.1 lets a prototype take a
+// built-in's spelling, and this module honours that (see `resolveNodeType`), so
+// "is a built-in spelling" and "this occurrence denotes the built-in" are two
+// different claims. The first is a clause-6 schema fact with no scope dependency
+// and stays authoritative -- `nodeSchema.isVRML97Node` answers it, unguarded, for
+// any caller. The second is a lexical absence claim and fails closed here.
+//
+// The plan's §7 "schema resolutions are exempt" carve-out was written about the
+// first claim. Applying it to the second let three unprovable answers through:
+// a confident built-in occurrence, a confident `node-type-unknown`, and a
+// `recursive-proto-instance` manufactured entirely by a moved scope boundary.
+// Returns a `recovered` result when the chain cannot be proven, or null when it
+// can. Called ONCE, BEFORE any lexical question is asked -- see `resolveNodeType`.
+//
+// Ambiguity is guarded too, and that is the part worth being explicit about. An
+// `ambiguous` answer binds nothing, which makes it tempting to let it stand under
+// damage; the plan says exactly that for DEF. But it is still an ASSERTION --
+// "two or more declarations of this name exist in the scope you asked about" --
+// and recovery is capable of manufacturing precisely that. An unclosed body
+// absorbs the statements after it, so two declarations written in DIFFERENT
+// scopes can end up in one, and the resolver would report a duplicate that the
+// author never wrote. Withholding costs a diagnosis; asserting invents one.
+function typeChainWithholds(state, reference) {
+  if (state.documentIncomplete) {
+    return result(reference, STATUS.RECOVERED, REASON.DOCUMENT_PARSE_INCOMPLETE);
+  }
+  for (const scope of typeChainOf(reference.scope)) {
+    if (!scope.recovered) continue;
+    return result(reference, STATUS.RECOVERED, scope.recoveredReason || REASON.SCOPE_RECOVERED);
+  }
+  return null;
+}
+
+
+// A node type name asks TWO different questions that must never be merged:
+//
+//   * a LEXICAL one -- is there a PROTO/EXTERNPROTO declaration of this name
+//     visible from here? That is scope-dependent, and fails closed when the
+//     scope cannot be proven.
+//   * a SCHEMA one -- is this SPELLING one of clause 6's built-in node types?
+//     That is a fact about the standard with no scope dependency at all,
+//     answered by the committed WD1.3 schema and by nothing else. It stays
+//     authoritative in a damaged document; call `nodeSchema.isVRML97Node` for it.
+//
+// Every status this function returns below the guard is a LEXICAL answer. Even
+// `node-type-is-builtin` is lexical, because 4.8.1 lets a prototype take a
+// built-in's spelling: saying this occurrence IS the built-in asserts that no
+// such declaration is in scope.
+//
+// PRECEDENCE. Recovery dominates, and it is asked ONCE, UP FRONT, rather than
+// being applied to each branch afterwards:
+//
+//   1. graph ownership and projection validity        (`resolve`, before this)
+//   2. is the name token even there?                  -- a token fact, not lexical
+//   3. is the document complete and the whole
+//      `typeParent` chain provable?                   -- if not, `recovered`, full stop
+//   4. only then: recursion, duplicates, ordering,
+//      local declarations, built-ins, unknown names
+//
+// Structuring it as a gate rather than as a wrapper per branch is the point. A
+// per-branch guard is one `return` away from a leak, and the first version of
+// this lane leaked exactly that way -- the branches that were wrapped were safe
+// and the ones that were not silently were not.
+function resolveNodeType(state, reference) {
+  // Step 2. Not a lexical claim: it reports that this reference has no name to
+  // look up, which is true whatever the surrounding scopes turn out to be.
+  if (reference.name == null) {
+    return result(reference, STATUS.INVALID, REASON.MISSING_NAME);
+  }
+  // Step 3. The gate. Nothing below runs unless the chain is proven.
+  const withheld = typeChainWithholds(state, reference);
+  if (withheld) return withheld;
+
+  const scope = reference.scope;
+  const visible = lookupType(state, scope, reference.name, reference.offset);
+  const anywhere = lookupType(state, scope, reference.name, null);
+  const builtin = nodeSchema.isVRML97Node(reference.name);
+
+  // 4.8.4 states two separate rules -- instantiate only after the definition
+  // completes, AND never inside the definition itself. An instance within its
+  // own declaration breaks both, and recursion is the specific and useful
+  // diagnosis, so it is tested FIRST: the ordering rule would otherwise always
+  // win, since a definition is never "complete" inside itself.
+  //
+  // Safe only because of the gate above: containment is measured against a
+  // declaration's RANGE, and an unclosed body extends that range over statements
+  // it never contained. `PROTO Transform [ ] { Group { } }` + `PROTO Inner [ ] {
+  // Transform { } }` binds normally; drop one brace and the absorbed `Inner`
+  // lands inside `Transform`'s range, which would read as illegal recursion in
+  // valid source.
+  const enclosing = anywhere.filter((d) => d.node && contains(d.node.range, reference.range));
+  if (enclosing.length > 0) {
+    return result(reference, STATUS.INVALID, REASON.RECURSIVE_PROTO_INSTANCE, {
+      candidateCount: enclosing.length,
+      evidence: enclosing.map((d) => d.declRange),
+    });
+  }
+
+  // 4.8.1 makes duplicate type names undefined behaviour. Decided on the NAME
+  // ALONE -- never narrowed by declaration kind, by built-in status, by body
+  // shape or by which one is written where. Narrowing duplicates and taking the
+  // survivor is exactly how a confident wrong answer gets produced.
+  //
+  // Judged over EVERY same-name declaration the chain owns -- not merely those
+  // already visible at this offset. 4.8.1 makes the whole file's binding for that
+  // name undefined the moment a second declaration of it exists, so a reference
+  // sitting between the two is not in a well-defined document that happens to
+  // have a problem later; it is in an undefined one. Binding it confidently to
+  // the first declaration would also disagree with `typeDeclIsUniqueInScope`,
+  // which has always answered over the whole scope -- and two queries giving
+  // different accounts of the same duplicate is how a caller ends up trusting the
+  // wrong one. Deliberately conservative, and it refuses rather than ranks.
+  //
+  // Only reachable with the chain proven. `ambiguous` binds nothing, but it does
+  // ASSERT that a duplicate exists, and recovery can fabricate one out of two
+  // declarations the author put in different scopes -- so it sits below the gate
+  // with every other lexical claim.
+  if (anywhere.length > 1) {
+    return result(reference, STATUS.AMBIGUOUS, REASON.DUPLICATE_PROTO_DECLARATION, {
+      candidateCount: anywhere.length,
+      evidence: anywhere.map((d) => d.declRange),
+    });
+  }
+
+  if (visible.length === 1) {
+    const symbol = visible[0];
+    // A local declaration outranks the schema even when it takes a built-in's
+    // spelling: 4.8.1 calls that undefined, and the lexical declaration is the
+    // thing actually written in this file. Recorded as `detail`, so a consumer
+    // can surface it without the binding itself changing.
+    // No separate declaration-side check is needed: `lookupType` only ever
+    // returns declarations owned by scopes in this reference's own chain, and the
+    // gate has already proven every one of them.
+    return result(reference, STATUS.RESOLVED, REASON.OK, {
+      symbol, candidateCount: 1, evidence: [symbol.declRange],
+      detail: builtin ? REASON.PROTO_SHADOWS_BUILTIN : null,
+    });
+  }
+
+  // Declared in a visible scope, but only later -- 4.8.4 admits no forward
+  // reference to a prototype. This asserts no EARLIER declaration exists, which
+  // only the proven chain above makes sayable.
+  if (anywhere.length > 0) {
+    return result(reference, STATUS.INVALID, REASON.PROTO_INSTANCE_BEFORE_DECLARATION, {
+      candidateCount: anywhere.length,
+      evidence: anywhere.map((d) => d.declRange),
+    });
+  }
+
+  // Clause 6 says `Transform` is a built-in SPELLING, and that fact is exempt
+  // from recovery -- but it is answered by `nodeSchema.isVRML97Node`, not here.
+  // What THIS branch returns is the further claim that this OCCURRENCE denotes
+  // the built-in, i.e. that no local declaration shadows it. 4.8.1 permits such a
+  // declaration and the branch above honours it, so that claim is lexical and
+  // lives below the gate like the rest.
+  if (builtin) {
+    return result(reference, STATUS.RESOLVED, REASON.NODE_TYPE_IS_BUILTIN);
+  }
+
+  // Neither built-in nor declared. A vendor node type lands here and is
+  // PRESERVED as a first-class answer -- not an error, not a parse failure, and
+  // not silently promoted into either of the other two buckets.
+  return result(reference, STATUS.UNRESOLVED, REASON.NODE_TYPE_UNKNOWN);
 }
 
 function resolveUse(state, reference) {
@@ -651,6 +915,8 @@ function buildScopeGraph(parseResult) {
   // the two interleave. Sort first, then number.
   b.symbols.sort(byPosition);
   b.references.sort(byPosition);
+  b.typeDecls.sort(byPosition);
+  b.typeRefs.sort(byPosition);
 
   const symbols = b.symbols.map((rec, i) => sym.createDefSymbol({
     name: rec.name,
@@ -660,6 +926,25 @@ function buildScopeGraph(parseResult) {
     sourceOrder: i,
     nodeType: rec.nodeType,
     visibleFrom: rec.visibleFrom,
+  }, graph));
+
+  const typeDeclarations = b.typeDecls.map((rec, i) => sym.createTypeDeclSymbol({
+    kind: rec.kind,
+    name: rec.name,
+    node: rec.node,
+    scope: scopes[rec.scopeIndex],
+    declRange: rec.declRange,
+    sourceOrder: i,
+    visibleFrom: rec.visibleFrom,
+  }, graph));
+
+  const typeReferences = b.typeRefs.map((rec, i) => sym.createNodeTypeReference({
+    name: rec.name,
+    node: rec.node,
+    scope: scopes[rec.scopeIndex],
+    range: rec.range,
+    sourceOrder: i,
+    offset: rec.offset,
   }, graph));
 
   const references = b.references.map((rec, i) => sym.createUseReference({
@@ -691,8 +976,25 @@ function buildScopeGraph(parseResult) {
     if (!symbolByAstNode.has(s.node)) symbolByAstNode.set(s.node, s);
   }
 
+  // A SEPARATE name map for the node-type namespace. Sharing `defsByScope`
+  // would make `DEF Ball` and `PROTO Ball` collide, which is precisely the
+  // conflation the three-namespace rule exists to prevent.
+  const typeDeclsByScope = new Map(scopes.map((s) => [s, new Map()]));
+  const typeDeclByAstNode = new WeakMap();
+  for (const d of typeDeclarations) {
+    if (d.name == null) continue;
+    const table = typeDeclsByScope.get(d.scope);
+    const list = table.get(d.name);
+    if (list) list.push(d);
+    else table.set(d.name, [d]);
+    if (!typeDeclByAstNode.has(d.node)) typeDeclByAstNode.set(d.node, d);
+  }
+
   const referenceByAstNode = new WeakMap();
   for (const r of references) referenceByAstNode.set(r.node, r);
+
+  const typeReferenceByAstNode = new WeakMap();
+  for (const r of typeReferences) typeReferenceByAstNode.set(r.node, r);
 
   const scopeByAstNode = new WeakMap();
   for (const s of scopes) if (s.ownerNode) scopeByAstNode.set(s.ownerNode, s);
@@ -709,21 +1011,31 @@ function buildScopeGraph(parseResult) {
     scopesByDefName,
     symbolByAstNode,
     referenceByAstNode,
+    typeDeclarations,
+    typeReferences,
+    typeDeclsByScope,
+    typeDeclByAstNode,
+    typeReferenceByAstNode,
     scopeByAstNode,
     documentIncomplete: b.documentIncomplete,
     resolutionByReference: new Map(),
     referencesBySymbol: new Map(),
   };
 
-  for (const reference of references) {
-    const res = resolveUse(state, reference);
+  const bind = (reference, res) => {
     state.resolutionByReference.set(reference, res);
+    // Only an AUTHORITATIVE binding is indexed. An ambiguous, invalid,
+    // unresolved or recovered reference is not "probably this declaration";
+    // including it is how a rename corrupts a document.
     if (res.status === STATUS.RESOLVED && res.symbol) {
       const list = state.referencesBySymbol.get(res.symbol);
       if (list) list.push(reference);
       else state.referencesBySymbol.set(res.symbol, [reference]);
     }
-  }
+  };
+
+  for (const reference of references) bind(reference, resolveUse(state, reference));
+  for (const reference of typeReferences) bind(reference, resolveNodeType(state, reference));
 
   INTERNALS.set(graph, state);
   return graph;
@@ -755,6 +1067,96 @@ function resolutions(graph) {
   return Object.freeze(state.references.map((r) => state.resolutionByReference.get(r)));
 }
 
+// --- node-type namespace (WD1.5-P2A) ---------------------------------------
+//
+// SEPARATE ACCESSORS, NOT A MERGED LIST. `symbols`, `references` and
+// `resolutions` keep meaning exactly what they meant in P1 -- DEF declarations,
+// USE references, USE answers -- and the node-type namespace gets its own three.
+// Folding both namespaces into one list would silently change every existing
+// caller's counts and would put two unrelated kinds of name in one sequence.
+
+/** Every PROTO/EXTERNPROTO declaration, source-ordered. A fresh frozen array. */
+function typeDeclarations(graph) {
+  return Object.freeze(internalsOf(graph, 'typeDeclarations').typeDeclarations.slice());
+}
+
+/** Every node-type reference, source-ordered. A fresh frozen array. */
+function typeReferences(graph) {
+  return Object.freeze(internalsOf(graph, 'typeReferences').typeReferences.slice());
+}
+
+/** Every node-type answer, in the source order of its reference. Frozen, fresh. */
+function typeResolutions(graph) {
+  const state = internalsOf(graph, 'typeResolutions');
+  return Object.freeze(state.typeReferences.map((r) => state.resolutionByReference.get(r)));
+}
+
+/**
+ * The declaration an AST `Proto`/`ExternProto` node makes, or `null`.
+ *
+ * A lookup, not a resolution. Narrowly named rather than folded into
+ * `symbolFor`, which stays DEF-only: one AST node can carry both a DEF and a
+ * type reference, so an overloaded accessor would have to guess which was meant.
+ */
+function typeDeclFor(graph, astNode) {
+  const state = internalsOf(graph, 'typeDeclFor');
+  if (!astNode || typeof astNode !== 'object') return null;
+  return state.typeDeclByAstNode.get(astNode) || null;
+}
+
+/** The node-type reference an AST `Node` makes, or `null`. A lookup, not a resolution. */
+function typeReferenceFor(graph, astNode) {
+  const state = internalsOf(graph, 'typeReferenceFor');
+  if (!astNode || typeof astNode !== 'object') return null;
+  return state.typeReferenceByAstNode.get(astNode) || null;
+}
+
+/**
+ * Is this type name unique within its OWN type scope?
+ *
+ * Scope-aware and chain-free: the same nested `PROTO Knob` in two different
+ * outer prototypes is not a duplicate (4.8.4 P5), and an enclosing declaration
+ * of the same name is a different scope's business. Declaration KIND never
+ * narrows the question either -- a `PROTO Gold` and an `EXTERNPROTO Gold` in one
+ * scope are two declarations of one type name (4.8.1 + 4.9.1).
+ *
+ * A damaged scope answers `{unique:false}` with the recovery reason: declining
+ * to assert uniqueness, not asserting duplication.
+ *
+ * @returns {{unique:boolean, reason:string}} Frozen.
+ * @throws {Error} codes ESCOPEGRAPH, ESCOPESYMBOL.
+ */
+function typeDeclIsUniqueInScope(graph, symbolOrNode) {
+  const state = internalsOf(graph, 'typeDeclIsUniqueInScope');
+  const symbol = coerceTypeDecl(state, symbolOrNode, 'typeDeclIsUniqueInScope');
+  if (state.documentIncomplete) {
+    return sym.createUniqueness(false, REASON.DOCUMENT_PARSE_INCOMPLETE);
+  }
+  const scope = symbol.scope;
+  if (scope.recovered) {
+    return sym.createUniqueness(false, scope.recoveredReason || REASON.SCOPE_RECOVERED);
+  }
+  const list = typeDeclsIn(state, scope, symbol.name);
+  return list.length === 1
+    ? sym.createUniqueness(true, REASON.OK)
+    : sym.createUniqueness(false, REASON.DUPLICATE_PROTO_DECLARATION);
+}
+
+function coerceTypeDecl(state, symbolOrNode, label) {
+  let symbol = symbolOrNode;
+  if (symbolOrNode && typeof symbolOrNode === 'object'
+    && (symbolOrNode.type === NODE.PROTO || symbolOrNode.type === NODE.EXTERNPROTO)) {
+    symbol = state.typeDeclByAstNode.get(symbolOrNode);
+    if (!symbol) {
+      throw scopeError(SCOPE_ERROR.SYMBOL,
+        `${label}: this declaration carries no provable type name in this graph's parse`);
+    }
+  }
+  return assertMember(state, symbol, sym.isTypeDeclSymbolShape, SCOPE_ERROR.SYMBOL,
+    label, 'a PROTO/EXTERNPROTO declaration from this graph');
+}
+
+
 /**
  * Resolve one reference.
  *
@@ -776,8 +1178,9 @@ function resolve(graph, referenceOrNode) {
         'resolve: this USE node does not belong to this graph\'s parse');
     }
   }
-  assertMember(state, reference, sym.isUseReferenceShape, SCOPE_ERROR.REFERENCE,
-    'resolve', 'a USE reference from this graph');
+  const shapeOk = (v) => sym.isUseReferenceShape(v) || sym.isNodeTypeReferenceShape(v);
+  assertMember(state, reference, shapeOk, SCOPE_ERROR.REFERENCE,
+    'resolve', 'a USE or node-type reference from this graph');
   return state.resolutionByReference.get(reference);
 }
 
@@ -795,7 +1198,12 @@ function resolve(graph, referenceOrNode) {
  */
 function referencesTo(graph, symbolOrNode) {
   const state = internalsOf(graph, 'referencesTo');
-  const symbol = coerceSymbol(state, symbolOrNode, 'referencesTo');
+  const isTypeSide = !!symbolOrNode && typeof symbolOrNode === 'object'
+    && (sym.isTypeDeclSymbolShape(symbolOrNode)
+      || symbolOrNode.type === NODE.PROTO || symbolOrNode.type === NODE.EXTERNPROTO);
+  const symbol = isTypeSide
+    ? coerceTypeDecl(state, symbolOrNode, 'referencesTo')
+    : coerceSymbol(state, symbolOrNode, 'referencesTo');
   return Object.freeze((state.referencesBySymbol.get(symbol) || []).slice());
 }
 
@@ -903,4 +1311,11 @@ module.exports = {
   scopeOf,
   symbolFor,
   referenceFor,
+  // node-type namespace (WD1.5-P2A)
+  typeDeclarations,
+  typeReferences,
+  typeResolutions,
+  typeDeclFor,
+  typeReferenceFor,
+  typeDeclIsUniqueInScope,
 };

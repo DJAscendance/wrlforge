@@ -47,8 +47,16 @@ test('symbols: the published string values are exactly the committed ones', () =
     DOCUMENT: 'document',
     PROTO_BODY: 'proto-body',
   });
-  assert.deepEqual({ ...sym.SYMBOL_KIND }, { NODE_DEF: 'node-def' });
-  assert.deepEqual({ ...sym.REFERENCE_KIND }, { USE: 'use' });
+  assert.deepEqual({ ...sym.SYMBOL_KIND }, {
+    NODE_DEF: 'node-def',
+    // WD1.5-P2A: the node-type namespace.
+    PROTO_DECL: 'proto-decl',
+    EXTERNPROTO_DECL: 'externproto-decl',
+  });
+  assert.deepEqual({ ...sym.REFERENCE_KIND }, {
+    USE: 'use',
+    NODE_TYPE: 'node-type',
+  });
   assert.deepEqual({ ...sym.STATUS }, {
     RESOLVED: 'resolved',
     UNRESOLVED: 'unresolved',
@@ -69,23 +77,28 @@ test('symbols: the published string values are exactly the committed ones', () =
     'self-reference-outside-transformation-hierarchy');
 });
 
-test('symbols: P1 publishes no kind it cannot construct', () => {
-  // The scope kinds WD1.5-P2 adds must NOT be advertised before anything
-  // creates them; publishing `proto-interface` today would claim support that
-  // does not exist.
+test('symbols: no kind is published that nothing constructs', () => {
+  // The invariant is unchanged from P1 -- publish nothing you cannot build --
+  // but the lane boundary moved: WD1.5-P2A constructs `proto-decl`,
+  // `externproto-decl` and `node-type`, so those three left this list and are
+  // pinned as PRESENT in the table test above. Everything below belongs to
+  // WD1.5-P2B/P2C (interface members, IS, ROUTE) and advertising any of it today
+  // would claim support that does not exist.
+  //
+  // Note P2A adds no SCOPE kind at all: a type scope is the existing
+  // document/proto-body scope viewed through its `typeParent` link.
   const scopeKinds = Object.values(sym.SCOPE_KIND);
   for (const later of ['proto-interface', 'externproto-interface', 'script-interface']) {
     assert.equal(scopeKinds.includes(later), false,
-      `${later} is a WD1.5-P2 scope kind and must not be published by P1`);
+      `${later} is a later scope kind and must not be published yet`);
   }
   const symbolKinds = Object.values(sym.SYMBOL_KIND);
-  for (const later of ['proto-decl', 'externproto-decl', 'proto-interface-member',
-    'script-interface-member']) {
-    assert.equal(symbolKinds.includes(later), false, `${later} must not be published by P1`);
+  for (const later of ['proto-interface-member', 'script-interface-member']) {
+    assert.equal(symbolKinds.includes(later), false, `${later} must not be published yet`);
   }
   const refKinds = Object.values(sym.REFERENCE_KIND);
-  for (const later of ['node-type', 'is', 'route-node', 'route-event']) {
-    assert.equal(refKinds.includes(later), false, `${later} must not be published by P1`);
+  for (const later of ['is', 'route-node', 'route-event']) {
+    assert.equal(refKinds.includes(later), false, `${later} must not be published yet`);
   }
 });
 

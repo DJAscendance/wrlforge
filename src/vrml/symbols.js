@@ -23,7 +23,9 @@
 // ISO/IEC 14772-1 has three distinct lexical name spaces, and conflating any two
 // of them is the single most common way to get VRML97 scope wrong (see
 // spikes/wd1-scope-semantics/standards-model.md §1). They are named here rather
-// than implied, even though WD1.5-P1 populates only the first:
+// than implied. WD1.5-P1 populated the first; WD1.5-P2A adds the second, in
+// SEPARATE tables and SEPARATE lookup maps -- a DEF and a PROTO may share one
+// spelling without either being a duplicate of the other:
 //
 //   node name        -- DEF names; USE and ROUTE endpoints look here.
 //   node type        -- PROTO / EXTERNPROTO declaration names.
@@ -38,13 +40,19 @@
 // WHAT P1 PUBLISHES, AND WHY THE TABLES DIFFER IN COMPLETENESS
 // ---------------------------------------------------------------------------
 //
-// P1 implements DEF/USE only. The constant tables below are therefore NOT all
-// the same shape, deliberately:
+// P1 implemented DEF/USE; P2A adds PROTO/EXTERNPROTO type names. The constant
+// tables below are therefore NOT all the same shape, deliberately:
 //
-//   * SCOPE_KIND / SYMBOL_KIND / REFERENCE_KIND list ONLY what P1 constructs.
-//     Publishing a `proto-interface` scope kind that nothing ever creates would
-//     advertise support that does not exist. WD1.5-P2 adds the remaining kinds
-//     from the committed plan (§3) additively.
+//   * SCOPE_KIND / SYMBOL_KIND / REFERENCE_KIND list ONLY what is constructed
+//     TODAY. Publishing a `proto-interface` scope kind that nothing ever creates
+//     would advertise support that does not exist, so the interface-member kinds
+//     (`proto-interface-member`, `script-interface-member`, `is`, `route-node`,
+//     `route-event`, and the three interface scope kinds) stay absent until
+//     WD1.5-P2B/P2C construct them. P2A adds only what it builds:
+//     `proto-decl`, `externproto-decl`, `node-type`.
+//     NOTE: P2A creates NO new scope KIND. A type scope is not a new region --
+//     it is the existing `document`/`proto-body` scope viewed through its
+//     `typeParent` link, which is the second, independent parent chain.
 //   * NAMESPACE lists ALL THREE, because the whole purpose of the constant is to
 //     keep them apart; the two P1 does not populate have to be VISIBLE as
 //     distinct-and-absent, not invisible.
@@ -104,14 +112,25 @@ const SCOPE_KIND = Object.freeze({
   PROTO_BODY: 'proto-body',
 });
 
-/** Declaration kinds P1 constructs. */
+/**
+ * Declaration kinds P1/P2A construct.
+ *
+ * `node-def` lives in the NODE_NAME namespace; the two declaration kinds P2A
+ * adds live in NODE_TYPE. They are never mixed in one table at lookup time --
+ * see the namespace note above -- and a symbol always carries its `namespace`
+ * so a consumer cannot infer the wrong one from the kind alone.
+ */
 const SYMBOL_KIND = Object.freeze({
   NODE_DEF: 'node-def',
+  PROTO_DECL: 'proto-decl',
+  EXTERNPROTO_DECL: 'externproto-decl',
 });
 
-/** Reference kinds P1 constructs. */
+/** Reference kinds P1/P2A construct. */
 const REFERENCE_KIND = Object.freeze({
   USE: 'use',
+  /** A node instance naming its type: `Transform { }`, `MyProto { }`. */
+  NODE_TYPE: 'node-type',
 });
 
 /**
@@ -154,6 +173,28 @@ const REASON = Object.freeze({
   SELF_REFERENCE_OUTSIDE_TRANSFORMATION_HIERARCHY: 'self-reference-outside-transformation-hierarchy',
   /** The parse could not recover a name for this reference at all. */
   MISSING_NAME: 'missing-name',
+
+  // --- node-type namespace (WD1.5-P2A) ---------------------------------
+  /**
+   * The type is a clause-6 built-in. This is a SCHEMA fact, not a lexical one:
+   * `Transform` is declared nowhere in the file, so no symbol accompanies it
+   * and no scope owns it.
+   */
+  NODE_TYPE_IS_BUILTIN: 'node-type-is-builtin',
+  /** Neither a built-in nor a visible PROTO/EXTERNPROTO declaration. */
+  NODE_TYPE_UNKNOWN: 'node-type-unknown',
+  /** 4.8.4 -- instantiable only AFTER the declaration completes. */
+  PROTO_INSTANCE_BEFORE_DECLARATION: 'proto-instance-before-declaration',
+  /** 4.8.1 -- node type names shall be unique; the tool refuses to choose. */
+  DUPLICATE_PROTO_DECLARATION: 'duplicate-proto-declaration',
+  /**
+   * A local declaration takes a built-in's spelling. 4.8.1 says results are
+   * undefined; the lexical declaration still wins the binding, so this is
+   * carried as `detail` on a `resolved` answer, never as a status of its own.
+   */
+  PROTO_SHADOWS_BUILTIN: 'proto-shadows-builtin',
+  /** 4.8.4 -- "recursive prototypes are illegal". */
+  RECURSIVE_PROTO_INSTANCE: 'recursive-proto-instance',
 
   // --- recovery / provability ------------------------------------------
   /** A hard parse cap fired: no lexical scope in the document is provable. */
@@ -313,6 +354,73 @@ function createUseReference(fields, owner) {
 }
 
 /**
+ * A `PROTO` or `EXTERNPROTO` declaration -- a NODE_TYPE symbol (WD1.5-P2A).
+ *
+ * Deliberately thin. It records the evidence type resolution needs and nothing
+ * else: no interface members (that is P2B), no body summary, no declaration
+ * subtree copy, no structural path, and none of WD1.4's rejected identity
+ * strategies. The declaration AST node is retained because a resolved answer
+ * has to be able to say WHICH declaration it found.
+ *
+ * `visibleFrom` is the END offset of the whole declaration, not its name --
+ * 4.8.4 makes a prototype instantiable "after the completion of the prototype
+ * definition", which is a different rule from 4.6.2's DEF visibility and must
+ * not be copied from it.
+ */
+function createTypeDeclSymbol(fields, owner) {
+  const kind = fields.kind;
+  return brand(Object.freeze({
+    kind,
+    namespace: NAMESPACE.NODE_TYPE,
+    name: fields.name == null ? null : fields.name,
+    /** The `Proto` or `ExternProto` AST node. */
+    node: fields.node,
+    /** The owning TYPE scope object (the scope the declaration is written in). */
+    scope: fields.scope,
+    /** The declared name's own span. */
+    declRange: fields.declRange || null,
+    /** Source-ordered position among this graph's type declarations. */
+    sourceOrder: fields.sourceOrder,
+    /** `true` for EXTERNPROTO. A kind convenience, not a second source of truth. */
+    isExtern: kind === SYMBOL_KIND.EXTERNPROTO_DECL,
+    /**
+     * 4.9.2: an EXTERNPROTO interface is a SUBSET of the real implementation's,
+     * so a member absent from the declaration is UNKNOWABLE locally, never
+     * "not there". P2A declares no interface members at all; this flag exists
+     * so a later lane cannot mistake local silence for authoritative absence.
+     */
+    interfaceIsSubset: kind === SYMBOL_KIND.EXTERNPROTO_DECL,
+    /** 4.8.4 "after the completion of the definition" -- the declaration's end. */
+    visibleFrom: fields.visibleFrom,
+  }), owner);
+}
+
+/**
+ * A node instance naming its type -- a NODE_TYPE reference (WD1.5-P2A).
+ *
+ * VRML97 has no distinct `ProtoInstance` syntax: a prototype instance IS a node
+ * statement whose type token happens to name a declared prototype. So exactly
+ * one of these is minted per `Node`, and which kind of thing the name denotes is
+ * the question resolution answers rather than a fact the parser supplies.
+ */
+function createNodeTypeReference(fields, owner) {
+  return brand(Object.freeze({
+    kind: REFERENCE_KIND.NODE_TYPE,
+    namespace: NAMESPACE.NODE_TYPE,
+    name: fields.name == null ? null : fields.name,
+    /** The `Node` AST node whose type token this is. */
+    node: fields.node,
+    /** The TYPE scope this reference is looked up in. */
+    scope: fields.scope,
+    /** The type token's own span. */
+    range: fields.range || null,
+    /** Source-ordered position among this graph's type references. */
+    sourceOrder: fields.sourceOrder,
+    offset: fields.offset,
+  }), owner);
+}
+
+/**
  * The outcome of one reference lookup.
  *
  * EVERY result is explicit: a status, a stable reason, and a symbol ONLY when
@@ -332,6 +440,13 @@ function createResolution(fields) {
     symbol: status === STATUS.RESOLVED && fields.symbol ? fields.symbol : null,
     /** How many declarations were in play. 0 when none were. */
     candidateCount: fields.candidateCount == null ? 0 : fields.candidateCount,
+    /**
+     * A secondary observation about an answer that is otherwise complete --
+     * currently only `proto-shadows-builtin`. It NEVER changes the status, the
+     * reason or the bound declaration; a consumer that ignores it is correct.
+     * `null` on every P1 (DEF/USE) answer.
+     */
+    detail: fields.detail == null ? null : fields.detail,
     /** Declaration spans that justify the call, source-ordered. */
     evidence: Object.freeze(fields.evidence ? fields.evidence.slice() : []),
   });
@@ -358,6 +473,11 @@ const isDefSymbolShape = (v) => !!v && typeof v === 'object' && !Array.isArray(v
   && v.kind === SYMBOL_KIND.NODE_DEF && v.namespace === NAMESPACE.NODE_NAME;
 const isUseReferenceShape = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
   && v.kind === REFERENCE_KIND.USE && v.namespace === NAMESPACE.NODE_NAME;
+const isTypeDeclSymbolShape = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
+  && (v.kind === SYMBOL_KIND.PROTO_DECL || v.kind === SYMBOL_KIND.EXTERNPROTO_DECL)
+  && v.namespace === NAMESPACE.NODE_TYPE;
+const isNodeTypeReferenceShape = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
+  && v.kind === REFERENCE_KIND.NODE_TYPE && v.namespace === NAMESPACE.NODE_TYPE;
 
 /** Did a lookup prove exactly one declaration? */
 const isResolved = (r) => !!r && r.status === STATUS.RESOLVED;
@@ -385,11 +505,15 @@ module.exports = {
   createScope,
   createDefSymbol,
   createUseReference,
+  createTypeDeclSymbol,
+  createNodeTypeReference,
   createResolution,
   createUniqueness,
   isScopeShape,
   isDefSymbolShape,
   isUseReferenceShape,
+  isTypeDeclSymbolShape,
+  isNodeTypeReferenceShape,
   isResolved,
   isUnresolved,
   isAmbiguous,
