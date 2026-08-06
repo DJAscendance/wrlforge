@@ -1,0 +1,220 @@
+# WD.md — the lossless document core
+
+The foundation the **model editor** stands on. Referenced from `AGENTS.md`; read
+this before touching anything under `src/vrml/`, and before designing any feature
+that edits a document rather than merely reading it.
+
+Lane docs live in `docs/white-dune-2026/`. Named "WD" after the White Dune
+discovery lane that started it — **see §1, that name carries a hard licensing
+boundary.**
+
+---
+
+## 1. The White Dune boundary — read this first
+
+White Dune is **GPL-2.0-or-later**. WRL Forge is not. They are
+license-incompatible, and this is not bureaucratic caution: copying, adapting or
+closely translating White Dune code into WRL Forge would create an obligation to
+relicense Ryan's product.
+
+**Never** open, search, copy, adapt, translate or paraphrase-into-code:
+
+- White Dune source, binaries, fixtures, examples, icons, node tables, algorithms
+- `RE-ARTIFACTS`, `blaxxun-cs-RE`, or any proprietary modeling-tool research material
+- FreeWRL, X3DVModuleSuite, Spazz3D, Flux, PlaceBuilder, VrmlPad implementation material
+
+What *is* allowed: studying **capabilities and workflows** (that a scene tree
+pairs with a field inspector; that ROUTEs want a graph view), and taking **facts**
+from ISO/IEC 14772-1 and the MIT-licensed `x_ite.d.ts`.
+
+The archive lives at `~/Projects/white-dune-archive/`, outside every Git
+repository, and never enters one. Full rules and the clean-room procedure:
+`docs/white-dune-2026/GPL_PROVENANCE_BOUNDARY.md`. **Default answer is no** — if
+outside implementation material appears necessary, stop and ask Ryan.
+
+## 2. The canonical document model
+
+**The exact source-text buffer is the document.** Everything else is a derived,
+disposable projection:
+
+> tokens · AST · source map · symbol tables · scope graph · semantic indexes ·
+> scene tree · typed inspector state · viewport state · diagnostics
+
+Every semantic operation must ultimately produce **source-text patches** through
+the accepted WD1.2 edit algebra. Nothing is regenerated wholesale from a tree.
+
+This is what makes WRL Forge safe on the real Cybertown corpus: files keep their
+formatting, their comments, their vendor quirks and their byte-level identity
+through an edit, because the editor never re-prints them.
+
+### Prohibited, permanently
+
+Do **not** introduce any of these without an explicitly approved lane that
+supersedes this file:
+
+- a canonical scene graph (a tree that is the source of truth instead of the text)
+- a CST, or an AST→text serializer used for whole-document regeneration
+- hidden synthetic identifiers written into source, identity comments, or sidecar
+  semantic state
+- a second document buffer
+- parser object identity relied on **across** reparses
+- structural-path identity, nearest-match, fuzzy matching, or scoring (see §7)
+
+## 3. Status at a glance
+
+| lane | what it is | state |
+|---|---|---|
+| WD0 | discovery + GPL boundary | committed |
+| WD1.1 | source mapping (`src/vrml/source-map.js`) | committed `4cf7398` |
+| WD1.2 | span-patch edit algebra (`src/vrml/edit.js`) | committed `846800d` |
+| WD1.3 | generated VRML97/X3D node schema (`src/vrml/node-schema.js`) | committed `94971a1` |
+| WD1.4 | two-tier node identity (`node-identity.js`, `document-transaction.js`) | committed `5328262` |
+| WD1.5 | scope semantics **design gate** | committed `bf4f8f9` (spike + plan only) |
+| WD2 | scene tree / inspector / viewport | **not started** |
+
+## 4. WD1.1 — source mapping
+
+Read-only offset→token/node lookup over a parse result. **Opt-in and lazy**:
+`parse()` does not build one, so nothing existing pays for it.
+`createSourceMap(parseResult)`.
+
+The tokenizer is already **byte-lossless** — WD0 established this, which is why
+no CST and no serializer exist or are needed.
+
+## 5. WD1.2 — span-patch edit algebra
+
+`src/vrml/edit.js`. Pure text-in/text-out edits anchored to the exact spans the
+parser and source map report.
+
+Owner-ratified invariants — **WD1.4+ must not reinterpret them**:
+
+- same-offset inserts are **rejected**, not ordered by guesswork
+- canonical order is `from` ascending, **insertion-first**
+
+## 6. WD1.3 — node schema
+
+`src/vrml/node-schema.js`, generated and **committed** (the product and the tests
+consume the committed file; `npm install`/`test`/`start` never run the generator).
+
+Two license-clean inputs only: the local **ISO/IEC 14772-1** mirror at
+`~/Projects/cybertown/wb-ct-scrape/specs/iso-14772-vrml97` (normative authority)
+and the MIT **`x_ite.d.ts`** (current X3D runtime shape). It extracts **facts** —
+node names, field names, type tokens, access categories, defaults — and copies
+**no prose**.
+
+Counts: 312 ISO declarations across 54/54 VRML97 nodes; 541 x_ite fields; **232
+X3D-only fields that must not leak into a VRML97 export**. Use
+`isFieldAllowed(node, field, 'vrml97')` before emitting a field.
+
+Regenerate with `node scripts/build-node-schema.js`; verify with `--check`.
+
+## 7. WD1.4 — stable node identity
+
+**The hard gate, which governs everything downstream:**
+
+> A selection may be **lost**. A selection may be **ambiguous**. Identity may say
+> it cannot be proven. It may **never** confidently return a different node.
+
+Two tiers, both pure and browser-safe, with no callers in production yet:
+
+- **Tier 1 — verified same-transaction re-anchoring.** Maps a node's old span
+  forward through an edit set that has been *proven* to be exactly what turned
+  one exact text into another (`verifyTransaction`, byte-for-byte). Not durable;
+  never survives a reload, external edit, serialization or unknown edit chain.
+- **Tier 2 — persistent DEF identity.** A uniquely named DEF plus node type plus
+  the PROTO-lexical scope the parse tree itself proves. Order matters and *is*
+  the safety property: **more than one match is ambiguous, decided on the name
+  alone, before any type filtering.**
+
+Sessions are bound by **object identity**, never by `sessionId` — the id is
+diagnostic only. A restartable counter once let two documents mint the same id
+and resolve a selection into the wrong tree.
+
+Scope keys are **opaque and NUL-separated**: `/` is legal in a PROTO name, and a
+`/`-joined key made `PROTO A/B` collide with `PROTO A { PROTO B }`.
+
+**Rejected and absent from the source:** structural-path identity (1,020+ wrong
+anchors), fingerprint identity, sibling-index identity, closest-range matching,
+fuzzy scoring, retained source fingerprints, hidden ids, sidecar metadata.
+`test/vrml/node-identity.test.js` asserts their absence by source scan *and* by
+behaviour. Do not reintroduce them.
+
+## 8. WD1.5 — scope semantics (design gate)
+
+`spikes/wd1-scope-semantics/` + `docs/white-dune-2026/WD1_5_SCOPE_SEMANTICS_PLAN.md`.
+A research gate. The spike and the plan are committed; **no production scope
+module exists** — `src/vrml/symbols.js` and `src/vrml/scope-graph.js` are designed
+here and built in **WD1.5-P1**, a separate approved lane.
+
+**Outcome A: the current AST is sufficient** — a production scope resolver needs
+no parser change, no AST change and no identity redesign.
+
+VRML97 has **three namespaces**, and conflating them is the usual way to get this
+wrong: node names (DEF) · node types (PROTO/EXTERNPROTO) · interface members.
+Built-in node and field names are **schema lookups, not lexical symbols**.
+
+The load-bearing rule is **ISO 4.8.4**: a PROTO establishes a DEF/USE scope
+**separate** from the rest of the scene and from nested PROTOs, in *both*
+directions. That is **disjointness, not shadowing** — a PROTO body's node-name
+lookup has no parent and simply stops.
+
+`src/vrml/analyze.js` is documented as flat and **non-authoritative**, and the
+gate measured exactly how far that goes: against 59 independently authored
+expected-truth cases it is wrong in **15** — cross-PROTO false duplicate-DEF,
+USE-before-DEF accepted, PROTO DEF leakage both directions, ROUTE endpoints
+treated as global. All sit inside the `VRML040`–`VRML044` **advisory** set that
+never blocks a save, so nothing shipped is broken.
+
+**Three rules that are easy to get wrong** (each cost real damage in the spike):
+
+1. A node body's `ROUTE`/`PROTO`/`EXTERNPROTO` statements land in `node.fields` —
+   only interface declarations get their own array. Dispatch on `type`.
+2. ISO **4.4.4** scopes the acyclicity rule to the *transformation hierarchy* and
+   excludes `Script` descendants, so `DEF S Script { field SFNode me USE S }` is a
+   standard idiom, not a cycle.
+3. A damaged scope must withhold **every** lexical answer, positive included —
+   parser recovery *moves scope boundaries*, so an unclosed PROTO can absorb
+   statements and manufacture a unique binding out of an ambiguous one.
+
+**Deliberate strictness gap:** ISO 4.6.2 defines duplicate-name binding exactly
+(*closest preceding*). The resolver returns `ambiguous` and does **not** implement
+it, because its consumers are identity and rename, where the §7 hard gate forbids
+ranking. If viewer fidelity ever needs the browser's answer it belongs in a
+separately named `languageSemantics` query that never feeds identity.
+
+## 9. Standards-first, always
+
+Core semantics derive from **ISO/IEC 14772-1**, not from any viewer's behaviour.
+
+Cybertown and Blaxxun permissiveness is an **optional compatibility profile**,
+classified and tagged — never promoted into the language rules. Observed in the
+corpus and handled that way:
+
+| construct | strict VRML97 | disposition |
+|---|---|---|
+| ROUTE/PROTO inside an MFNode array | non-conforming | parser recovery, already shipped |
+| event bound to an `exposedField` declaration | violates Table 4.4 | compatibility profile |
+| `exposedField` in a `Script` node | forbidden (6.40) | compatibility warning |
+| hyphen/plus in identifiers | **conforming** | not a compatibility item at all |
+
+When corpus behaviour differs from the standard: identify it, classify it,
+preserve it where possible, and recommend whether it belongs in strict behaviour,
+a compatibility warning, a profile, parser recovery, or unsupported. **Never
+silently normalize vendor behaviour into standard behaviour.**
+
+## 10. Working rules for this lane
+
+- Research and spikes live under `spikes/<lane>/`; generated artifacts under
+  `spikes/<lane>/out/`, which is gitignored and regenerable.
+- Spike tests are **not** collected by `npm run check` (`scripts/run-tests.js`
+  enumerates named directories under `test/`), so the production count is
+  unaffected.
+- Corpus work is **read-only**, boundary-guarded (a forbidden path **throws**,
+  never silently skips), deterministic (fixed seed, codepoint ordering, no clock,
+  no PRNG), and reports sanitized `group:relative/path` identifiers — never a
+  private absolute path.
+- The corpus roots are **external workspace trees that change independently**.
+  Record a fingerprint over the discovered file set so drift is visibly an
+  *input* change rather than an unstable analysis.
+- An expected-truth model must be **independently authored** and structurally
+  prevented from importing the thing it grades.
