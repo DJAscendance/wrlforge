@@ -1,8 +1,11 @@
 <p align="center">
   <img src="assets/generated/icons/runtime/about-logo.png" width="120" alt="WRL Forge logo" />
+<br>
 </p>
 
 # WRL Forge
+
+[![DeepScan grade](https://deepscan.io/api/teams/30342/projects/32189/branches/1050698/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=30342&pid=32189&bid=1050698) ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/DJAscendance/wrlforge?utm_source=oss&utm_medium=github&utm_campaign=DJAscendance%2Fwrlforge&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 A Linux-first, Windows-supported desktop tool for editing, previewing, inspecting, and packaging classic VRML97 `.wrl` content for Cybertown items and worlds.
 
