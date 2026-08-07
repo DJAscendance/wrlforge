@@ -1,5 +1,6 @@
 'use strict';
-// VRML97 scope graph: DEF/USE (Phase WD1.5-P1) + node types (Phase WD1.5-P2A).
+// VRML97 scope graph: DEF/USE (Phase WD1.5-P1) + node types (Phase WD1.5-P2A)
+// + interface members and `IS` (Phase WD1.5-P2B).
 //
 // PURE and browser-safe: requires only `src/vrml/ast.js` (the NODE type
 // discriminators) and `src/vrml/symbols.js` (the taxonomy and the frozen
@@ -50,9 +51,13 @@
 // nowhere to go, not because a special case says so.
 //
 // `typeParent` still points outward (a nested body may instantiate a type
-// declared in an enclosing scope). P1 records that link and implements NO type
-// lookup through it; node types, PROTO declarations, EXTERNPROTO, IS, ROUTE and
-// Script interfaces are WD1.5-P2.
+// declared in an enclosing scope). P2A walks it for node types.
+//
+// P2B adds a THIRD namespace whose scopes have NEITHER link. 4.8.3/4.8.4 give an
+// `IS` exactly one interface to consult -- the innermost enclosing prototype's
+// -- and are silent on any outer one, so an interface is an OWNERSHIP scope with
+// no chain at all. The reference carries its owner, fixed on descent; nothing
+// searches for it. ROUTE endpoints remain WD1.5-P2C.
 //
 // ---------------------------------------------------------------------------
 // KNOWN, DELIBERATE LIMITS OF P1
@@ -135,6 +140,22 @@ class Builder {
     this.references = [];
     this.typeDecls = [];
     this.typeRefs = [];
+    // WD1.5-P2B. Interface scopes are held in their OWN array, deliberately not
+    // appended to `this.scopes`. Two reasons, both load-bearing:
+    //
+    //   * `scopes(graph)` keeps meaning exactly what it meant in P1/P2A -- the
+    //     lexical DEF/type regions -- so no existing caller's counts change.
+    //   * `markRecovery` attributes each syntax error to the INNERMOST scope
+    //     containing it. Letting interface scopes compete in that computation
+    //     would make an interface the innermost match for damage inside an
+    //     interface list, so the enclosing DEF scope would stop being marked
+    //     recovered and a USE that answered `recovered` under P1 would start
+    //     answering confidently. That is a LOOSENING of a safety property, in
+    //     the one direction this lane may never move. Interface scopes get their
+    //     own, purely ADDITIVE attribution pass instead.
+    this.interfaceScopes = [];
+    this.members = [];
+    this.isRefs = [];
     // A hard parse cap did not merely damage a region: the tree is genuinely
     // aborted, so NO lexical scope in the document is provable. This matches
     // WD1.4 Tier 2's `document-parse-incomplete`.
@@ -202,6 +223,91 @@ class Builder {
     });
   }
 
+  // --- WD1.5-P2B -----------------------------------------------------------
+
+  /**
+   * Open an interface scope for a `Proto`, `ExternProto` or `Script`.
+   *
+   * `ownerRange` is the UNION OF THE MEMBER DECLARATIONS, not the owning
+   * construct's range. Using the PROTO's range would put the whole body inside
+   * the interface scope, so body damage would mark the interface unprovable and
+   * vice versa -- two independent facts collapsed into one. An empty interface
+   * list yields `null`, which `contains()` never matches, so nothing attributes
+   * to it; the enclosing body scope still fails closed for it (G2).
+   */
+  addInterfaceScope(kind, ownerNode, decls) {
+    let start = null;
+    let end = null;
+    for (const decl of decls || []) {
+      if (!decl || !decl.range) continue;
+      if (start === null || offsetOf(decl.range) < start.start.offset) start = decl.range;
+      if (end === null || endOffsetOf(decl.range) > end.end.offset) end = decl.range;
+    }
+    const scope = {
+      index: this.interfaceScopes.length,
+      kind,
+      ownerRange: (start && end) ? { start: start.start, end: end.end } : null,
+      ownerName: (ownerNode && ownerNode.name != null) ? ownerNode.name : null,
+      ownerNode: ownerNode || null,
+      recovered: false,
+      recoveredReason: null,
+    };
+    this.interfaceScopes.push(scope);
+    return scope;
+  }
+
+  addMember(kind, decl, ifaceScope, detail) {
+    const declRange = decl.nameRange || decl.range;
+    this.members.push({
+      kind,
+      name: decl.name == null ? null : decl.name,
+      access: decl.access == null ? null : decl.access,
+      fieldType: decl.fieldType == null ? null : decl.fieldType,
+      node: decl,
+      interfaceScopeIndex: ifaceScope.index,
+      declRange,
+      range: decl.range || null,
+      hasDefault: !!decl.default,
+      detail: detail || null,
+      sortOffset: offsetOf(declRange),
+      sortName: decl.name == null ? '' : String(decl.name),
+    });
+    // A member the parse could not name cannot be indexed, and an interface
+    // whose member set is incomplete cannot answer ANY lexical question about
+    // itself -- not presence, not absence, not uniqueness. Fail the whole scope
+    // closed rather than answer from a set known to be short. Corpus cost: 0.
+    if (decl.name == null) {
+      ifaceScope.recovered = true;
+      ifaceScope.recoveredReason = REASON.INTERFACE_SCOPE_NOT_PROVABLE;
+    }
+  }
+
+  addIsRef(fields) {
+    this.isRefs.push({
+      name: fields.name == null ? null : fields.name,
+      form: fields.form,
+      node: fields.node,
+      hostNode: fields.hostNode || null,
+      // The innermost enclosing PROTO interface, FIXED ON DESCENT. Never found
+      // by a containment test or an ancestor walk.
+      ownerInterface: fields.ownerInterface || null,
+      // Diagnostic only, and deliberately NOT published on the frozen
+      // projection: it feeds the non-binding `member-found-in-outer-interface-
+      // only` detail and nothing else. An interface scope has no parent link, so
+      // this list is the only outward view that exists and it can never bind.
+      outerInterfaces: fields.outerInterfaces ? fields.outerInterfaces.slice() : [],
+      hostScopeIndex: fields.hostScope.index,
+      hostInterfaceScope: fields.hostInterfaceScope || null,
+      range: fields.range || null,
+      endpointName: fields.endpointName == null ? null : fields.endpointName,
+      endpointRange: fields.endpointRange || null,
+      offset: offsetOf(fields.range || null),
+      detail: fields.detail || null,
+      sortOffset: offsetOf(fields.range || fields.endpointRange || null),
+      sortName: fields.name == null ? '' : String(fields.name),
+    });
+  }
+
   addUse(use, scope, insideScript) {
     const range = use.nameRange || use.range;
     this.references.push({
@@ -243,12 +349,44 @@ function visitStatement(b, stmt, ctx) {
   }
 }
 
+// Collect one interface list's members (WD1.5-P2B).
+//
+// Compatibility-profile shapes are CLASSIFIED here and carried as non-binding
+// `detail`, never as a status and never normalized away (WD.md §9): the member
+// is declared either way, and a consumer that ignores the detail is correct.
+function addInterfaceMembers(b, kind, decls, ifaceScope, isScriptBody) {
+  for (const decl of decls || []) {
+    if (!decl || decl.type !== NODE.INTERFACE) continue;
+    let detail = null;
+    if (!isScriptBody && decl.is != null) {
+      // Annex A.2 gives a PROTO/EXTERNPROTO `interfaceDeclaration` no `IS` form
+      // at all. Corpus: 20. Recorded, not accepted as a binding -- no `IS`
+      // reference is minted for it, because there is no node body here for one
+      // to live in.
+      detail = REASON.IS_IN_INTERFACE_DECLARATION_LIST;
+    } else if (isScriptBody && decl.access === sym.ACCESS.EXPOSED_FIELD) {
+      // Annex A.3 admits only `restrictedInterfaceDeclaration` in a script body,
+      // and 6.40 confirms it. Corpus: 1,577 -- real Cybertown content, kept.
+      detail = REASON.EXPOSED_FIELD_IN_SCRIPT_INTERFACE;
+    }
+    b.addMember(kind, decl, ifaceScope, detail);
+  }
+}
+
 function visitExternProto(b, ext, ctx) {
   b.addTypeDecl(sym.SYMBOL_KIND.EXTERNPROTO_DECL, ext, ctx.scope);
+  // 4.9.2 makes an EXTERNPROTO interface a PROTO interface bar initial values,
+  // so it owns a real interface scope and its members are real declarations.
+  // NO `IS` ever resolves IN one -- it has no body for an `IS` to sit in -- but
+  // it IS consulted as an endpoint namespace for instances of the type (§8/§9).
+  const iface = b.addInterfaceScope(sym.SCOPE_KIND.EXTERNPROTO_INTERFACE, ext, ext.interfaces);
+  addInterfaceMembers(b, sym.SYMBOL_KIND.PROTO_INTERFACE_MEMBER, ext.interfaces, iface, false);
 }
 
 function visitProto(b, proto, ctx) {
   b.addTypeDecl(sym.SYMBOL_KIND.PROTO_DECL, proto, ctx.scope);
+  const iface = b.addInterfaceScope(sym.SCOPE_KIND.PROTO_INTERFACE, proto, proto.interfaces);
+  addInterfaceMembers(b, sym.SYMBOL_KIND.PROTO_INTERFACE_MEMBER, proto.interfaces, iface, false);
   // A PROTO body owns a DEF scope with NO defParent. `typeParent` points at the
   // enclosing scope for P2's benefit and is never walked here.
   const body = b.addScope(SCOPE_KIND.PROTO_BODY, proto.range, {
@@ -279,7 +417,21 @@ function visitProto(b, proto, ctx) {
   // limit 1. `insideScript` is carried through rather than reset, matching the
   // committed model: a PROTO statement can appear inside a node body, and the
   // model treats "lexically under a Script" as the condition 4.4.4 turns on.
-  visitStatements(b, proto.body, { scope: body, insideScript: ctx.insideScript });
+  //
+  // `isOwner` is REPLACED, not pushed onto a chain a lookup could walk: 4.8.4
+  // says an `IS` in a nested prototype's implementation refers to the INNERMOST
+  // prototype's declarations, and is silent on the outer case. Silence fails
+  // closed (WD.md §7), and it costs nothing -- 0 of the corpus's 27,756 `IS`
+  // statements would need an outward walk. `outerInterfaces` is carried for one
+  // purpose only: a NON-BINDING detail that explains an outer-only near-miss.
+  visitStatements(b, proto.body, {
+    scope: body,
+    insideScript: ctx.insideScript,
+    isOwner: iface,
+    outerInterfaces: ctx.isOwner
+      ? (ctx.outerInterfaces || []).concat([ctx.isOwner])
+      : (ctx.outerInterfaces || []),
+  });
 }
 
 function visitNode(b, node, ctx) {
@@ -292,13 +444,52 @@ function visitNode(b, node, ctx) {
   const inner = {
     scope: ctx.scope,
     insideScript: ctx.insideScript || node.nodeType === 'Script',
+    // Entering a Script does NOT change the `IS` owner. 4.8.3/4.8.4 put an `IS`
+    // inside a Script inside a PROTO body on the ENCLOSING PROTO's interface,
+    // and the corpus confirms that is the dominant real shape.
+    isOwner: ctx.isOwner,
+    outerInterfaces: ctx.outerInterfaces,
   };
+
+  // A Script's own `restrictedInterfaceDeclaration` set is a real interface
+  // (Annex A.3), so it owns a scope and its members are real declarations.
+  //
+  // Only a Script gets one. A declaration in `node.interfaces` on any other node
+  // type is non-conforming (corpus: 0) and is NOT accepted as a Script-
+  // equivalent interface; a `IS` written in such a list therefore cannot prove
+  // its owning interface scope and fails closed at G4 rather than being answered
+  // from a scope this lane declined to mint.
+  let scriptIface = null;
+  if (node.nodeType === 'Script' && node.interfaces && node.interfaces.length > 0) {
+    scriptIface = b.addInterfaceScope(sym.SCOPE_KIND.SCRIPT_INTERFACE, node, node.interfaces);
+    addInterfaceMembers(b, sym.SYMBOL_KIND.SCRIPT_INTERFACE_MEMBER,
+      node.interfaces, scriptIface, true);
+  }
 
   // A node's own interface declarations (Script, per 6.40) may carry default
   // values containing nodes. The owning scope is not in doubt here -- it is the
   // scope the node itself sits in -- so these ARE traversed.
   for (const decl of node.interfaces || []) {
-    if (decl && decl.default) visitValue(b, decl.default, inner);
+    if (!decl) continue;
+    // Annex A.3's three `… IS …` forms. The DEFINITION-side endpoint is the
+    // declaration itself (its own name, access and type); the DECLARATION-side
+    // name is looked up in the enclosing PROTO's interface.
+    if (decl.type === NODE.INTERFACE && (decl.is != null || decl.isRange)) {
+      b.addIsRef({
+        name: decl.is,
+        form: sym.IS_FORM.SCRIPT_INTERFACE,
+        node: decl,
+        hostNode: node,
+        ownerInterface: ctx.isOwner || null,
+        outerInterfaces: ctx.outerInterfaces,
+        hostScope: ctx.scope,
+        hostInterfaceScope: scriptIface,
+        range: decl.isRange || null,
+        endpointName: decl.name,
+        endpointRange: decl.nameRange || decl.range,
+      });
+    }
+    if (decl.default) visitValue(b, decl.default, inner);
   }
 
   for (const field of node.fields || []) {
@@ -313,8 +504,27 @@ function visitNode(b, node, ctx) {
       visitStatement(b, field, inner);
       continue;
     }
-    // `fieldId IS interfaceId` binds an interface member, not a node name.
-    if (field.isBinding && field.value && field.value.type === NODE.IS) continue;
+    // `fieldId IS interfaceId` binds an interface member, not a node name -- so
+    // it contributes nothing to DEF/USE (unchanged from P1) and one `IS`
+    // reference to the interface-member namespace (WD1.5-P2B).
+    if (field.isBinding && field.value && field.value.type === NODE.IS) {
+      b.addIsRef({
+        name: field.value.name,
+        form: sym.IS_FORM.NODE_BODY,
+        node: field,
+        hostNode: node,
+        ownerInterface: ctx.isOwner || null,
+        outerInterfaces: ctx.outerInterfaces,
+        hostScope: ctx.scope,
+        // Carried so a node-body `IS` on a Script can consult the Script's own
+        // declarations for its endpoint before falling back to clause 6.
+        hostInterfaceScope: scriptIface,
+        range: field.value.nameRange || null,
+        endpointName: field.name,
+        endpointRange: field.nameRange || field.range,
+      });
+      continue;
+    }
     visitValue(b, field.value, inner);
   }
 }
@@ -351,11 +561,29 @@ function visitValue(b, value, ctx) {
 // answer in the whole document.
 function markRecovery(b) {
   if (b.documentIncomplete) {
-    for (const scope of b.scopes) {
+    for (const scope of b.scopes.concat(b.interfaceScopes)) {
       scope.recovered = true;
       scope.recoveredReason = REASON.DOCUMENT_PARSE_INCOMPLETE;
     }
     return;
+  }
+  // WD1.5-P2B: a SECOND, INDEPENDENT pass over interface scopes, run before the
+  // P1 pass and sharing no state with it.
+  //
+  // It is deliberately NOT an "innermost containing scope" competition. An
+  // interface scope's range is a strict subset of its owning construct's, so
+  // entering it into P1's competition would displace the enclosing DEF scope as
+  // the innermost match and UN-mark it -- turning a `recovered` USE answer back
+  // into a confident one. Attributing damage to BOTH is purely additive: it can
+  // only turn `resolved` into `recovered`, never the reverse.
+  for (const d of b.syntaxDiagnostics) {
+    if (!d || d.severity !== 'error' || !d.range) continue;
+    for (const scope of b.interfaceScopes) {
+      if (!scope.ownerRange || !contains(scope.ownerRange, d.range)) continue;
+      if (scope.recovered) continue;
+      scope.recovered = true;
+      scope.recoveredReason = REASON.INTERFACE_SCOPE_NOT_PROVABLE;
+    }
   }
   for (const d of b.syntaxDiagnostics) {
     if (!d || d.severity !== 'error') continue;
@@ -378,7 +606,7 @@ function markRecovery(b) {
     // hazard closed at nil cost, the same call the lane made for `/`-joined
     // scope keys, which likewise had zero corpus instances.
     if (best === null) {
-      for (const scope of b.scopes) {
+      for (const scope of b.scopes.concat(b.interfaceScopes)) {
         if (scope.recovered) continue;
         scope.recovered = true;
         scope.recoveredReason = REASON.SCOPE_RECOVERED;
@@ -812,6 +1040,577 @@ function resolveUse(state, reference) {
 }
 
 // ---------------------------------------------------------------------------
+// Interface members and IS (WD1.5-P2B)
+// ---------------------------------------------------------------------------
+
+/**
+ * Annex A.2's `fieldType` production, verbatim -- the twenty tokens the grammar
+ * admits as a field type.
+ *
+ * THIS IS NOT A SECOND FIELD-TYPE TABLE. The WD1.3 schema is authority for what
+ * type a given NODE'S FIELD has, and stays so; this answers the different
+ * question of which tokens are legal field types at all, which only the grammar
+ * can answer. They cannot be the same table: `MFTime` is a legal VRML97 field
+ * type that no clause-6 built-in field happens to use, so a set derived from the
+ * schema would be 19 tokens and would report a perfectly legal `field MFTime`
+ * member as `is-type-unknown`. `interface-is.test.js` pins the containment
+ * relation (every schema type is in this set) so the two cannot drift apart.
+ */
+const VRML97_FIELD_TYPES = new Set([
+  'MFColor', 'MFFloat', 'MFInt32', 'MFNode', 'MFRotation', 'MFString', 'MFTime',
+  'MFVec2f', 'MFVec3f', 'SFBool', 'SFColor', 'SFFloat', 'SFImage', 'SFInt32',
+  'SFNode', 'SFRotation', 'SFString', 'SFTime', 'SFVec2f', 'SFVec3f',
+]);
+
+/**
+ * ISO/IEC 14772-1 4.8.3 Table 4.4 -- the legal `IS` access-kind mappings.
+ *
+ * DIRECTIONAL, and asymmetric: 7 legal cells of 16. Outer key is the PROTOTYPE
+ * DEFINITION side (the left-hand endpoint on the node); inner key is the
+ * DECLARATION side (the right-hand interface member). Transposing it still
+ * "works" on the diagonal and fails only on the `exposedField` row and column,
+ * which is exactly why every one of the sixteen cells is tested individually.
+ *
+ * The prose of 4.8.3 agrees independently in both directions: "an exposedField
+ * in the prototype interface may be associated only with an exposedField in the
+ * prototype definition" is the `exposedField` COLUMN, and "an exposedField in
+ * the prototype definition may be associated with either a field, eventIn,
+ * eventOut or exposedField in the prototype interface" is the ROW.
+ *
+ * One table, one place, consulted once. It is applied to EFFECTIVE access after
+ * alias expansion: a `set_zzz` is an eventIn here, whatever it was declared as.
+ */
+const IS_ACCESS_MATRIX = Object.freeze({
+  exposedField: Object.freeze({
+    exposedField: true, field: true, eventIn: true, eventOut: true,
+  }),
+  field: Object.freeze({
+    exposedField: false, field: true, eventIn: false, eventOut: false,
+  }),
+  eventIn: Object.freeze({
+    exposedField: false, field: false, eventIn: true, eventOut: false,
+  }),
+  eventOut: Object.freeze({
+    exposedField: false, field: false, eventIn: false, eventOut: true,
+  }),
+});
+
+/**
+ * The effective names one declaration occupies -- 4.7 and 4.8.2.
+ *
+ * `exposedField zzz` is EQUIVALENT to `field zzz` + `eventIn set_zzz` +
+ * `eventOut zzz_changed`, so it occupies three effective names and each carries
+ * its OWN effective access. Getting that last part wrong is the subtlest
+ * available bug in this lane: binding `set_zzz` and then testing it as an
+ * `exposedField` would wrongly accept a definition-side `field`.
+ *
+ * Generated on demand into the private index, never written into a symbol and
+ * never into the document -- they are a rule about how a declaration may be
+ * REFERRED TO, not additional declarations.
+ */
+function effectiveEntriesOf(member) {
+  if (member.name == null) return [];
+  const entries = [{
+    member, effectiveName: member.name, effectiveAccess: member.access, viaAlias: false,
+  }];
+  if (member.access === sym.ACCESS.EXPOSED_FIELD) {
+    entries.push({
+      member,
+      effectiveName: `set_${member.name}`,
+      effectiveAccess: sym.ACCESS.EVENT_IN,
+      viaAlias: true,
+    });
+    entries.push({
+      member,
+      effectiveName: `${member.name}_changed`,
+      effectiveAccess: sym.ACCESS.EVENT_OUT,
+      viaAlias: true,
+    });
+  }
+  return entries;
+}
+
+/** Split `set_X` / `X_changed` into its base name and the access it denotes. */
+function aliasBaseOf(name) {
+  if (typeof name !== 'string') return null;
+  if (name.startsWith('set_') && name.length > 4) {
+    return { base: name.slice(4), access: sym.ACCESS.EVENT_IN };
+  }
+  if (name.endsWith('_changed') && name.length > 8) {
+    return { base: name.slice(0, -8), access: sym.ACCESS.EVENT_OUT };
+  }
+  return null;
+}
+
+/** Every entry for `effectiveName` in one interface scope. Never a chain walk. */
+function membersIn(state, ifaceScope, effectiveName) {
+  const table = state.membersByInterfaceScope.get(ifaceScope);
+  if (!table) return [];
+  return table.get(effectiveName) || [];
+}
+
+// --- the recovery proof gate -----------------------------------------------
+//
+// P2A's binding lesson, applied BEFORE any branch exists rather than after:
+// prove the whole relevant chain ONCE, UP FRONT. A per-branch guard is one
+// `return` away from a leak, and P2A leaked exactly that way -- the branches
+// that were wrapped were safe and the ones that were not silently were not.
+//
+// What a damaged construct must never manufacture, and why each sits BELOW this
+// gate rather than being special-cased above it:
+//
+//   * a POSITIVE binding      -- a moved boundary can invent the only match;
+//   * a NEGATIVE "no such member" -- a truncated interface list LOSES members,
+//                                so absence is unprovable, not false;
+//   * a DUPLICATE/ambiguity claim -- an unclosed `[` absorbs a declaration that
+//                                was never in this interface, manufacturing one;
+//   * an access or type verdict, a uniqueness assertion, or the identity of the
+//     owning interface.
+//
+// The negative and ambiguous ones are the part that is easy to get wrong: both
+// bind nothing, which makes them look safe to let stand. They are still
+// ASSERTIONS, and recovery is capable of fabricating either.
+//
+// G1-G4 gate the declaration-side binding. G5 additionally gates the endpoint
+// and the compatibility verdicts (`acquireEndpoint`), so a provable binding
+// SURVIVES an unprovable endpoint -- they are two questions and only one of them
+// may be lost.
+function interfaceChainWithholds(state, reference) {
+  // G1 -- a hard parse cap aborts the tree, so no scope anywhere is provable.
+  if (state.documentIncomplete) {
+    return result(reference, STATUS.RECOVERED, REASON.DOCUMENT_PARSE_INCOMPLETE);
+  }
+  // G2 -- the enclosing body. An unclosed body absorbs the statements after it,
+  // which moves WHICH interface an `IS` belongs to. That makes even the
+  // `is-outside-proto-body` answer below unsayable, so this is checked whether
+  // or not an owning interface was found.
+  if (reference.hostScope && reference.hostScope.recovered) {
+    return result(reference, STATUS.RECOVERED,
+      REASON.INTERFACE_NOT_PROVABLE_FOR_REFERENCE);
+  }
+  // G3 -- the owning interface itself. An unclosed `[` absorbs following
+  // statements into the interface list and manufactures members.
+  //
+  // MEASURED AS SUBSUMED BY G2 TODAY, AND KEPT ANYWAY. A proto-body scope's
+  // `ownerRange` is the whole `Proto` node, which CONTAINS its own interface
+  // list, so every diagnostic that marks an interface unprovable also marks the
+  // body unprovable and G2 fires first. No fixture reaches this branch, which is
+  // why the mutation suite exercises G3 where it IS independently observable --
+  // `interfaceEndpoint`, whose interface belongs to a DIFFERENT declaration
+  // whose body has nothing to do with this reference.
+  //
+  // It is retained rather than deleted because the redundancy is a property of
+  // that containment, not of the rule: narrow a proto-body's `ownerRange`, or
+  // change attribution, and this becomes the live guard. The containment is
+  // pinned by test (`interface-is.test.js`, "G3 is subsumed"), so if it ever
+  // stops holding the suite says so rather than silently opening a gap.
+  if (reference.owner && reference.owner.recovered) {
+    return result(reference, STATUS.RECOVERED,
+      reference.owner.recoveredReason || REASON.INTERFACE_SCOPE_NOT_PROVABLE);
+  }
+  // G4 -- the DECLARING side of a Script-form `IS`: same fabrication hazard, and
+  // an absent script interface (a `… IS …` written in a non-Script node's
+  // interface list) is likewise unprovable rather than answerable.
+  if (reference.form === sym.IS_FORM.SCRIPT_INTERFACE
+    && (!reference.hostInterfaceScope || reference.hostInterfaceScope.recovered)) {
+    return result(reference, STATUS.RECOVERED,
+      (reference.hostInterfaceScope && reference.hostInterfaceScope.recoveredReason)
+        || REASON.INTERFACE_SCOPE_NOT_PROVABLE);
+  }
+  return null;
+}
+
+/**
+ * The DECLARATION-side (right-hand) lookup of one `IS`.
+ *
+ * Resolution order is §7.3's, and the gate is step 3 so nothing below it is
+ * reachable from a damaged construct:
+ *
+ *   1. graph ownership / projection validity   (`resolveIs`, before this)
+ *   2. is there a right-hand name at all?      -- a token fact, not lexical
+ *   3. THE GATE                                -- if it withholds, full stop
+ *   4. is there an enclosing PROTO interface?
+ *   5. member lookup over EFFECTIVE names
+ */
+function resolveIsReference(state, reference) {
+  // Step 2. True whatever the surrounding scopes turn out to be.
+  if (reference.name == null) {
+    return result(reference, STATUS.INVALID, REASON.IS_TARGET_NAME_MISSING);
+  }
+  // Step 3.
+  const withheld = interfaceChainWithholds(state, reference);
+  if (withheld) return withheld;
+
+  // Step 4. 4.3.6 is explicit: only the body of a node statement inside a
+  // prototype definition may contain `IS` statements. Corpus: 102 -- real,
+  // non-conforming, Cybertown-authored content, and a first-class classified
+  // answer rather than a parse failure.
+  const owner = reference.owner;
+  if (!owner) {
+    return result(reference, STATUS.INVALID, REASON.IS_OUTSIDE_PROTO_BODY);
+  }
+
+  // Step 5. Over EFFECTIVE names, in the INNERMOST interface only.
+  const entries = membersIn(state, owner, reference.name);
+
+  // Decided on the name ALONE, before type or access is looked at -- the same
+  // rule P1/P2A use for DEF and type names, for the same reason. This is also
+  // where an `exposedField zzz` + explicit `eventIn set_zzz` collision lands:
+  // 4.3.5 prohibits that combination outright, so there is no author intent to
+  // recover and NEITHER declaration is preferred. No first-match, no
+  // source-order, no explicit-beats-alias, no ranking of any kind.
+  if (entries.length > 1) {
+    return result(reference, STATUS.AMBIGUOUS, REASON.DUPLICATE_INTERFACE_MEMBER, {
+      candidateCount: entries.length,
+      evidence: entries.map((e) => e.member.declRange),
+    });
+  }
+
+  if (entries.length === 1) {
+    const entry = entries[0];
+    state.isEntryByReference.set(reference, entry);
+    return result(reference, STATUS.RESOLVED, REASON.OK, {
+      symbol: entry.member,
+      candidateCount: 1,
+      evidence: [entry.member.declRange],
+      detail: entry.viaAlias ? REASON.MEMBER_VIA_IMPLICIT_ALIAS : null,
+    });
+  }
+
+  // Not declared in the innermost interface. If an OUTER interface happens to
+  // declare it, say so as a NON-BINDING detail -- the status stays `unresolved`
+  // and `createResolution` drops any symbol on a non-resolved answer, so this
+  // cannot become a binding however it is read.
+  const outers = state.outerInterfacesByIsReference.get(reference) || [];
+  let detail = null;
+  for (const outer of outers) {
+    if (membersIn(state, outer, reference.name).length > 0) {
+      detail = REASON.MEMBER_FOUND_IN_OUTER_INTERFACE_ONLY;
+      break;
+    }
+  }
+  return result(reference, STATUS.UNRESOLVED, REASON.INTERFACE_MEMBER_NOT_DECLARED, { detail });
+}
+
+// --- endpoint acquisition --------------------------------------------------
+//
+// Per 4.3.6 the left-hand name is one from THE NODE'S OWN public interface, so
+// which namespace answers is decided by the containing node, never by the PROTO.
+// Four origins, one shared lookup path for the three interface-backed ones.
+
+const endpointOutcome = (endpoint, status, reason, evidence) => ({
+  endpoint: endpoint || null, status, reason, evidence: evidence || [],
+});
+
+/**
+ * A clause-6 built-in field, with 4.7's implicit aliases applied at LOOKUP time.
+ *
+ * The committed schema records DECLARED interface names only, so
+ * `getFieldSchema('Transform','set_translation')` is `null` by design -- the
+ * aliases are a language rule, not an extra ISO declaration, and the schema must
+ * NOT be regenerated to add them.
+ *
+ * X3D-only leakage is closed by the same test that finds the field: a record
+ * whose `vrml97Declaration` is `null` is X3D-only and is not a VRML97 endpoint
+ * at all. There are 232 such fields.
+ */
+function builtinEndpoint(nodeType, name) {
+  const direct = nodeSchema.getFieldSchema(nodeType, name);
+  if (direct && direct.vrml97Declaration) {
+    return {
+      effectiveName: name, access: direct.vrml97Declaration, type: direct.type, viaAlias: false,
+    };
+  }
+  const alias = aliasBaseOf(name);
+  if (alias) {
+    const base = nodeSchema.getFieldSchema(nodeType, alias.base);
+    if (base && base.vrml97Declaration === sym.ACCESS.EXPOSED_FIELD) {
+      return {
+        effectiveName: alias.base, access: alias.access, type: base.type, viaAlias: true,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * One lookup shared by all three interface-backed endpoint namespaces.
+ *
+ * The EXTERNPROTO difference is confined to the MISS branch, and that is the
+ * whole of §9's positive/absence split:
+ *
+ *   * a member the declaration DOES state is positive local information --
+ *     4.9.2 makes an EXTERNPROTO interface a PROTO interface bar initial values,
+ *     so its name, access kind and type are as authoritative as a PROTO's, and
+ *     compatibility proceeds from them WITHOUT loading anything;
+ *   * a member ABSENT from it is where 4.9.2's subset rule bites: the
+ *     declaration may be a strict subset of the implementation's, so absence is
+ *     UNKNOWABLE, not false. `unsupported`, never `unresolved`.
+ *
+ * Under no circumstance is the EXTERNPROTO's URL fetched, loaded or followed to
+ * decide either branch. This module performs no I/O of any kind.
+ */
+function interfaceEndpoint(state, ifaceScope, name, isExtern) {
+  if (!ifaceScope) {
+    return endpointOutcome(null, STATUS.RECOVERED, REASON.INTERFACE_SCOPE_NOT_PROVABLE);
+  }
+  if (ifaceScope.recovered) {
+    return endpointOutcome(null, STATUS.RECOVERED,
+      ifaceScope.recoveredReason || REASON.INTERFACE_SCOPE_NOT_PROVABLE);
+  }
+  const entries = membersIn(state, ifaceScope, name);
+  if (entries.length > 1) {
+    return endpointOutcome(null, STATUS.AMBIGUOUS, REASON.DUPLICATE_INTERFACE_MEMBER,
+      entries.map((e) => e.member.declRange));
+  }
+  if (entries.length === 0) {
+    return isExtern
+      ? endpointOutcome(null, STATUS.UNSUPPORTED,
+        REASON.EXTERNPROTO_INTERFACE_NOT_LOCALLY_VERIFIABLE)
+      : endpointOutcome(null, STATUS.UNRESOLVED, REASON.IS_ENDPOINT_UNKNOWN_FIELD);
+  }
+  const entry = entries[0];
+  return endpointOutcome({
+    // The DECLARATION the written name denotes, so `set_flag` reports `flag` --
+    // matching the built-in path, where the schema record found is likewise the
+    // base field. `endpoint.name` already carries the written spelling, so
+    // echoing it here would say nothing.
+    effectiveName: entry.member.name,
+    access: entry.effectiveAccess,
+    type: entry.member.fieldType,
+    range: entry.member.declRange,
+    viaAlias: entry.viaAlias,
+  }, STATUS.RESOLVED, REASON.OK);
+}
+
+function acquireEndpoint(state, reference) {
+  const name = reference.endpointName;
+  if (name == null) {
+    return endpointOutcome(null, STATUS.INVALID, REASON.MISSING_NAME);
+  }
+
+  // The Script form needs no lookup at all: `field SFBool run IS go` DECLARES
+  // its own endpoint, so the declaration is the endpoint. G4 has already proven
+  // the declaring interface.
+  if (reference.form === sym.IS_FORM.SCRIPT_INTERFACE) {
+    const decl = reference.node;
+    const out = endpointOutcome({
+      effectiveName: name,
+      access: decl.access == null ? null : decl.access,
+      type: decl.fieldType == null ? null : decl.fieldType,
+      range: reference.endpointRange,
+      viaAlias: false,
+    }, STATUS.RESOLVED, REASON.OK);
+    out.origin = sym.ENDPOINT_ORIGIN.SCRIPT_INTERFACE;
+    return out;
+  }
+
+  // G5 -- the containing node's TYPE must be resolved by P2A, or the endpoint
+  // namespace is a guess. Every non-`resolved` P2A outcome lands here, and no
+  // access or type verdict is returned; the declaration-side binding still
+  // stands on its own.
+  const hostNode = reference.hostNode;
+  const typeRef = hostNode ? state.typeReferenceByAstNode.get(hostNode) : null;
+  const typeRes = typeRef ? state.resolutionByReference.get(typeRef) : null;
+  if (!typeRes || typeRes.status !== STATUS.RESOLVED) {
+    return endpointOutcome(null, STATUS.UNRESOLVED, REASON.IS_ENDPOINT_NODE_TYPE_UNRESOLVED);
+  }
+
+  if (typeRes.reason === REASON.NODE_TYPE_IS_BUILTIN) {
+    // A Script's USER declarations are part of that instance's public interface
+    // and are consulted before clause 6. This is the P2A precedent -- a lexical
+    // declaration outranks the schema -- not candidate ranking: the two are
+    // different namespaces, not two candidates in one.
+    if (hostNode.nodeType === 'Script' && reference.hostInterfaceScope) {
+      const own = interfaceEndpoint(state, reference.hostInterfaceScope, name, false);
+      if (own.status !== STATUS.UNRESOLVED) {
+        if (own.endpoint) own.origin = sym.ENDPOINT_ORIGIN.SCRIPT_INTERFACE;
+        return own;
+      }
+      // A miss falls through to Script's own clause-6 fields (`url`,
+      // `directOutput`, `mustEvaluate`), which are schema facts.
+    }
+    const found = builtinEndpoint(hostNode.nodeType, name);
+    if (!found) {
+      return endpointOutcome(null, STATUS.UNRESOLVED, REASON.IS_ENDPOINT_UNKNOWN_FIELD);
+    }
+    const out = endpointOutcome({
+      effectiveName: found.effectiveName,
+      access: found.access,
+      type: found.type,
+      range: reference.endpointRange,
+      viaAlias: found.viaAlias,
+    }, STATUS.RESOLVED, REASON.OK);
+    out.origin = sym.ENDPOINT_ORIGIN.BUILTIN_SCHEMA;
+    return out;
+  }
+
+  // Resolved to a local PROTO or EXTERNPROTO declaration.
+  const decl = typeRes.symbol;
+  if (!decl) {
+    return endpointOutcome(null, STATUS.UNRESOLVED, REASON.IS_ENDPOINT_NODE_TYPE_UNRESOLVED);
+  }
+  const isExtern = decl.kind === sym.SYMBOL_KIND.EXTERNPROTO_DECL;
+  const iface = state.interfaceScopeByAstNode.get(decl.node) || null;
+  const out = interfaceEndpoint(state, iface, name, isExtern);
+  out.origin = isExtern
+    ? sym.ENDPOINT_ORIGIN.EXTERNPROTO_INTERFACE
+    : sym.ENDPOINT_ORIGIN.PROTO_INTERFACE;
+  return out;
+}
+
+const verdict = (reference, status, reason, extra) => sym.createIsVerdict({
+  reference,
+  status,
+  reason,
+  member: (extra && extra.member) || null,
+  endpoint: (extra && extra.endpoint) || null,
+  declaredAccess: extra ? extra.declaredAccess : null,
+  declaredType: extra ? extra.declaredType : null,
+  detail: (extra && extra.detail) || null,
+  evidence: (extra && extra.evidence) || [],
+});
+
+/**
+ * §7.1's second half: may these two actually be connected?
+ *
+ * Kept SEPARATE from the declaration-side binding on purpose. The endpoint can
+ * be unknowable while the binding is perfectly provable, and collapsing them
+ * would throw away a good answer; conversely a failed binding makes
+ * compatibility unaskable, because there is nothing to be compatible WITH.
+ */
+function computeIsVerdict(state, reference) {
+  const rhs = state.isResolutionByReference.get(reference);
+  if (!rhs || rhs.status !== STATUS.RESOLVED) {
+    return verdict(reference, rhs ? rhs.status : STATUS.UNRESOLVED,
+      rhs ? rhs.reason : REASON.INTERFACE_MEMBER_NOT_DECLARED,
+      { detail: rhs ? rhs.detail : null, evidence: rhs ? rhs.evidence : [] });
+  }
+  const entry = state.isEntryByReference.get(reference);
+  const member = rhs.symbol;
+  const declaredAccess = entry ? entry.effectiveAccess : null;
+  const declaredType = member.fieldType;
+  const base = {
+    member, declaredAccess, declaredType, detail: rhs.detail,
+  };
+
+  const acquired = acquireEndpoint(state, reference);
+  if (acquired.status !== STATUS.RESOLVED || !acquired.endpoint) {
+    return verdict(reference, acquired.status, acquired.reason, {
+      ...base, evidence: acquired.evidence,
+    });
+  }
+  const endpoint = sym.createEndpoint({
+    origin: acquired.origin,
+    name: reference.endpointName,
+    effectiveName: acquired.endpoint.effectiveName,
+    access: acquired.endpoint.access,
+    type: acquired.endpoint.type,
+    range: acquired.endpoint.range,
+  });
+  const withEndpoint = { ...base, endpoint };
+  const evidence = [reference.endpointRange, member.declRange];
+
+  // Table 4.4, on EFFECTIVE access on both sides.
+  const row = IS_ACCESS_MATRIX[endpoint.access];
+  if (!row || declaredAccess == null || !(declaredAccess in row)) {
+    return verdict(reference, STATUS.UNRESOLVED, REASON.IS_ENDPOINT_UNKNOWN_FIELD, {
+      ...withEndpoint, evidence,
+    });
+  }
+  if (!row[declaredAccess]) {
+    return verdict(reference, STATUS.INVALID, REASON.IS_ACCESS_INCOMPATIBLE, {
+      ...withEndpoint, evidence,
+    });
+  }
+
+  // 4.8.3: EXACT type-token equality. No promotion, no coercion, no SF<->MF
+  // relationship, no default-value influence, and for SFNode/MFNode no
+  // inspection of the node type inside -- the standard imposes no such
+  // constraint at the `IS` boundary and inventing one would be
+  // interpretation-grade.
+  const a = endpoint.type;
+  const bType = declaredType;
+  if (a == null || bType == null || !VRML97_FIELD_TYPES.has(a) || !VRML97_FIELD_TYPES.has(bType)) {
+    return verdict(reference, STATUS.UNRESOLVED, REASON.IS_TYPE_UNKNOWN, {
+      ...withEndpoint, evidence,
+    });
+  }
+  if (a !== bType) {
+    return verdict(reference, STATUS.INVALID, REASON.IS_TYPE_MISMATCH, {
+      ...withEndpoint, evidence,
+    });
+  }
+  return verdict(reference, STATUS.RESOLVED, REASON.OK, { ...withEndpoint, evidence });
+}
+
+/**
+ * 4.8.3's two per-NODE multiplicity rules (S7/S8).
+ *
+ * Properties of a node, not of one reference, so they are their own query. An
+ * `IS` whose right-hand side binds perfectly can still sit in a node that breaks
+ * these, and corrupting the binding to say so would lose the good answer.
+ */
+function computeNodeIsIssues(state, node) {
+  if (state.documentIncomplete) {
+    return sym.createNodeIsIssues({
+      status: STATUS.RECOVERED, reason: REASON.DOCUMENT_PARSE_INCOMPLETE, issues: [],
+    });
+  }
+  const scope = state.scopeByAstNode.get(node) || null;
+  if (scope && scope.recovered) {
+    return sym.createNodeIsIssues({
+      status: STATUS.RECOVERED,
+      reason: scope.recoveredReason || REASON.SCOPE_RECOVERED,
+      issues: [],
+    });
+  }
+  const bound = new Map();
+  const valued = new Map();
+  for (const field of node.fields || []) {
+    if (!field || field.type !== NODE.FIELD || field.name == null) continue;
+    const target = (field.isBinding && field.value && field.value.type === NODE.IS)
+      ? bound : valued;
+    const list = target.get(field.name);
+    if (list) list.push(field);
+    else target.set(field.name, [field]);
+  }
+  const issues = [];
+  for (const [name, fields] of bound) {
+    // 4.8.3: results are undefined if one field/eventIn/eventOut of a node in
+    // the definition is associated with MORE THAN ONE interface member.
+    //
+    // NOT the converse. Several DIFFERENT endpoints mapping to ONE interface
+    // member is explicitly valid and must never be flagged -- inverting this
+    // rule would reject a standard idiom.
+    if (fields.length > 1) {
+      issues.push({
+        reason: REASON.DUPLICATE_IS_FOR_ENDPOINT,
+        endpointName: name,
+        evidence: fields.map((f) => f.nameRange || f.range),
+      });
+    }
+    // 4.8.3: results are undefined if a field is both given an initial value and
+    // associated by `IS`.
+    const alsoValued = valued.get(name);
+    if (alsoValued) {
+      issues.push({
+        reason: REASON.FIELD_VALUED_AND_IS,
+        endpointName: name,
+        evidence: [...alsoValued, ...fields].map((f) => f.nameRange || f.range),
+      });
+    }
+  }
+  issues.sort((x, y) => {
+    const ax = offsetOf(x.evidence[0]);
+    const ay = offsetOf(y.evidence[0]);
+    if (ax !== ay) return ax - ay;
+    return byCodepoint(x.reason, y.reason);
+  });
+  return sym.createNodeIsIssues({ status: STATUS.RESOLVED, reason: REASON.OK, issues });
+}
+
+// ---------------------------------------------------------------------------
 // Input validation
 // ---------------------------------------------------------------------------
 
@@ -885,7 +1684,9 @@ function buildScopeGraph(parseResult) {
     ownerNode: tree,
   });
   if (tree) {
-    visitStatements(b, tree.statements, { scope: documentScopeRecord, insideScript: false });
+    visitStatements(b, tree.statements, {
+      scope: documentScopeRecord, insideScript: false, isOwner: null, outerInterfaces: [],
+    });
   }
   markRecovery(b);
 
@@ -910,10 +1711,27 @@ function buildScopeGraph(parseResult) {
     }, graph));
   }
 
+  // Interface scopes (WD1.5-P2B). No parent link of either sort, so they need no
+  // ordering constraint against each other -- an interface is an OWNERSHIP
+  // scope, not a link in a chain something walks.
+  const interfaceScopeList = b.interfaceScopes.map((rec) => sym.createScope({
+    kind: rec.kind,
+    defParent: null,
+    typeParent: null,
+    ownerRange: rec.ownerRange,
+    ownerName: rec.ownerName,
+    ownerNode: rec.ownerNode,
+    recovered: rec.recovered,
+    recoveredReason: rec.recoveredReason,
+    index: rec.index,
+  }, graph));
+
   // Source order is the published order, and it is NOT construction order: a
   // node's interface defaults are visited before its fields, while in the text
   // the two interleave. Sort first, then number.
   b.symbols.sort(byPosition);
+  b.members.sort(byPosition);
+  b.isRefs.sort(byPosition);
   b.references.sort(byPosition);
   b.typeDecls.sort(byPosition);
   b.typeRefs.sort(byPosition);
@@ -990,6 +1808,77 @@ function buildScopeGraph(parseResult) {
     if (!typeDeclByAstNode.has(d.node)) typeDeclByAstNode.set(d.node, d);
   }
 
+  // --- interface-member namespace (WD1.5-P2B) ------------------------------
+
+  const interfaceMemberList = b.members.map((rec, i) => sym.createInterfaceMemberSymbol({
+    kind: rec.kind,
+    name: rec.name,
+    access: rec.access,
+    fieldType: rec.fieldType,
+    node: rec.node,
+    scope: interfaceScopeList[rec.interfaceScopeIndex],
+    declRange: rec.declRange,
+    range: rec.range,
+    hasDefault: rec.hasDefault,
+    sourceOrder: i,
+    detail: rec.detail,
+  }, graph));
+
+  const isReferenceList = b.isRefs.map((rec, i) => sym.createIsReference({
+    name: rec.name,
+    form: rec.form,
+    node: rec.node,
+    hostNode: rec.hostNode,
+    owner: rec.ownerInterface ? interfaceScopeList[rec.ownerInterface.index] : null,
+    hostScope: scopes[rec.hostScopeIndex],
+    hostInterfaceScope: rec.hostInterfaceScope
+      ? interfaceScopeList[rec.hostInterfaceScope.index] : null,
+    range: rec.range,
+    endpointName: rec.endpointName,
+    endpointRange: rec.endpointRange,
+    sourceOrder: i,
+    offset: rec.offset,
+    detail: rec.detail,
+  }, graph));
+
+  // A THIRD, SEPARATE name map. Sharing `defsByScope` or `typeDeclsByScope`
+  // would make `DEF Ball`, `PROTO Ball` and `field SFBool Ball` collide, which
+  // is the exact conflation the three-namespace rule exists to prevent.
+  //
+  // Keyed by EFFECTIVE name, so 4.7's implicit aliases are found by the same
+  // lookup as a written name and an alias/explicit collision shows up as what it
+  // is -- two entries under one name -- rather than as a precedence question.
+  const membersByInterfaceScope = new Map(interfaceScopeList.map((s) => [s, new Map()]));
+  const memberByAstNode = new WeakMap();
+  for (const m of interfaceMemberList) {
+    if (!memberByAstNode.has(m.node)) memberByAstNode.set(m.node, m);
+    const table = membersByInterfaceScope.get(m.scope);
+    for (const entry of effectiveEntriesOf(m)) {
+      const list = table.get(entry.effectiveName);
+      if (list) list.push(entry);
+      else table.set(entry.effectiveName, [entry]);
+    }
+  }
+
+  const interfaceScopeByAstNode = new WeakMap();
+  for (const s of interfaceScopeList) {
+    if (s.ownerNode && !interfaceScopeByAstNode.has(s.ownerNode)) {
+      interfaceScopeByAstNode.set(s.ownerNode, s);
+    }
+  }
+
+  const isReferenceByAstNode = new WeakMap();
+  for (const r of isReferenceList) isReferenceByAstNode.set(r.node, r);
+
+  // Kept OFF the frozen reference: an interface scope has no parent link, and
+  // this list exists solely to explain an outer-only near-miss as a non-binding
+  // detail. Publishing it would be publishing the outward chain 4.8.4 denies.
+  const outerInterfacesByIsReference = new Map();
+  b.isRefs.forEach((rec, i) => {
+    outerInterfacesByIsReference.set(isReferenceList[i],
+      rec.outerInterfaces.map((s) => interfaceScopeList[s.index]));
+  });
+
   const referenceByAstNode = new WeakMap();
   for (const r of references) referenceByAstNode.set(r.node, r);
 
@@ -1020,6 +1909,19 @@ function buildScopeGraph(parseResult) {
     documentIncomplete: b.documentIncomplete,
     resolutionByReference: new Map(),
     referencesBySymbol: new Map(),
+    // interface-member namespace (WD1.5-P2B)
+    interfaceScopeList,
+    interfaceMemberList,
+    isReferenceList,
+    membersByInterfaceScope,
+    memberByAstNode,
+    interfaceScopeByAstNode,
+    isReferenceByAstNode,
+    outerInterfacesByIsReference,
+    isResolutionByReference: new Map(),
+    isEntryByReference: new Map(),
+    isVerdictByReference: new Map(),
+    isReferencesByMember: new Map(),
   };
 
   const bind = (reference, res) => {
@@ -1036,6 +1938,24 @@ function buildScopeGraph(parseResult) {
 
   for (const reference of references) bind(reference, resolveUse(state, reference));
   for (const reference of typeReferences) bind(reference, resolveNodeType(state, reference));
+
+  // `IS` resolution runs LAST because its endpoint half consults P2A's answers
+  // for the containing node's type (G5), which must already be computed.
+  for (const reference of isReferenceList) {
+    const res = resolveIsReference(state, reference);
+    state.isResolutionByReference.set(reference, res);
+    // Only an AUTHORITATIVE binding is indexed -- P1's rule, unchanged. An
+    // ambiguous, invalid, unresolved or recovered reference is not "probably
+    // this member", and including it is how a future rename corrupts a document.
+    if (res.status === STATUS.RESOLVED && res.symbol) {
+      const list = state.isReferencesByMember.get(res.symbol);
+      if (list) list.push(reference);
+      else state.isReferencesByMember.set(res.symbol, [reference]);
+    }
+  }
+  for (const reference of isReferenceList) {
+    state.isVerdictByReference.set(reference, computeIsVerdict(state, reference));
+  }
 
   INTERNALS.set(graph, state);
   return graph;
@@ -1156,6 +2076,197 @@ function coerceTypeDecl(state, symbolOrNode, label) {
     label, 'a PROTO/EXTERNPROTO declaration from this graph');
 }
 
+
+// --- interface-member namespace (WD1.5-P2B) --------------------------------
+//
+// A THIRD set of accessors, exactly as P2A added a second rather than folding
+// node types into P1's lists. `symbols`/`references`/`resolutions` stay DEF/USE
+// and `typeDeclarations`/`typeReferences`/`typeResolutions` stay node-type;
+// neither changes meaning or count because this lane landed.
+
+/** Every interface scope, in construction order. A fresh frozen array. */
+function interfaceScopes(graph) {
+  return Object.freeze(internalsOf(graph, 'interfaceScopes').interfaceScopeList.slice());
+}
+
+/** Every interface member declaration, source-ordered. A fresh frozen array. */
+function interfaceMembers(graph) {
+  return Object.freeze(internalsOf(graph, 'interfaceMembers').interfaceMemberList.slice());
+}
+
+/** Every `IS` reference, source-ordered. A fresh frozen array. */
+function isReferences(graph) {
+  return Object.freeze(internalsOf(graph, 'isReferences').isReferenceList.slice());
+}
+
+/** Every `IS` declaration-side answer, in `isReferences` order. Frozen, fresh. */
+function isResolutions(graph) {
+  const state = internalsOf(graph, 'isResolutions');
+  return Object.freeze(state.isReferenceList.map((r) => state.isResolutionByReference.get(r)));
+}
+
+/**
+ * The interface scope an AST `Proto` / `ExternProto` / `Script` owns, or `null`.
+ *
+ * Narrowly named rather than folded into `scopeOf`, which stays lexical: a
+ * `Proto` node owns BOTH a proto-body DEF scope and a proto-interface scope, so
+ * an overloaded accessor would have to guess which was meant.
+ */
+function interfaceScopeFor(graph, astNode) {
+  const state = internalsOf(graph, 'interfaceScopeFor');
+  if (!astNode || typeof astNode !== 'object') return null;
+  return state.interfaceScopeByAstNode.get(astNode) || null;
+}
+
+/** The member an AST `InterfaceDecl` declares, or `null`. A lookup, not a resolution. */
+function interfaceMemberFor(graph, astNode) {
+  const state = internalsOf(graph, 'interfaceMemberFor');
+  if (!astNode || typeof astNode !== 'object') return null;
+  return state.memberByAstNode.get(astNode) || null;
+}
+
+/** The `IS` reference an AST `Field`/`InterfaceDecl` makes, or `null`. */
+function isReferenceFor(graph, astNode) {
+  const state = internalsOf(graph, 'isReferenceFor');
+  if (!astNode || typeof astNode !== 'object') return null;
+  return state.isReferenceByAstNode.get(astNode) || null;
+}
+
+/**
+ * Every member of one interface scope, source-ordered. A fresh frozen array.
+ *
+ * WRITTEN declarations only. The implicit `set_`/`_changed` aliases are not
+ * members and are not listed here; they exist in the lookup index because 4.7
+ * says a declaration may be REFERRED TO by them, which is a different fact from
+ * there being three declarations.
+ */
+function membersOf(graph, interfaceScope) {
+  const state = internalsOf(graph, 'membersOf');
+  assertMember(state, interfaceScope, sym.isInterfaceScopeShape, SCOPE_ERROR.GRAPH,
+    'membersOf', 'an interface scope from this graph');
+  return Object.freeze(state.interfaceMemberList.filter((m) => m.scope === interfaceScope));
+}
+
+function coerceIsReference(state, referenceOrNode, label) {
+  let reference = referenceOrNode;
+  if (referenceOrNode && typeof referenceOrNode === 'object'
+    && (referenceOrNode.type === NODE.FIELD || referenceOrNode.type === NODE.INTERFACE)) {
+    reference = state.isReferenceByAstNode.get(referenceOrNode);
+    if (!reference) {
+      throw scopeError(SCOPE_ERROR.REFERENCE,
+        `${label}: this node carries no IS reference in this graph's parse`);
+    }
+  }
+  return assertMember(state, reference, sym.isIsReferenceShape, SCOPE_ERROR.REFERENCE,
+    label, 'an IS reference from this graph');
+}
+
+/**
+ * The DECLARATION-side binding of one `IS` -- which interface member does the
+ * right-hand name denote?
+ *
+ * Deliberately NOT the compatibility question; see `isConnectionVerdict`.
+ *
+ * @returns {object} A frozen resolution -- a status, a stable reason, and a
+ *   symbol only when the status is `resolved`.
+ * @throws {Error} codes ESCOPEGRAPH, ESCOPEREF.
+ */
+function resolveIs(graph, referenceOrNode) {
+  const state = internalsOf(graph, 'resolveIs');
+  const reference = coerceIsReference(state, referenceOrNode, 'resolveIs');
+  return state.isResolutionByReference.get(reference);
+}
+
+/**
+ * May this `IS` connection actually be made -- Table 4.4 and 4.8.3's type rule?
+ *
+ * @returns {object} A frozen verdict. `endpoint.origin` says which of the four
+ *   namespaces supplied the definition side; a consumer asking whether an
+ *   EXTERNPROTO member was locally declared reads THAT, never the status.
+ * @throws {Error} codes ESCOPEGRAPH, ESCOPEREF.
+ */
+function isConnectionVerdict(graph, referenceOrNode) {
+  const state = internalsOf(graph, 'isConnectionVerdict');
+  const reference = coerceIsReference(state, referenceOrNode, 'isConnectionVerdict');
+  return state.isVerdictByReference.get(reference);
+}
+
+/**
+ * Is this member's name unique within its OWN interface scope?
+ *
+ * Judged over EFFECTIVE names, so `exposedField zzz` alongside an explicit
+ * `eventIn set_zzz` is correctly non-unique (4.3.5 prohibits the combination).
+ * The same spelling in a DIFFERENT interface -- including a nested PROTO's -- is
+ * not a duplicate at all: different scope, different namespace instance.
+ *
+ * A damaged interface answers `{unique:false}` with the recovery reason. That is
+ * declining to assert uniqueness, not asserting duplication -- P1/P2A's rule.
+ *
+ * @returns {{unique:boolean, reason:string}} Frozen.
+ * @throws {Error} codes ESCOPEGRAPH, ESCOPESYMBOL.
+ */
+function interfaceMemberIsUniqueInScope(graph, memberOrNode) {
+  const state = internalsOf(graph, 'interfaceMemberIsUniqueInScope');
+  let member = memberOrNode;
+  if (memberOrNode && typeof memberOrNode === 'object' && memberOrNode.type === NODE.INTERFACE) {
+    member = state.memberByAstNode.get(memberOrNode);
+    if (!member) {
+      throw scopeError(SCOPE_ERROR.SYMBOL,
+        'interfaceMemberIsUniqueInScope: this declaration carries no member in this graph\'s parse');
+    }
+  }
+  assertMember(state, member, sym.isInterfaceMemberShape, SCOPE_ERROR.SYMBOL,
+    'interfaceMemberIsUniqueInScope', 'an interface member from this graph');
+  if (state.documentIncomplete) {
+    return sym.createUniqueness(false, REASON.DOCUMENT_PARSE_INCOMPLETE);
+  }
+  if (member.scope.recovered) {
+    return sym.createUniqueness(false,
+      member.scope.recoveredReason || REASON.INTERFACE_SCOPE_NOT_PROVABLE);
+  }
+  for (const entry of effectiveEntriesOf(member)) {
+    if (membersIn(state, member.scope, entry.effectiveName).length !== 1) {
+      return sym.createUniqueness(false, REASON.DUPLICATE_INTERFACE_MEMBER);
+    }
+  }
+  return sym.createUniqueness(true, REASON.OK);
+}
+
+/**
+ * 4.8.3's per-node `IS` multiplicity rules (S7/S8) for one AST `Node`.
+ *
+ * @returns {object} Frozen `{status, reason, issues[]}`.
+ * @throws {Error} code ESCOPEGRAPH.
+ */
+function nodeIsBindingIssues(graph, nodeAstNode) {
+  const state = internalsOf(graph, 'nodeIsBindingIssues');
+  if (!nodeAstNode || typeof nodeAstNode !== 'object' || nodeAstNode.type !== NODE.NODE) {
+    throw scopeError(SCOPE_ERROR.REFERENCE, 'nodeIsBindingIssues: expected a Node AST node');
+  }
+  return computeNodeIsIssues(state, nodeAstNode);
+}
+
+/**
+ * Every `IS` that AUTHORITATIVELY binds to one interface member.
+ *
+ * Only `resolved` references appear -- P1's rule, for P1's reason.
+ *
+ * @throws {Error} codes ESCOPEGRAPH, ESCOPESYMBOL.
+ */
+function isReferencesTo(graph, memberOrNode) {
+  const state = internalsOf(graph, 'isReferencesTo');
+  let member = memberOrNode;
+  if (memberOrNode && typeof memberOrNode === 'object' && memberOrNode.type === NODE.INTERFACE) {
+    member = state.memberByAstNode.get(memberOrNode);
+    if (!member) {
+      throw scopeError(SCOPE_ERROR.SYMBOL,
+        'isReferencesTo: this declaration carries no member in this graph\'s parse');
+    }
+  }
+  assertMember(state, member, sym.isInterfaceMemberShape, SCOPE_ERROR.SYMBOL,
+    'isReferencesTo', 'an interface member from this graph');
+  return Object.freeze((state.isReferencesByMember.get(member) || []).slice());
+}
 
 /**
  * Resolve one reference.
@@ -1289,6 +2400,9 @@ module.exports = {
   SCOPE_KIND: sym.SCOPE_KIND,
   SYMBOL_KIND: sym.SYMBOL_KIND,
   REFERENCE_KIND: sym.REFERENCE_KIND,
+  ACCESS: sym.ACCESS,
+  ENDPOINT_ORIGIN: sym.ENDPOINT_ORIGIN,
+  IS_FORM: sym.IS_FORM,
   STATUS: sym.STATUS,
   REASON: sym.REASON,
   // predicates
@@ -1318,4 +2432,18 @@ module.exports = {
   typeDeclFor,
   typeReferenceFor,
   typeDeclIsUniqueInScope,
+  // interface-member namespace (WD1.5-P2B)
+  interfaceScopes,
+  interfaceMembers,
+  isReferences,
+  isResolutions,
+  interfaceScopeFor,
+  interfaceMemberFor,
+  isReferenceFor,
+  membersOf,
+  resolveIs,
+  isConnectionVerdict,
+  interfaceMemberIsUniqueInScope,
+  nodeIsBindingIssues,
+  isReferencesTo,
 };

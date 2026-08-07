@@ -70,6 +70,10 @@ supersedes this file:
 | WD1.3 | generated VRML97/X3D node schema (`src/vrml/node-schema.js`) | committed `94971a1` |
 | WD1.4 | two-tier node identity (`node-identity.js`, `document-transaction.js`) | committed `5328262` |
 | WD1.5 | scope semantics **design gate** | committed `bf4f8f9` (spike + plan only) |
+| WD1.5-P1 | DEF/USE scope graph (`symbols.js`, `scope-graph.js`) | committed `66783c1` |
+| WD1.5-P2A | PROTO/EXTERNPROTO type-name resolution | committed `5176d28` |
+| WD1.5-P2B | interface members + `IS` (§8.1) | **implemented, uncommitted** |
+| WD1.5-P2C | ROUTE endpoints | **not started** |
 | WD2 | scene tree / inspector / viewport | **not started** |
 
 ## 4. WD1.1 — source mapping
@@ -175,6 +179,50 @@ never blocks a save, so nothing shipped is broken.
 3. A damaged scope must withhold **every** lexical answer, positive included —
    parser recovery *moves scope boundaries*, so an unclosed PROTO can absorb
    statements and manufacture a unique binding out of an ambiguous one.
+
+### 8.1 WD1.5-P2B — interface members and `IS`
+
+`src/vrml/symbols.js` + `src/vrml/scope-graph.js`, internal and **consumer-free**
+like P1/P2A. Doc: `docs/white-dune-2026/WD1_5_P2B_INTERFACE_IS_PLAN.md` (as
+built). The **third namespace** is now populated, in its own tables: a `DEF Ball`,
+a `PROTO Ball` and a `field SFBool Ball` never collide.
+
+Three **interface scopes** (`proto-interface`, `externproto-interface`,
+`script-interface`) carrying **neither `defParent` nor `typeParent`** — an
+interface is an *ownership* scope, so an outward walk is structurally impossible
+rather than forbidden. An `IS` reaches its interface through an owner **fixed on
+descent**, never a containment search: 4.8.4 gives it the **innermost** enclosing
+prototype and is silent on any outer one, and silence fails closed (corpus cost:
+**0 of 23,246**).
+
+Three rules worth not re-deriving:
+
+1. **Alias expansion changes the effective access.** `exposedField zzz` also
+   occupies `set_zzz` (eventIn) and `zzz_changed` (eventOut) — generated into the
+   lookup index, never written anywhere. Table 4.4 applies to the **effective**
+   access.
+2. **An explicit/alias collision has no winner.** 4.3.5 prohibits
+   `exposedField zzz` + `eventIn set_zzz` outright, so neither is "intended":
+   `ambiguous`, binding nothing. Preferring the explicit one is candidate
+   ranking — the §7 failure mode.
+3. **EXTERNPROTO is asymmetric.** What it declares locally is authoritative
+   (4.9.2) and is checked normally **without loading the URL**; what it omits is
+   `unsupported`, never `unresolved`, because the declaration may be a strict
+   subset. P2C inherits both halves unchanged.
+
+Table 4.4 is one matrix in one place (rows = definition, columns = declaration; 7
+legal cells of 16, all sixteen tested individually). Field types compare by
+**exact token equality** — no coercion, no SF↔MF, no inner node-type check —
+against **Annex A.2's `fieldType` production**, which is the authority for *which
+tokens are field types* (the schema answers the different question of *what type
+a node's field has*, and covers only 19 of the 20: no built-in field uses
+`MFTime`).
+
+**Corpus:** 0 wrong bindings and 0 confident answers from an unprovable scope
+over 23,246 `IS` statements. One finding handed to P4: **1,481** are genuine
+Table 4.4 violations — all the `exposedField` *column* — in authored Cybertown
+content. Whether that surfaces as an error or a §9 compatibility warning is P4's
+call.
 
 **Deliberate strictness gap:** ISO 4.6.2 defines duplicate-name binding exactly
 (*closest preceding*). The resolver returns `ambiguous` and does **not** implement

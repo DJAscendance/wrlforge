@@ -100,6 +100,46 @@ function codeOnly(source) {
   return out;
 }
 
+// Strip ONLY comments, keeping string literals intact.
+//
+// `codeOnly` above also removes string literals, which is right when the banned
+// word would be a bare identifier but WRONG for a scan that looks for a
+// hard-coded `'Transform'`: a real hard-coded table lives inside string literals,
+// so stripping them would make the check vacuous and pass the exact thing it
+// exists to catch.
+function withoutComments(source) {
+  let out = '';
+  let i = 0;
+  const n = source.length;
+  while (i < n) {
+    const c = source[i];
+    const d = source[i + 1];
+    if (c === '/' && d === '/') { while (i < n && source[i] !== '\n') i += 1; continue; }
+    if (c === '/' && d === '*') {
+      i += 2;
+      while (i < n && !(source[i] === '*' && source[i + 1] === '/')) i += 1;
+      i += 2;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      const quote = c;
+      out += c;
+      i += 1;
+      while (i < n && source[i] !== quote) {
+        if (source[i] === '\\') { out += source[i]; i += 1; }
+        out += source[i];
+        i += 1;
+      }
+      out += quote;
+      i += 1;
+      continue;
+    }
+    out += c;
+    i += 1;
+  }
+  return out;
+}
+
 // ===========================================================================
 // 1-4  Namespace separation
 // ===========================================================================
@@ -1400,7 +1440,12 @@ test('boundary: the type resolver never mutates the parse result', () => {
 test('boundary: P2A wires no consumer and holds no second built-in list', () => {
   // The schema is the sole authority. A hard-coded node-name table in the
   // resolver would drift silently the next time the schema is regenerated.
-  const code = fs.readFileSync(path.join(SRC, 'scope-graph.js'), 'utf8');
+  // Scanned as CODE, not prose. WD1.5-P2B's endpoint section has to EXPLAIN why
+  // `getFieldSchema('Transform','set_translation')` is null by design, and a
+  // scan that reads comments would fail on the explanation of the very rule it
+  // is enforcing. The invariant itself is unchanged: no built-in may be named in
+  // executable code.
+  const code = withoutComments(fs.readFileSync(path.join(SRC, 'scope-graph.js'), 'utf8'));
   for (const builtin of ['Transform', 'Appearance', 'IndexedFaceSet', 'Billboard']) {
     assert.equal(code.includes(`'${builtin}'`), false,
       `scope-graph.js must not name the built-in ${builtin}`);
@@ -1421,21 +1466,20 @@ test('boundary: P2A wires no consumer and holds no second built-in list', () => 
   }
 });
 
-test('boundary: interfaces, IS and ROUTE are absent, not stubbed', () => {
-  // P2A resolves type NAMES. Nothing here may quietly begin P2B/P2C: publishing
-  // an interface kind that nothing constructs would advertise support that does
-  // not exist.
-  for (const later of ['proto-interface-member', 'script-interface-member']) {
-    assert.equal(Object.values(sym.SYMBOL_KIND).includes(later), false);
-  }
-  for (const later of ['is', 'route-node', 'route-event']) {
+test('boundary: ROUTE is absent, not stubbed -- and P2A\'s own lists did not grow', () => {
+  // WD1.5-P2B landed the interface-member namespace, so the interface and `IS`
+  // kinds are now built and pinned as present in `symbols.test.js`. ROUTE is
+  // still P2C's, and publishing either endpoint kind today would advertise
+  // support that does not exist.
+  for (const later of ['route-node', 'route-event']) {
     assert.equal(Object.values(sym.REFERENCE_KIND).includes(later), false);
   }
-  for (const later of ['proto-interface', 'externproto-interface', 'script-interface']) {
-    assert.equal(Object.values(sym.SCOPE_KIND).includes(later), false);
-  }
-  // A file full of IS, ROUTE and Script interfaces still produces only node-name
-  // and node-type projections.
+
+  // The half of this test that matters MORE after P2B than before: P2A's three
+  // lists must still contain exactly what they contained, with the third
+  // namespace held entirely apart. If interface members had leaked into
+  // `symbols` or `typeDeclarations`, every existing caller's counts would have
+  // changed silently.
   const source = `${H}PROTO Mover [ field SFVec3f offset 0 0 0 ] {\n`
     + `  DEF T Transform { translation IS offset }\n}\n`
     + `DEF C TimeSensor { }\nDEF S Script { eventOut SFTime fired url "x.js" }\n`
@@ -1444,4 +1488,18 @@ test('boundary: interfaces, IS and ROUTE are absent, not stubbed', () => {
   for (const s of sg.symbols(graph)) assert.equal(s.namespace, NAMESPACE.NODE_NAME);
   for (const d of sg.typeDeclarations(graph)) assert.equal(d.namespace, NAMESPACE.NODE_TYPE);
   for (const r of sg.typeReferences(graph)) assert.equal(r.namespace, NAMESPACE.NODE_TYPE);
+  for (const r of sg.references(graph)) assert.equal(r.namespace, NAMESPACE.NODE_NAME);
+  // ... and the interface members that DO exist are in the third namespace only.
+  const members = sg.interfaceMembers(graph);
+  assert.equal(members.length, 2, 'PROTO `offset` and Script `fired`');
+  for (const m of members) assert.equal(m.namespace, NAMESPACE.INTERFACE_MEMBER);
+  // `scopes()` keeps its P1/P2A meaning: lexical regions only, no interfaces.
+  for (const s of sg.scopes(graph)) {
+    assert.equal(['document', 'proto-body'].includes(s.kind), true,
+      `scopes() must stay lexical, saw ${s.kind}`);
+  }
+  assert.equal(sg.interfaceScopes(graph).length, 2);
+  // No ROUTE projection of any kind exists yet.
+  assert.equal('routeReferences' in sg, false);
+  assert.equal('resolveRoute' in sg, false);
 });

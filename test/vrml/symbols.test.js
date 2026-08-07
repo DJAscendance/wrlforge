@@ -46,16 +46,41 @@ test('symbols: the published string values are exactly the committed ones', () =
   assert.deepEqual({ ...sym.SCOPE_KIND }, {
     DOCUMENT: 'document',
     PROTO_BODY: 'proto-body',
+    // WD1.5-P2B: the three interface scopes. Each owns a member set and carries
+    // NEITHER parent link, so no lookup can walk out of one.
+    PROTO_INTERFACE: 'proto-interface',
+    EXTERNPROTO_INTERFACE: 'externproto-interface',
+    SCRIPT_INTERFACE: 'script-interface',
   });
   assert.deepEqual({ ...sym.SYMBOL_KIND }, {
     NODE_DEF: 'node-def',
     // WD1.5-P2A: the node-type namespace.
     PROTO_DECL: 'proto-decl',
     EXTERNPROTO_DECL: 'externproto-decl',
+    // WD1.5-P2B: the interface-member namespace.
+    PROTO_INTERFACE_MEMBER: 'proto-interface-member',
+    SCRIPT_INTERFACE_MEMBER: 'script-interface-member',
   });
   assert.deepEqual({ ...sym.REFERENCE_KIND }, {
     USE: 'use',
     NODE_TYPE: 'node-type',
+    IS: 'is',
+  });
+  assert.deepEqual({ ...sym.ACCESS }, {
+    FIELD: 'field',
+    EVENT_IN: 'eventIn',
+    EVENT_OUT: 'eventOut',
+    EXPOSED_FIELD: 'exposedField',
+  });
+  assert.deepEqual({ ...sym.ENDPOINT_ORIGIN }, {
+    BUILTIN_SCHEMA: 'builtin-schema',
+    PROTO_INTERFACE: 'proto-interface',
+    EXTERNPROTO_INTERFACE: 'externproto-interface',
+    SCRIPT_INTERFACE: 'script-interface',
+  });
+  assert.deepEqual({ ...sym.IS_FORM }, {
+    NODE_BODY: 'node-body',
+    SCRIPT_INTERFACE: 'script-interface',
   });
   assert.deepEqual({ ...sym.STATUS }, {
     RESOLVED: 'resolved',
@@ -79,27 +104,29 @@ test('symbols: the published string values are exactly the committed ones', () =
 
 test('symbols: no kind is published that nothing constructs', () => {
   // The invariant is unchanged from P1 -- publish nothing you cannot build --
-  // but the lane boundary moved: WD1.5-P2A constructs `proto-decl`,
-  // `externproto-decl` and `node-type`, so those three left this list and are
-  // pinned as PRESENT in the table test above. Everything below belongs to
-  // WD1.5-P2B/P2C (interface members, IS, ROUTE) and advertising any of it today
-  // would claim support that does not exist.
+  // and only the lane boundary moves. P2A constructed `proto-decl`,
+  // `externproto-decl` and `node-type`; WD1.5-P2B constructs the three interface
+  // SCOPE kinds, both interface MEMBER kinds and the `is` reference kind, so all
+  // six left this list and are pinned as PRESENT in the table test above.
   //
-  // Note P2A adds no SCOPE kind at all: a type scope is the existing
-  // document/proto-body scope viewed through its `typeParent` link.
-  const scopeKinds = Object.values(sym.SCOPE_KIND);
-  for (const later of ['proto-interface', 'externproto-interface', 'script-interface']) {
-    assert.equal(scopeKinds.includes(later), false,
-      `${later} is a later scope kind and must not be published yet`);
-  }
-  const symbolKinds = Object.values(sym.SYMBOL_KIND);
-  for (const later of ['proto-interface-member', 'script-interface-member']) {
-    assert.equal(symbolKinds.includes(later), false, `${later} must not be published yet`);
-  }
+  // Only P2C's ROUTE endpoint kinds remain unbuilt. Advertising either today
+  // would claim support that does not exist.
   const refKinds = Object.values(sym.REFERENCE_KIND);
-  for (const later of ['is', 'route-node', 'route-event']) {
+  for (const later of ['route-node', 'route-event']) {
     assert.equal(refKinds.includes(later), false, `${later} must not be published yet`);
   }
+  // And the six P2B kinds must be genuinely CONSTRUCTIBLE, not merely listed --
+  // which is the half of the invariant that a published-string test cannot see.
+  // `interface-is.test.js` proves each one against real source.
+  const scopeKinds = Object.values(sym.SCOPE_KIND);
+  for (const now of ['proto-interface', 'externproto-interface', 'script-interface']) {
+    assert.equal(scopeKinds.includes(now), true, `${now} is constructed by P2B`);
+  }
+  const symbolKinds = Object.values(sym.SYMBOL_KIND);
+  for (const now of ['proto-interface-member', 'script-interface-member']) {
+    assert.equal(symbolKinds.includes(now), true, `${now} is constructed by P2B`);
+  }
+  assert.equal(refKinds.includes('is'), true, 'is is constructed by P2B');
 });
 
 // ---------------------------------------------------------------------------
@@ -235,9 +262,26 @@ test('symbols: uniqueness answers are frozen and explicit', () => {
 // ---------------------------------------------------------------------------
 
 test('symbols: shape predicates reject near-misses', () => {
-  assert.equal(sym.isScopeShape({ kind: 'proto-interface' }), false);
+  // `proto-interface` is a real scope kind as of WD1.5-P2B, so the near-miss it
+  // used to stand for is now an unpublished spelling instead.
+  assert.equal(sym.isScopeShape({ kind: 'route-scope' }), false);
   assert.equal(sym.isScopeShape([{ kind: 'document' }]), false);
   assert.equal(sym.isScopeShape(null), false);
+  // The narrower interface predicate must not accept a lexical scope, or an
+  // `assertMember` written against it would let a proto-body through.
+  assert.equal(sym.isInterfaceScopeShape({ kind: 'proto-interface' }), true);
+  assert.equal(sym.isInterfaceScopeShape({ kind: 'proto-body' }), false);
+  assert.equal(sym.isInterfaceScopeShape({ kind: 'document' }), false);
+  assert.equal(sym.isInterfaceMemberShape({ kind: 'proto-interface-member' }), false,
+    'namespace is required');
+  assert.equal(sym.isInterfaceMemberShape({
+    kind: 'proto-interface-member', namespace: 'interface-member',
+  }), true);
+  assert.equal(sym.isInterfaceMemberShape({
+    kind: 'proto-interface-member', namespace: 'node-name',
+  }), false);
+  assert.equal(sym.isIsReferenceShape({ kind: 'is' }), false);
+  assert.equal(sym.isIsReferenceShape({ kind: 'is', namespace: 'interface-member' }), true);
   assert.equal(sym.isDefSymbolShape({ kind: 'node-def' }), false, 'namespace is required');
   assert.equal(sym.isDefSymbolShape({ kind: 'node-def', namespace: 'node-type' }), false);
   assert.equal(sym.isUseReferenceShape({ kind: 'use' }), false);
