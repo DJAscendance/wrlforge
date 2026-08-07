@@ -2,221 +2,376 @@
 
 ## Mission
 
-**WRL Forge** — *Build. Preview. Validate. Package.*
+**WRL Forge** — *Model. Edit. Preview. Validate. Package.*
 
-WRL Forge is a modern VRML97 creation, inspection, validation, and packaging workbench, growing to serve three audiences:
+WRL Forge is a **standards-first VRML97/X3D model and code editor**. Its spine is
+a lossless document core: the exact source text is the document, and every view
+onto it — code, scene tree, inspector, viewport — is a derived projection that
+edits back through source-text patches.
 
-1. **Cybertown Mall item creators** — the original and currently complete lane.
-2. **Cybertown world builders** — planned. Worlds are a different shape of problem than items (many local textures, project folders, no 80KB cap) and must not inherit mall-item restrictions by default.
-3. **General VRML97 users** — planned. Generic VRML97 inspection/preview with no Cybertown-specific validation unless a Cybertown profile is explicitly enabled.
+That core is the product. Cybertown is a **profile over it**, not its identity.
 
-The project was previously named `vrmlpad` and scoped narrowly to Cybertown Mall items. That narrow tool is the working foundation this expansion builds on — it is not being replaced or rewritten, it is being kept and grown into one profile of a larger workbench. See `docs/WRL_FORGE_ROADMAP.md` for the phased plan.
+@WD.md — the lossless document core (canonical model, node schema, node identity,
+scope semantics, and the **White Dune GPL boundary**). Read it before touching
+`src/vrml/` or designing anything that edits rather than reads.
 
-It now implements its **own native WRL editor with VRML97 syntax highlighting and parser diagnostics** (Phase 7B, CodeMirror 6 driven by the built-in `src/vrml` parser), but still no 3D renderer of its own (X_ITE only). An **optional** external editor — VSCodium plus the `create3000.x-ite-vscode` / `create3000.x3d-vscode-syntax-highlighting` extensions — additionally provides live 3D preview (`X3D: Preview 3D Model`, `Ctrl+Alt+X`) when installed. A **native WRL editor + a real VRML97 parser are now built (Phase 7A parser + Phase 7B editor)** so the app works without any external editor; VSCodium is an integration, not a dependency. See `docs/NATIVE_EDITOR_ARCHITECTURE.md`. WRL Forge's job today is the two things a generic editor can't do for Cybertown Mall items:
+### The two halves
 
-1. **Gzip transparency** — the mall's actual upload files are gzip-compressed `.wrl` (a real VRML text file inside, but the bytes on disk are binary). VSCodium can't usefully open that. WRL Forge decompresses to a plain sibling file for editing and recompresses on save.
-2. **Cybertown Mall validation** — the upload rules from `../new-items/CLAUDE.md` (80KB gzip cap, required `WorldInfo`, forbidden nodes, texture rules, DEF/USE integrity, placement bounds) are mall-item-specific and not something a generic VRML/X3D extension checks. These rules apply to the **Mall Item** profile only — do not apply them to World Project or Generic VRML97 validation.
+1. **Code editing** — a native WRL editor with real VRML97 syntax highlighting,
+   parser diagnostics, outline, and live 3D preview of the *unsaved* buffer
+   (Phase 7A/7B/7C, built). No external editor required.
+2. **Model editing** — visual authoring over the same document: scene tree,
+   typed field inspector, viewport manipulation, PROTO/ROUTE tooling. The
+   document core (WD1.1–WD1.5) is built and gated; the authoring UI (**WD2**) is
+   **not started** and needs its own approved lane.
+
+Both halves edit **one** document. Neither owns a private copy of it.
+
+### Profiles, not products
+
+The standards core applies to every VRML97 document. Three profile layers sit on
+top, and **their rules never leak downward or sideways**:
+
+1. **Mall Item** — the original, complete lane. Cybertown Mall upload rules
+   (80KB gzip cap, required `WorldInfo`, forbidden nodes, texture rules,
+   placement bounds).
+2. **World Project** — a different shape of problem: many local textures, project
+   folders, nested `Inline`, **no** 80KB cap and **no** texture limit. Must not
+   inherit mall-item restrictions.
+3. **Generic VRML97** — inspection/preview with **no** Cybertown validation unless
+   a Cybertown profile is explicitly enabled.
+
+Do not copy Mall Item validation rules into World Project or Generic code paths as
+though they universally apply. Each profile gets its own validator, sharing only
+genuinely generic infrastructure (gzip handling, file I/O, parsing primitives).
+
+The project was previously named `vrmlpad` and scoped narrowly to Cybertown Mall
+items. That narrow tool is the working foundation this expansion builds on — it is
+kept and grown into one profile of a larger editor, never rewritten away. See
+`docs/WRL_FORGE_ROADMAP.md` for the phased plan.
+
+### The two things a generic editor cannot do for Cybertown
+
+1. **Gzip transparency** — the mall's actual upload files are gzip-compressed
+   `.wrl` (real VRML text inside, binary bytes on disk). WRL Forge decompresses
+   for editing and recompresses on save.
+2. **Cybertown Mall validation** — the upload rules from `../new-items/CLAUDE.md`.
+   **Mall Item profile only.**
 
 ### Platform
 
-Linux is the first supported platform and must be thoroughly tested — every lane's validation happens on Linux first. **Windows** now has a validated **private, unsigned test build** (Phase 6A): editor discovery is cross-platform (`src/editor/editor-locator.js` — Linux `codium`/`code`, Windows install-location search + `WRL_FORGE_EDITOR`/`settings.json` override, clear not-found message), filename-case detection works on case-insensitive filesystems (the directory listing, not `existsSync`, is authoritative), and the app is packaged with `electron-builder` (MIT; portable `.exe` + NSIS installer, `npm run build:win`, needs `wine` when cross-building from Linux — **or builds natively on Windows** via the cross-platform `scripts/build-win.js` wrapper, Phase 7C5). The full Phase 7C feature set (native editor, Mall + World unsaved-buffer previews, vision accommodations) is **accepted on native Windows 11** as of Phase 7C5 (beta `1.3.0-beta.1`); Windows visual QA uses a file-based capture transport (`qa/visual-qa/transport.js`) since a GUI-subsystem `electron.exe` cannot read stdin. See `docs/WINDOWS_QA_RUNBOOK.md` and `qa/phase-7c5-cross-platform/`. Keep reusable core logic cross-platform-conscious (use `path.join`, no hardcoded separators or `/home/<user>` paths). Do not delay Linux work to speculatively build Windows support first. See `docs/PLATFORM_NOTES.md` and `docs/BUILD.md` for platform-sensitive behavior, the Windows test matrix, and build instructions.
+Linux is the first supported platform and must be thoroughly tested — every lane's
+validation happens on Linux first. **Windows** has a validated **private, unsigned
+test build** (Phase 6A): editor discovery is cross-platform
+(`src/editor/editor-locator.js`), filename-case detection works on
+case-insensitive filesystems (the directory listing, not `existsSync`, is
+authoritative), and the app is packaged with `electron-builder` (MIT; portable
+`.exe` + NSIS installer, `npm run build:win`, needs `wine` when cross-building
+from Linux — **or builds natively on Windows** via the cross-platform
+`scripts/build-win.js` wrapper, Phase 7C5). The full Phase 7C feature set is
+**accepted on native Windows 11** (beta `1.3.0-beta.1`); Windows visual QA uses a
+file-based capture transport (`qa/visual-qa/transport.js`) since a GUI-subsystem
+`electron.exe` cannot read stdin. See `docs/WINDOWS_QA_RUNBOOK.md` and
+`qa/phase-7c5-cross-platform/`. Keep reusable core logic cross-platform-conscious
+(`path.join`, no hardcoded separators or `/home/<user>` paths). Do not delay Linux
+work to speculatively build Windows support first. See `docs/PLATFORM_NOTES.md`
+and `docs/BUILD.md`.
 
 ### Open-source components
 
 Prefer open-source components; the current stack is:
 
 - **Electron** — application shell.
-- **VSCodium** — **optional** external editor (not bundled; the user's existing installation, with the `create3000.x-ite-vscode` / `create3000.x3d-vscode-syntax-highlighting` extensions). Optional, not required — a native editor is now built (Phase 7B).
-- **X_ITE** (MIT) — the approved VRML/X3D rendering and preview engine, both for VSCodium's live-preview extension today and for the embedded-preview direction below. See `spikes/xite-mall-fit/` for the Phase 2A technical spike and `spikes/xite-mall-fit/NOTES.md` for what was verified about its API.
-- **Node.js built-ins** — `zlib`, `fs`, `path`, `child_process`, `node:test` — preferred over adding a dependency where they suffice (e.g. no external test framework; see `package.json`'s `test`/`check` scripts).
-- **@resvg/resvg-js** (MPL-2.0, **devDependency**, Phase 7C5.1) — SVG→PNG rasterizer used **only** by `scripts/build-icons.js` to turn the four approved `assets/wrl-forge-*.svg` sources into the committed platform icon assets under `assets/generated/icons/`. Build/tooling-only: it is never `require`d by `main.js`/`preload.js`/`renderer` and adds nothing to the runtime, which stays `x_ite`-only. The multi-resolution `.ico` container is assembled in pure Node (no ICO/image-encoding dependency). See `docs/ICONS.md`.
+- **X_ITE** (MIT) — the approved VRML/X3D rendering and preview engine. See
+  `spikes/xite-mall-fit/` for the Phase 2A spike and its `NOTES.md`.
+- **CodeMirror 6** (`@codemirror/*`, `@lezer/highlight`) + **esbuild** — MIT
+  **devDependencies** for the native editor; the bundle is
+  `renderer/vendor/wrl-editor.bundle.js` (gitignored, `npm run build:editor`).
+  **No CDN, no second grammar** — `src/vrml` is the sole authority via
+  `src/editor/language.js`.
+- **VSCodium** — **optional** external editor (not bundled). An integration, not
+  a dependency.
+- **Node.js built-ins** — `zlib`, `fs`, `path`, `child_process`, `node:test` —
+  preferred over adding a dependency where they suffice (no external test
+  framework; no third-party archive library — the World bundle ZIP is built on
+  `zlib` alone).
+- **@resvg/resvg-js** (MPL-2.0, **devDependency**) — SVG→PNG only for
+  `scripts/build-icons.js`. Never `require`d at runtime. See `docs/ICONS.md`.
 
-Do not build a custom VRML/X3D renderer under any circumstances — X_ITE is the approved engine for that.
+Runtime dependencies stay **`x_ite`-only**. Before adding any dependency
+(editor component, 3D lib, UI framework, archive library), re-read this section.
 
-### Embedded preview status
+**Do not build a custom VRML/X3D renderer under any circumstances** — X_ITE is the
+approved engine.
 
-An embedded X_ITE preview now ships for the **Mall Item** lane (Phase 2B1) **and** the **World Project** lane (Phase 4B): `x_ite` (MIT, v15.1.10) is a root dependency loaded locally (never a CDN), integrated per the isolation discipline below. The **optional** external editor stays available ("Open in External Editor"), but opening a Mall item never launches it — the external editor starts **only** through the explicit "Open in External Editor" action, and opening never surfaces an "editor not found" message unless the user requests that action — and the embedded previews did not replace it. A native editor is now built (Phase 7B). The two previews are **separate profiles**: the Mall Item preview (`renderer/preview.js`) does Original/Cybertown Fit with placement bounds; the World Project preview (`renderer/world-preview.js`, Phase 4B) renders a whole world (nested Inline, gzip, ≥70 textures) with **no** Mall placement/fit/cap rules, routing every dependency through a confined, asset-graph-authorized `wrlworld://` scheme (see `docs/PREVIEW_ARCHITECTURE.md` / `docs/WORLD_PROJECT_ARCHITECTURE.md`). The **Generic VRML97** embedded preview (**Phase 5**) is still a separate future phase requiring its own approval; shipping the World preview does not license opportunistic X_ITE integration into the Generic lane. Do not build a custom VRML/X3D renderer under any circumstances — X_ITE is the approved engine. Shared preview/fit modules live in `src/preview/`; the World preview reuses the shared gzip reader but **not** the Mall fit/guide math.
+## Search and Code Navigation
 
-A narrowly-scoped **technical spike** at `spikes/xite-mall-fit/` (Phase 2A) is a deliberate exception to "don't begin that work without approval" — it was explicitly commissioned to de-risk Phase 5/2B by proving out X_ITE's bounding-box behavior and a preview-only fit calculation, in complete isolation from the production app (its own Electron main process, no shared IPC surface, no production code path touches it). It does **not** constitute the "dedicated planning/approval pass" Phase 5 itself still requires, and does not license further opportunistic X_ITE integration into `main.js`/`renderer/` outside of an explicitly approved lane.
+* Use LSP first for definitions, references, implementations, symbols, types, and diagnostics when available.
+* Use `ast-grep` for structural code queries when installed; use text search only for literal or regex matching.
+* For text search, prefer the built-in Grep tool, `rg`, or `git grep`; for filenames, prefer `fd`/`fdfind` or `rg --files`.
+* Do not use recursive shell `grep`, broad `find | xargs grep`, or custom Python/Perl crawlers unless the preferred tools cannot perform the task.
+* Ripgrep recurses by default: never use `rg -r`, `rg -rn`, `rg -rl`, or similar bundled forms unless replacement output is explicitly intended.
+* Scope searches to the smallest relevant directory, file type, or glob, and limit output before widening the search.
+
+### Tool availability on this machine (verify, don't assume)
+
+- `rg` — installed, the default.
+- **`ast-grep` — installed, version `0.45.0`** (as of 2026-08-06), at
+  `~/.local/bin/ast-grep`. That is the executable to invoke; the bullet above is
+  conditional (*"when installed"*) and the condition is now met.
+  **Always call `ast-grep` by name, never bare `sg`** — two different `sg`
+  binaries exist on this machine and which one a shell resolves depends on
+  `PATH` order: `~/.local/bin/sg` is ast-grep's own deprecated alias, while
+  `/usr/bin/sg` is the unrelated shadow-utils setgid command. Never assume which
+  one a shell will pick without checking.
+- `mgrep` — installed but **not usable**: the CLI has a token at `~/.mgrep/token.json`
+  and no provisioned store (`404 Stores with identifiers 'mgrep' not found`), and
+  `-s` does not create one. Don't route work through it until that is fixed.
+- **graphify** — the semantic knowledge graph. Orient with it before ad-hoc file
+  reads. `graphify update .` is **code-only and needs no LLM**; do not reach for
+  `extract --backend gemini` when `update` suffices.
+- Never put `grep` in a pipeline. `grep -c` prints `0` *and* exits non-zero, so
+  `grep -c … || echo 0` yields `"0\n0"` and silently corrupts the caller.
+
+## Working with Ryan
+
+These are workflow rules, not code rules. They bind every agent in this repo.
+
+- **Never pick a QA or review tool yourself.** A task prompt naming one is *not*
+  authorization — ask first. The approved routing is: **MiniMax M3** for major
+  code/architecture QA · **MiniMax M2.7** for large text parsing · **AGY
+  (Antigravity)** for browser/visual/runtime QA · **Copilot for automatic PR
+  review only**. No manual Codex, Codex CLI, Copilot CLI, or Gemini CLI QA.
+- **Never spend paid tool quota without Ryan's explicit approval** in that
+  conversation.
+- **Staged execution.** Multi-phase plans run one lane at a time, with a
+  structured STOP + report and a GO/NO-GO between phases. Never run a whole
+  multi-lane plan uninterrupted.
+- **Copy/paste prompts** use a single outer four-backtick fence, and state
+  explicitly whether the recipient should start a fresh session, continue the
+  current one, `/clear`, or `/exit`.
+
+## Parser and native editor
+
+The **VRML97 parser** is built (Phase 7A, corpus-hardened in 7A1): a
+dependency-free, token-driven tokenizer + structural parser under `src/vrml/`
+(`tokenizer`/`parser`/`ast`/`diagnostics`/`analyze`/`asset-refs`/`index`; see
+`docs/VRML_PARSER.md`). It is **pure** — text in, tree + diagnostics + semantic
+index + asset-refs out, no fs, no Electron — and profile-neutral. Reuse it
+(`require('./src/vrml')`); do not fork it.
+
+7A1 fixed three real-corpus rejections (hyphen/plus identifiers, multiline
+strings, header encoding case) and leniently accepts Cybertown/Blaxxun
+`ROUTE`/`PROTO`-in-MFNode-array — a **98.1%** corpus diagnostic reduction.
+
+**Its semantic scope is flat and NOT authoritative** (PROTO DEF leakage,
+cross-PROTO false duplicate-`DEF`, USE-before-DEF, context-insensitive `IS`).
+`@WD.md` §8 records exactly how far that goes and the accepted design for fixing
+it. Until that lane lands, do **not** present `VRML040`–`VRML044` as
+authoritative.
+
+The parser **is** wired into the native editor for highlighting, syntax
+diagnostics, advisories and outline. It has **not** replaced `validator.js`, the
+World Project scanner, the preview resolver, packaging, or URL extraction — those
+run on their own code paths and must not be routed through it without a new
+approved lane.
+
+The **native editor** (Phase 7B, `docs/NATIVE_EDITOR_ARCHITECTURE.md`) is a
+CodeMirror 6 workspace (`renderer/editor.html`/`editor.js`, `src/editor/*`,
+`browser/editor-view.js`) reachable from both lanes via `editor:*` IPC and the
+`window.vrmlpad.editor` bridge. **Main owns every path**: the renderer sends
+text + intent + an opaque `sessionId`, never a write path; Save As uses a main
+dialog; a World reference is authorized against the scan graph + realpath.
+Verify-before-commit save, timestamped backup, external-change
+Reload/Save-As/Cancel, gzip transparency, five themes (incl. **High Contrast**).
+
+**Vision accommodations (Feature A)** are built and **renderer-only** (no
+main/preload/IPC/CSP change): a persisted zoom level (`Ctrl` `+`/`-`/`0`) scales
+the code area via a **font compartment** in `editor-view.js` (decoupled from the
+theme compartment) *and* the chrome via a `--wrl-ui-scale` rem layer. Zoom math is
+pure in `ui-state.js` (`resolveZoom`/`zoomStep`/`zoomModel`). Reuse it; do not
+CSS-transform the X_ITE canvas with the chrome scale.
+
+Keep `test/editor/script-load-order.test.js` in sync when adding editor-page
+scripts — shared browser modules must use **module-unique const names** or they
+collide in the shared script scope.
+
+## Preview
+
+Embedded X_ITE previews ship for **Mall Item** (Phase 2B1) and **World Project**
+(Phase 4B). `x_ite` is a root dependency loaded **locally, never a CDN**.
+
+The two are **separate profiles**: `renderer/preview.js` does Mall
+Original/Cybertown Fit with placement bounds; `renderer/world-preview.js` renders
+a whole world (nested `Inline`, gzip, ≥70 textures) with **no** Mall
+fit/guide/placement/cap rules. The **Generic VRML97** embedded preview (Phase 5)
+still needs its own approved lane — shipping the World preview does not license
+opportunistic X_ITE integration elsewhere.
+
+**Live preview of the unsaved buffer is built for both profiles** — Mall (7C2) and
+World (7C3) — split-view, **no temp file ever written**. Its foundation is three
+pure `src/preview/` modules: `buffer-overlay.js` (session-scoped,
+**byte-substitution-only**, **never authorizes a path**, requires an authorization
+proof), `preview-state.js` (last-valid-scene state machine), and
+`preview-scheduler.js` (clock-injected 700 ms debounce).
+
+The bridges are pure/injectable main-process authorizers:
+`mall-preview-bridge.js` builds its proof from the held Mall source;
+`world-preview-bridge.js` authorizes the held document against the **current scan
+graph** (root match, membership, exact-case, realpath re-check). Unsaved text
+**never expands authorization by itself** — `editor:previewRescan` ("Find new
+files") is the explicit, normal rescan. Both reuse the existing renderers
+verbatim through an injected source loader.
+
+Shared modules live in `src/preview/` — reuse them, don't duplicate, and don't
+route `validator.js` / World scanning / packaging through them. See
+`docs/PREVIEW_ARCHITECTURE.md`.
+
+A narrowly-scoped spike at `spikes/xite-mall-fit/` (Phase 2A) is a deliberate
+exception to "don't begin that work without approval" — commissioned to de-risk
+Phase 5/2B in complete isolation. It does **not** constitute Phase 5's approval.
+
+## Locked product decisions
+
+- **Direct upload will not be built** (2026-07-12). No upload, auth, or
+  networking code. Users upload by hand through the Cybertown website. **Do not
+  present its absence as a missing or roadmap feature.**
+- **No custom renderer.** X_ITE only.
+- **No third-party archive dependency.** Node `zlib` only.
+- **VSCodium is optional**, never required.
 
 ### Unverified assumptions — do not encode as fact
 
-- The old Cybertown item-upload web form limited items to 20 local textures. This may be a limitation of that specific web form, **not** a Cybertown server-side limit. World Projects must not inherit an arbitrary 20-texture cap; the actual limit (if any) needs to be determined (see roadmap Phase 3) before being enforced anywhere.
-- Direct upload to any Cybertown server **will not be built** (locked product decision, 2026-07-12). WRL Forge adds no upload/auth/networking code; users upload by hand through the Cybertown Mall / website. Do not present the absence of direct upload as a missing or roadmap feature.
+- The old Cybertown item-upload web form limited items to 20 local textures. This
+  may be a limitation of that **web form**, not a server-side limit. World
+  Projects must not inherit an arbitrary 20-texture cap — real worlds reach ~70.
 
-## Long-term profile model
+## Profile detail
 
-### Mall Item (current, working foundation)
+### Mall Item (complete)
 
-- Open plain or gzip `.wrl`
-- Create a plain `.edit.wrl` working copy
-- Optionally launch an external editor (VSCodium), if one is installed (a native editor is now built — Phase 7B)
-- Validate Cybertown Mall item rules
-- Show Cybertown placement, offsets, scaling, and bounds (advisory today)
-- Backup and repack
-- Prepare final item packages and reports (future: roadmap Phase 6)
+Open plain or gzip `.wrl` · create a plain `.edit.wrl` working copy · edit
+natively (or optionally launch VSCodium) · validate Mall rules · show placement,
+offsets, scaling and bounds (advisory) · backup and repack.
 
-### World Project (read-only resolver + workspace + preview + packaging audit shipped — Phase 4A/4B/5A)
+### World Project (Phase 4A/4B/5A)
 
-A read-only asset resolver and workspace now ships (`src/world-project/`,
-`renderer/world.html`, confined `world:*` IPC). It can:
+A read-only asset resolver and workspace (`src/world-project/`,
+`renderer/world.html`, confined `world:*` IPC):
 
-- Open a primary world `.wrl`/`.wrz` **or** a project folder (with primary-file
-  detection; ambiguity is surfaced, never guessed)
-- Discover referenced textures and local VRML assets across nested `Inline` WRL
-  (gzip and plain, bounded + cycle-safe), with **no arbitrary texture limit**
-- Detect missing files, filename-case mismatches, absolute/traversal (unsafe)
-  paths, remote references (surfaced, never fetched), duplicates, and cycles
-- Report via a world-specific profile (`src/world-project/profile.js`) that is
-  **structurally separate** from `validator.js` — none of the Mall Item rules
-  apply, and historical figures (the ~20-texture web-form limit) are never
-  presented as current server rules (confidence-tagged findings)
+- Open a primary world `.wrl`/`.wrz` **or** a project folder (ambiguity is
+  surfaced, never guessed)
+- Discover textures and local VRML assets across nested `Inline` (gzip and plain,
+  bounded + cycle-safe), with **no arbitrary texture limit**
+- Detect missing files, filename-case mismatches, absolute/traversal paths,
+  remote references (surfaced, never fetched), duplicates and cycles
+- Report via `src/world-project/profile.js`, **structurally separate** from
+  `validator.js`, with confidence-tagged findings
+- **Preview** the whole world through a confined `wrlworld://` scheme served
+  **only** from the asset-graph allow-list, gzip-decompressed, confined to the
+  project root. Inline scripts never run. Analysis + display only.
+- **Audit + package** into a portable **WRL Forge World Project Bundle** (Phase
+  5A): a deterministic plan (`package-plan.js`), a deterministic ZIP
+  (`zip-writer.js`, `zlib` only), written by `bundle-builder.js` to a destination
+  **outside** the project. Missing/case/absolute/traversal/remote/unreadable
+  **block**; cycles don't. Refuses blocked/in-project/overwrite and re-hashes
+  every file against the manifest.
 
-- **Preview** the whole world in an embedded X_ITE canvas (Phase 4B): primary +
-  nested `Inline` (plain/gzip, any depth), each WRL resolving relatives from its
-  **own** directory, ≥70 textures, viewpoint discovery/selection (incl. nested
-  Inlines), Reset View, navigation modes, explicit Refresh, stale/last-valid-scene
-  on a temporary parse error. It routes every dependency through a confined
-  `wrlworld://` scheme served **only** from the asset-graph allow-list (readable
-  WRL + present exact-case assets), gzip-decompressed, confined to the project
-  root. Missing/case/remote/unsafe refs are surfaced but never loaded; inline
-  scripts never run. It is a **separate profile** — no Mall fit/placement/cap
-  rules — and is **analysis + display only** (never marks a project upload-ready).
+It is a **review + manual hand-off bundle** — no direct upload, no
+server-certified-format claim (open questions in
+`docs/WORLD_PACKAGE_QUESTIONS.md`). Everything except that one explicit write is
+read-only. Automatic path repair, copy, rename, delete and Apply/Bake are **not**
+implemented; each is its own future approved lane.
 
-- **Audit + package** the project into a portable **WRL Forge World Project Bundle**
-  (Phase 5A): `src/world-project/package-plan.js` derives a **deterministic** plan
-  (packaged file set = primary + nested local WRL + present approved assets, each with
-  project-relative path / type / bytes / sha256 / referencing WRL / depth; totals;
-  missing/case/unsafe/remote/cycle/repeated findings; **unused** files reported but
-  never auto-included). **Build World Project Bundle** (the one explicit write action)
-  writes a deterministic ZIP (`zip-writer.js`, Node `zlib` only — **no** archive
-  dependency) via `bundle-builder.js` to a destination **outside** the project,
-  containing `project/<relpath>` (byte-for-byte), `MANIFEST.json`, `REPORT.md`, and
-  the `WRL Forge World Project Bundle` label. Blocking rules: missing/case/absolute/
-  traversal/remote/unreadable block; cycles don't. It refuses blocked/in-project/
-  overwrite and re-hashes every file against the manifest. It is a **review + manual
-  hand-off bundle** — the user uploads it by hand through the Cybertown website;
-  WRL Forge performs **no direct upload** and claims no server-certified format
-  (open questions in `docs/WORLD_PACKAGE_QUESTIONS.md`).
+See `docs/WORLD_PROJECT_ARCHITECTURE.md`.
 
-**Will not be built** (locked product decision): **direct upload**, authentication,
-networking/submission code. **Not** implemented and each its own future approved
-lane: automatic path repair, copy, rename, delete, Apply/Bake. The **VRML97 parser**
-foundation is now **built** (Phase 7A, corpus-hardened in 7A1) — a dependency-free,
-token-driven tokenizer + structural parser under `src/vrml/` (see
-`docs/VRML_PARSER.md`). It is **wired into the native editor** (Phase 7B) for
-highlighting, syntax diagnostics, advisories, and outline generation, but it has
-**not** replaced the existing Mall validator, World Project scanner, preview
-resolver, or packaging systems — those still run on their own code paths, and the
-parser must not be routed into them without a new approved lane. 7A1 fixed three real-corpus
-rejections (hyphen/plus identifiers, multiline strings, header encoding case) and
-leniently accepts Cybertown/Blaxxun `ROUTE`/`PROTO`-in-MFNode-array (98.1% corpus
-diagnostic reduction). Its semantic scope is **flat and NOT authoritative** (PROTO
-DEF leakage, cross-PROTO false duplicate-DEF, USE-before-DEF, context-insensitive
-`IS`) — a future scope-aware lane fixes that; the editor must not present those
-semantic diagnostics as authoritative yet. The **native editor** on top of it is now **built**
-(Phase 7B, see `docs/NATIVE_EDITOR_ARCHITECTURE.md`): a CodeMirror 6 workspace (MIT devDeps, local
-esbuild bundle, no CDN; `src/editor/*` + `renderer/editor.*`) opened from both lanes via `editor:*` IPC,
-using the `src/vrml` parser as its **sole** grammar (highlighting/diagnostics/outline), with a
-verify-before-commit safe save + timestamped backup + external-change Reload/Save-As/Cancel, gzip
-transparency, **five** themes (incl. **High Contrast**), and main-process path ownership. Syntax
-diagnostics are authoritative; the flat-scope VRML040–044 stay non-authoritative **advisories** that
-never block saving. **Vision accommodations (Feature A) are built** (renderer-only — no main/preload/
-IPC/CSP change): one persisted **zoom level** (`Ctrl`+`/-/0`, toolbar group) scales the CodeMirror code
-area (a **font compartment** in `editor-view.js`, decoupled from the theme compartment) *and* the app
-chrome (a `--wrl-ui-scale` rem layer in `editor.html`) together; all zoom math is pure in
-`ui-state.js` (`resolveZoom`/`zoomStep`/`zoomModel`). Reuse those — don't duplicate. The **native
-editor's live X_ITE preview of the UNSAVED buffer is built for both profiles** — **Mall (Phase 7C2)**
-and **World (Phase 7C3)** — with no temp file ever written; do not build a renderer. The **7C1
-foundation** is three dependency-free `src/preview/` modules (`buffer-overlay.js` —
-byte-substitution-only, session-scoped, **never authorizes a path** and requires an authorization
-proof from the Mall session / World scan graph; `preview-state.js` — last-valid-scene state machine;
-`preview-scheduler.js` — clock-injected 700 ms debounce). **7C2 wires them into the Mall editor**:
-`src/preview/mall-preview-bridge.js` is the pure/injectable main-process authorizer (the renderer
-sends only `{sessionId, text, bufferVersion}` — never a path; it builds the `mallAuthorization` proof
-from the held Mall source and confirms it equals the active authorized item);
-`editor:previewLoad`/`previewSaved`/`previewAccept`/`previewClose` are the confined IPC; `renderer/
-editor-preview.js` + `editor.html`'s `.preview-col` + divider are the split-view (layout/split persisted,
-`Ctrl+Enter` Update, `Ctrl+Shift+Enter` maximize); it **reuses `renderer/preview.js` verbatim** (Original/
-Fit/guides/fit-report) through an injected source loader; release copy is `ui-state.js`
-`previewStatusModel`. **7C3 wires them into the World editor** the same way:
-`src/preview/world-preview-bridge.js` is the pure/injectable World twin — it authorizes the held
-document against the **current scan graph** (root match, graph membership incl. exact-case, realpath
-re-check) and builds the `worldAuthorization` proof; the shared `editor:preview*` IPC routes by the
-open document's context (plus `editor:previewRescan` — the explicit **Find new files** action, which
-runs the normal `worldSession.scan()`; a new reference in unsaved text is only ever *surfaced*, never
-auto-authorized); the **unsaved primary** renders by the same string-swap with the primary's
-`wrlworld://` base, while an **unsaved nested WRL** substitutes inside `resolveWorldRequest` via an
-injectable `overlayLookup` consulted only **after** root confinement + the graph allow-list (absent
-by default, so the workspace disk preview is byte-identical); `renderer/world-preview.js` is **reused
-verbatim** through the same injected-source pattern, gaining opt-in `preserveView` (viewpoint restore
-DEF → unique description → index → first → default via the pure `src/preview/viewpoint-preserve.js`,
-plus the user's navigation-mode choice) and `validateText` (a nested buffer is pre-parsed through
-X_ITE before the world is replaced, so a broken nested edit keeps the last good FULL scene);
-`editor.html`'s CSP is the **World X_ITE superset** (adds the LOCAL `wrlworld:` — **still no new
-scheme**). "Show saved version" renders the whole world from disk without dropping the unsaved
-overlay. The shared pure modules dual-export (`window.WrlPreview*`) with **module-unique const
-names** (a plain `const API` would collide in the browser's shared script scope —
-`test/editor/script-load-order.test.js` co-loads every editor-page script to catch this class).
-Reuse all of these, don't fork, and don't route `validator.js`/World scanning/packaging through
-them. Everything except the single Build-World-
-Project-Bundle action is read-only; that action writes only a portable bundle to a
-caller-chosen destination and never mutates the source project. See
-`docs/WORLD_PROJECT_ARCHITECTURE.md` and `docs/WORLD_PACKAGE_QUESTIONS.md`.
+### Generic VRML97 (planned)
 
-### Generic VRML97 (planned, not yet implemented)
-
-- Open plain or gzip VRML97
-- Inspect syntax and structure
-- Resolve local assets
-- Preview and report scene information
-- Apply **no** Cybertown-specific validation unless the user opts into a Cybertown profile
-
-Do not copy Mall Item validation rules into World Project or Generic VRML97 code paths as though they universally apply — each profile gets its own validator, sharing only genuinely generic infrastructure (gzip handling, file I/O, asset parsing primitives).
+Open plain or gzip VRML97 · inspect syntax and structure · resolve local assets ·
+preview and report scene information · apply **no** Cybertown validation unless
+the user opts into a Cybertown profile.
 
 ## Architecture
 
 - `main.js` — Electron main process. Owns all filesystem/IPC logic:
   - `isGzip()` sniffs the gzip magic bytes (`1f 8b`) — file identity is by content, not extension. A `.wrl` on disk may be gzip or plain text; both are valid mall artifacts at different pipeline stages.
   - `editPathFor()` derives the plain working-copy path: `<name>.wrl` → `<name>.edit.wrl`, written next to the mall file so it inherits VSCodium's workspace trust for `~/Projects/cybertown` (untrusted folders run extensions in Restricted Mode, which silently disables 3D preview — always keep edit files inside a trusted tree).
-  - `openMallFile()` — decompress-if-needed, write `.edit.wrl`, `spawn('codium', [editFile], { detached: true })`.
+  - `openMallFile()` — decompress-if-needed, write `.edit.wrl`. Opening a Mall item **never** launches the external editor; that happens only through the explicit "Open in External Editor" action.
   - `mall:check` — re-validate the current `.edit.wrl` on demand (polled every 3s by the renderer while a file is open).
   - `mall:repack` — backup the existing mall file (`<name>.wrl.bak-<timestamp>`), then write the edited text back, gzip by default.
-  - `loadWindowState()` / `saveWindowState()` — window position/size persistence, with a fallback that reads the pre-rename `vrmlpad` userData directory if the new `wrl-forge` one has no saved state yet (see "Rename note" below).
-  - The `mall:*` IPC channel names and the `window.vrmlpad` bridge object name are retained from the pre-rename codebase. They are internal symbols, not user-facing branding — do not rename them purely for cosmetic consistency; only rename when a real World Project / Generic VRML97 IPC surface is added alongside them.
-- `preload.js` — contextBridge, exposes `window.vrmlpad.{openMall, openMallPath, check, repack, revealInFolder, loadPreview, openInEditor}` to the renderer. Keep `contextIsolation: true` / `nodeIntegration: false`; add new capabilities as new IPC handlers, not by relaxing this. This constraint applies to the embedded X_ITE preview too — it is isolated from privileged Electron APIs.
-- `src/preview/` — shared preview/fit modules (Phase 2B1), single source of truth reused by both the production app and the isolated spike (no duplicate implementations): `fit-math.js`, `extrusion-bounds.js`, `bbox-traversal.js` (browser-only), `guides.js`, `texture-base.js`, `wrl-source.js` (main-process), `url-policy.js`, plus the **Phase 7C1** unsaved-buffer foundation `buffer-overlay.js` / `preview-state.js` / `preview-scheduler.js` (pure), the **Phase 7C2** Mall live-preview authorizer `mall-preview-bridge.js`, the **Phase 7C3** World live-preview authorizer `world-preview-bridge.js` (both pure/injectable main-process; they wire the foundation into the native editor via the shared `editor:preview*` IPC), and the **Phase 7C3** pure viewpoint-restore resolver `viewpoint-preserve.js`. Pure/browser modules keep no Electron/fs dependency so they are `node:test`-able; `wrl-source.js` touches the filesystem, and the two bridges reach it only through injectable deps, in the main process. See `docs/PREVIEW_ARCHITECTURE.md`.
-- `src/editor/editor-locator.js` (Phase 6A) — cross-platform external-editor discovery (pure/injectable: `platform`/`env`/`existsSync` injected). `resolveEditor` (Linux `codium`/`code` on PATH; Windows VSCodium/VS Code install-location search + PATH shims; `WRL_FORGE_EDITOR`/settings override) + `buildLaunch` (spaces/non-ASCII-safe spawn args; `.cmd` shims via the shell with both command and file double-quoted). `main.js`'s `launchEditor` uses it and returns a structured `{ launched, reason, hint }` so the renderer can show a clear "editor not found" message. `src/settings/app-settings.js` (Phase 6A) — read-only `settings.json` under userData (today just `editorCommand`). Both `node:test`-covered for Linux **and** Windows via injected platform/env (`test/editor/`, `test/settings/`).
-- `main.js` preview surface (Phase 2B1) — a **read-only** `preview:load` IPC (role `'source'`/`'edit'`, never a renderer-supplied path; gzip decompressed in main so X_ITE only sees plain text), an `mall:openInEditor` re-launch action, and a `session.webRequest` network guard that cancels every remote request (`url-policy.isBlockedPreviewUrl`). There is **no** write-capable preview channel.
-- `renderer/` — plain HTML/CSS/JS (no framework, no bundler). `index.html` + `renderer.js` are the Mall Item lane's UI; `renderer/preview.js` owns the embedded X_ITE preview (Original/Cybertown Fit modes, guide toggles, refresh) and the fit report. `index.html` carries a strict CSP (no remote origin). The Fit mode transform and guides are **preview-only** — never written to any file. `world.html` + `world.js` are the **World Project** lane's separate workspace (Phase 4A): a read-only asset table / dependency view over the resolved graph, sharing the one BrowserWindow + preload (so it gets the same `window.vrmlpad` bridge, plus `window.vrmlpad.world.*`). As of Phase 4B it also loads X_ITE and `renderer/world-preview.js` (a **separate** controller from `renderer/preview.js` — no Mall fit/guide/placement logic), so its CSP now permits X_ITE's LOCAL needs only (`'wasm-unsafe-eval'`, `blob:` workers, and the LOCAL `wrlworld:` scheme in `img/media/connect-src`), still with no remote origin. Phase 5A adds `renderer/world-packaging.js` (packaging section: status badge / totals / blocking / unused list / manifest preview / output location / a read-only Package Audit + an explicit Build World Project Bundle button). Navigation between the two pages is main-controlled (`app:goto`, whitelisted). Each new profile gets its own clearly-labeled page rather than overloading another.
-- `src/world-project/` — the **World Project** profile (Phase 4A): the promoted, production home of the Phase 3A recon logic. Pure/injectable modules (`url-fields`, `path-policy`, `image-size`, `asset-graph`, `profile`, `project-stats`, `session`) plus the one main-process fs module (`project-loader`), and (Phase 4B) `preview-source` (read-authorization + serving for the embedded preview: `wrlworld://` URL builders, `buildAuthorizedSet`, `resolveWorldRequest`, `buildPreviewPayload`; fs injectable, unit-tested without Electron), and (Phase 5A) the packaging trio: `package-plan` (deterministic plan + manifest + report, injectable), `zip-writer` (deterministic ZIP on Node `zlib` only — **no** third-party archive dependency), and `bundle-builder` (the one file-writing module; blocked/in-project/overwrite refusals + re-hash-vs-manifest). `qa/world-recon/*` re-export the resolver (single source of truth). **Separate from `validator.js`** — no Mall Item rule is applied to a World Project. Read-only except the single explicit review-bundle write.
-- `main.js` World Project surface (Phase 4A/4B/5A) — confined `world:*` IPC (`openFolder`/`openPrimaryFile`/`choosePrimary`/`scan`/`refresh`/`describe`/`reveal`/`revealRoot`/`openPrimaryInEditor`, plus Phase 4B `previewLoad`, plus Phase 5A read-only `packageAudit` and the one explicit write action `buildReviewBundle`). The main process owns every project path (held in a `ProjectSession`); the renderer can only pick among detected candidates and never supplies a path. `buildReviewBundle` prompts a main-process Save dialog (default OUTSIDE the project) and refuses blocked/in-project/overwrite. Phase 4B registers a privileged, standard, LOCAL-only `wrlworld://` scheme (`registerSchemesAsPrivileged` before app-ready; `protocol.handle` in `whenReady`) whose handler serves only asset-graph-authorized files confined to the project root — X_ITE's world dependencies never touch `file://` or the network. The capture-server (`WRL_FORGE_CAPTURE_SERVER`) `world` job gained a `preview` flag (+ `viewpoint`, + temp-dir-confined QA-only `writePrimary`) and Phase 5A `packageAudit` / temp-dir-confined QA-only `buildBundle` flags, so the preview + packaging states screenshot through the same single reused Electron process (see `docs/VISUAL_QA_SAFETY.md`).
-- `validator.js` — pure function `validate(text) -> { results, ok, gzipBytes, rawBytes }`. No filesystem access. Mirrors the Mall Item rules in `../new-items/CLAUDE.md` and `../new-items/README.md`, generically rather than the hardcoded per-item logic in files like `../new-items/vette-blue/corvette-study/validate.py`. If the mall rules change, update both this file and the new-items docs together — they must not drift. **This file is Mall Item-specific**; a future World Project validator is a separate module, not an extension of this one.
+  - `loadWindowState()` / `saveWindowState()` — window position/size persistence, with a fallback that reads the pre-rename `vrmlpad` userData directory (see "Rename note").
+  - The `mall:*` IPC channel names and the `window.vrmlpad` bridge object name are retained from the pre-rename codebase. They are internal symbols, not user-facing branding — do not rename them for cosmetic consistency. The World Project lane deliberately reuses the `window.vrmlpad` bridge (adding a `world` sub-object) rather than introducing a new bridge name.
+- `preload.js` — contextBridge. Keep `contextIsolation: true` / `nodeIntegration: false`; add new capabilities as new IPC handlers, never by relaxing this. This applies to the embedded X_ITE preview too.
+- `src/vrml/` — the parser and the lossless document core. See `@WD.md`.
+- `src/preview/` — shared preview/fit modules, single source of truth reused by the production app and the isolated spike: `fit-math.js`, `extrusion-bounds.js`, `bbox-traversal.js` (browser-only), `guides.js`, `texture-base.js`, `wrl-source.js` (main-process), `url-policy.js`, plus the unsaved-buffer foundation and the two preview bridges. Pure/browser modules keep no Electron/fs dependency so they are `node:test`-able.
+- `src/editor/` — `editor-locator.js` (cross-platform external-editor discovery, pure/injectable), `wrl-document`, `file-io`, `language`, `session`, `session-store`, `path-authorizer`, `editor-controller`, `ui-state`. `src/settings/app-settings.js` is a read-only `settings.json` under userData.
+- `src/world-project/` — the World Project profile: pure/injectable modules (`url-fields`, `path-policy`, `image-size`, `asset-graph`, `profile`, `project-stats`, `session`), the main-process `project-loader`, `preview-source`, and the packaging trio (`package-plan`, `zip-writer`, `bundle-builder`). `qa/world-recon/*` re-export these — don't duplicate them.
+- `renderer/` — plain HTML/CSS/JS, **no framework, no bundler** (except the editor's esbuild bundle). `index.html` + `renderer.js` are the Mall lane; `world.html` + `world.js` the World lane; `editor.html` + `editor.js` the native editor. Each carries a strict CSP with **no remote origin**; the editor's CSP is the World superset (adds LOCAL `wrlworld:` — still **no new scheme**). Navigation between pages is main-controlled (`app:goto`, whitelisted). Each new profile gets its own clearly-labeled page rather than overloading another.
+- `validator.js` — pure `validate(text) -> { results, ok, gzipBytes, rawBytes }`. No filesystem access. Mirrors the Mall Item rules in `../new-items/CLAUDE.md`. If the mall rules change, update both together — they must not drift. **Mall Item-specific**; a World Project validator is a separate module, not an extension of this one.
 
 ### Rename note (vrmlpad → WRL Forge)
 
-- `package.json` `name` changed from `vrmlpad` to `wrl-forge`. Electron derives `app.getPath('userData')` from this name by default, so the userData directory moved from `~/.config/vrmlpad` to `~/.config/wrl-forge`.
-- `main.js` migrates window-state on first read: if no `window-state.json` exists at the new path, it falls back to the old `~/.config/vrmlpad/window-state.json` path before defaulting. This is read-only migration (it doesn't delete or move the old file); it's a small enough surface that a fuller migration system isn't warranted.
-- The `mall:*` IPC channels and `window.vrmlpad` bridge name were deliberately **not** renamed in this lane — see Architecture above.
+- `package.json` `name` changed from `vrmlpad` to `wrl-forge`, so
+  `app.getPath('userData')` moved from `~/.config/vrmlpad` to `~/.config/wrl-forge`.
+- `main.js` migrates window-state on first read (read-only; it doesn't delete or
+  move the old file).
+- The `mall:*` channels and `window.vrmlpad` bridge name were deliberately **not**
+  renamed — see Architecture.
 
 ## Conventions
 
-- Backups before any overwrite of a real mall `.wrl` — never repack without the `mall:repack` backup step. This non-destructive/backup-first convention is mandatory for every profile, not just Mall Item. World Project packaging (Phase 5A) honours it by never mutating the source at all: it only ever writes a *new* World Project Bundle to a destination outside the project, refuses to overwrite an existing bundle, and refuses to write inside the project root.
-- `.edit.wrl` working copies are disposable/regenerable; don't treat them as the source of truth, the mall `.wrl` (or its most recent backup) is.
-- No bundler, no framework dependency for the renderer — this app is intentionally small. If it starts needing state management or routing, that's a sign scope has crept beyond what's warranted and should be reconsidered, not just built out.
-- Keep `validator.js` pure and dependency-free (only Node's built-in `zlib`) so it stays trivially testable and reusable outside Electron if needed later. Any future World Project / Generic VRML97 validator modules should follow the same pure-function, no-filesystem-access shape.
-- Existing Mall Item functionality (gzip handling, `.edit.wrl` workflow, backup/repack, validation) must not regress as new profiles are added. Treat it as a contract, not a first draft to be casually altered.
+- **Backups before any overwrite** of a real mall `.wrl` — never repack without
+  the `mall:repack` backup step. This non-destructive/backup-first convention is
+  mandatory for **every** profile. World Project packaging honours it by never
+  mutating the source at all.
+- `.edit.wrl` working copies are disposable/regenerable; the mall `.wrl` (or its
+  most recent backup) is the source of truth.
+- No bundler or framework dependency for the renderer. If it starts needing state
+  management or routing, that is a sign scope has crept beyond what's warranted
+  and should be reconsidered, not built out.
+- Keep `validator.js` pure and dependency-free (Node's `zlib` only). Future
+  profile validators follow the same pure-function, no-filesystem shape.
+- Existing Mall Item functionality (gzip handling, `.edit.wrl` workflow,
+  backup/repack, validation) must not regress as new profiles are added. Treat it
+  as a contract, not a first draft.
+- Electron visual work routes through `VisualQaRunner` only — never a
+  per-capture Electron launch. On **Windows**, `qa/visual-qa/workspace-guard.js`
+  refuses UNC / network-drive / host-share workspaces and is a **no-op on Linux**.
+  Don't route around it.
+- Test fixtures stay byte-exact across platforms via the root `.gitattributes`
+  (`-text` on `test/fixtures/**`). Do **not** add CRLF-normalizing rules — they
+  corrupt the gzip/CRLF twins.
 
 ## Workflow (Mall Item lane)
 
 1. `npm start` (== `electron .`) launches the panel.
-2. "Open mall .wrl…" → picks a file, writes `.edit.wrl`, launches VSCodium, and loads the item into the embedded preview.
-3. Edit the working copy (in a native editor when available, or click "Open in External Editor" to use VSCodium if installed); the embedded preview shows **Original** and **Cybertown Fit** modes with transform-aware bounds and placement guides. Click "Refresh Preview" after external edits.
-4. WRL Forge re-validates automatically every few seconds; check the panel and fit report before repacking. The Fit preview is **display-only** — it never rewrites your file (Apply/Bake is not implemented).
-5. "Repack & Save to mall .wrl" backs up and writes the gzip mall file — the actual `.edit.wrl` text, never a preview-fitted transform.
+2. "Open mall .wrl…" → picks a file, writes `.edit.wrl`, loads the item into the
+   embedded preview.
+3. Edit in the native editor (or click "Open in External Editor" for VSCodium, if
+   installed). The preview shows **Original** and **Cybertown Fit** with
+   transform-aware bounds and placement guides.
+4. Validation re-runs automatically every few seconds. The Fit preview is
+   **display-only** — it never rewrites your file (Apply/Bake is not implemented).
+5. "Repack & Save to mall .wrl" backs up and writes the gzip mall file — the
+   actual `.edit.wrl` text, never a preview-fitted transform.
 
 ## Known gotchas (found during build/verification)
 
-- GTK's file-open dialog does not reliably accept `Ctrl+L` + typed path + `Return` in this environment — typed text can land in the fuzzy-search box instead of the location bar. Navigating via the folder tree/breadcrumbs is reliable; keep that in mind if scripting or automating file selection.
-- A file opened from an untrusted folder (e.g. `/tmp`) puts VSCodium in Restricted Mode, which disables the X_ITE preview extension with no obvious error — the `X3D: Preview 3D Model` command simply won't appear in the command palette. This is why `.edit.wrl` siblings are written next to the mall file inside the already-trusted `~/Projects/cybertown` tree rather than to a temp directory.
-- On **Windows**, never run dev/QA/build from the WinBoat `\\<host-share>\Data` SMB share, a UNC path, or a mapped network drive — running `npm ci`/builds/fixture-writing QA there wiped `node_modules`. This is now **enforced** (Phase 7C4.1): `qa/visual-qa/workspace-guard.js` refuses those workspaces (UNC / `DriveType == Network` / host-share marker) with one message and a non-zero exit, wired into `qa:windows`, `qa:visual`, the packed self-test, and `build:win`/`build:win:portable`. It is a **no-op on Linux** — never block normal Linux paths, and don't route the guard around a legitimate local clone. The share stays evidence-out only, via the `filterEvidenceExport` allowlist. Clone to a local NTFS path such as `C:\Projects\wrlforge`.
+- GTK's file-open dialog does not reliably accept `Ctrl+L` + typed path + `Return`
+  in this environment — typed text can land in the fuzzy-search box instead of the
+  location bar. Navigating via the folder tree/breadcrumbs is reliable.
+- A file opened from an untrusted folder (e.g. `/tmp`) puts VSCodium in Restricted
+  Mode, which disables the X_ITE preview extension **with no obvious error** — the
+  `X3D: Preview 3D Model` command simply won't appear. This is why `.edit.wrl`
+  siblings are written next to the mall file inside the already-trusted
+  `~/Projects/cybertown` tree rather than to a temp directory.
+- On **Windows**, never run dev/QA/build from a host SMB share, a UNC path, or a
+  mapped network drive — running `npm ci`/builds/fixture-writing QA there wiped
+  `node_modules`. Now enforced by `qa/visual-qa/workspace-guard.js` (Phase 7C4.1),
+  wired into `qa:windows`, `qa:visual`, the packed self-test, and
+  `build:win`/`build:win:portable`. Clone to a local NTFS path such as
+  `C:\Projects\wrlforge`.
+- A GUI-subsystem `electron.exe` on Windows has a **dead `process.stdin`** — the
+  capture server uses a file-based job transport there
+  (`qa/visual-qa/transport.js`, `WRL_FORGE_CAPTURE_JOBS_FILE`). The POSIX stdin
+  path is unchanged; reuse `VisualQaRunner`'s hooks, don't fork.
