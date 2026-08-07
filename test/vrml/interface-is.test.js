@@ -1321,7 +1321,7 @@ test('42 profile: an IS inside a PROTO interface LIST is classified, not bound',
 // Lane boundary
 // ===========================================================================
 
-test('boundary: P2B wires no consumer and begins no part of P2C', () => {
+test('boundary: P2B still wires no consumer, and P2C did not change that', () => {
   for (const file of ['analyze.js', 'node-identity.js', 'document-transaction.js',
     'parser.js', 'tokenizer.js', 'ast.js', 'source-map.js', 'edit.js', 'index.js']) {
     const other = fs.readFileSync(path.join(SRC, file), 'utf8');
@@ -1330,13 +1330,18 @@ test('boundary: P2B wires no consumer and begins no part of P2C', () => {
   }
   const facade = require('../../src/vrml');
   for (const name of ['scopeGraph', 'buildScopeGraph', 'interfaceMembers', 'resolveIs',
-    'isConnectionVerdict']) {
+    'isConnectionVerdict',
+    // WD1.5-P2C is consumer-free on exactly the same terms as P2B. Landing the
+    // ROUTE lane did not open the facade a crack for it.
+    'routeReferences', 'resolveRouteNode', 'resolveRouteEndpoint', 'routeVerdict',
+    'routesFrom', 'routesTo']) {
     assert.equal(name in facade, false, `${name} must not be exposed through the facade`);
   }
-  // ROUTE is P2C's, and the corpus holds 266,936 of them.
-  const code = codeOnly(fs.readFileSync(path.join(SRC, 'scope-graph.js'), 'utf8'));
-  for (const later of ['routeNode', 'routeEvent', 'resolveRoute', 'routeReferences']) {
-    assert.equal(code.includes(later), false, `${later} belongs to P2C`);
+  // P2C's endpoint reuse is INTERNAL: `acquireEndpointOn` is shared by `IS` and
+  // ROUTE inside this module and must not have become public surface to do it.
+  for (const name of ['acquireEndpointOn', 'acquireEndpoint', 'interfaceEndpoint']) {
+    assert.equal(name in sg, false, `${name} must stay module-private`);
+    assert.equal(name in sym, false, `${name} must not be re-exported by symbols.js`);
   }
   // The parser and the committed schema are untouched inputs.
   assert.equal(sg.buildScopeGraph.length, 1);

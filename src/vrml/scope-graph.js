@@ -57,7 +57,12 @@
 // `IS` exactly one interface to consult -- the innermost enclosing prototype's
 // -- and are silent on any outer one, so an interface is an OWNERSHIP scope with
 // no chain at all. The reference carries its owner, fixed on descent; nothing
-// searches for it. ROUTE endpoints remain WD1.5-P2C.
+// searches for it.
+//
+// P2C adds NO fourth namespace. 4.6.2 names ROUTE beside USE, so a ROUTE's node
+// names are the FIRST namespace under P1's own rules and its event names are not
+// a lexical namespace at all -- they are answered by the target node's public
+// interface once the node half has bound. Three namespaces remain three.
 //
 // ---------------------------------------------------------------------------
 // KNOWN, DELIBERATE LIMITS OF P1
@@ -156,6 +161,15 @@ class Builder {
     this.interfaceScopes = [];
     this.members = [];
     this.isRefs = [];
+    // WD1.5-P2C. One record per ROUTE statement, holding BOTH sides; the four
+    // references are minted from it at freeze time.
+    this.routes = [];
+    // A ROUTE reaches this builder by two dispatch paths -- `visitStatement` for
+    // a top-level or node-body ROUTE, `visitValue` for one leniently accepted
+    // inside an MFNode array. They are disjoint today, and this guard keeps a
+    // future overlap from silently DOUBLING a corpus figure rather than showing
+    // up as a failure. It is a counting safeguard only; no binding depends on it.
+    this.seenRoutes = new Set();
     // A hard parse cap did not merely damage a region: the tree is genuinely
     // aborted, so NO lexical scope in the document is provable. This matches
     // WD1.4 Tier 2's `document-parse-incomplete`.
@@ -308,6 +322,42 @@ class Builder {
     });
   }
 
+  // --- WD1.5-P2C -----------------------------------------------------------
+
+  /**
+   * Record one ROUTE, in the DEF scope the WALK is currently in.
+   *
+   * The scope comes from `ctx`, fixed on descent -- never from an
+   * innermost-containment search over ranges, which is the technique WD.md §7
+   * rejects and which recovery is able to move out from under a lookup.
+   *
+   * `offset` is the ROUTE STATEMENT's start, not either name token's: 4.10.2
+   * scopes "shall be defined before the ROUTE statement" to the statement, so
+   * both endpoints share one visibility boundary.
+   */
+  addRoute(route, scope) {
+    if (this.seenRoutes.has(route)) return;
+    this.seenRoutes.add(route);
+    const from = route.from || null;
+    const to = route.to || null;
+    this.routes.push({
+      node: route,
+      scopeIndex: scope.index,
+      range: route.range || null,
+      offset: offsetOf(route.range),
+      sourceNodeName: from && from.node != null ? from.node : null,
+      sourceNodeRange: (from && from.nodeRange) || null,
+      sourceEventName: from && from.event != null ? from.event : null,
+      sourceEventRange: (from && from.eventRange) || null,
+      destNodeName: to && to.node != null ? to.node : null,
+      destNodeRange: (to && to.nodeRange) || null,
+      destEventName: to && to.event != null ? to.event : null,
+      destEventRange: (to && to.eventRange) || null,
+      sortOffset: offsetOf(route.range),
+      sortName: '',
+    });
+  }
+
   addUse(use, scope, insideScript) {
     const range = use.nameRange || use.range;
     this.references.push({
@@ -340,11 +390,10 @@ function visitStatement(b, stmt, ctx) {
     case NODE.USE: b.addUse(stmt, ctx.scope, ctx.insideScript); return;
     case NODE.PROTO: visitProto(b, stmt, ctx); return;
     case NODE.EXTERNPROTO: visitExternProto(b, stmt, ctx); return;
-    // A ROUTE contributes route-node / route-event references, which are P2.
-    // An EXTERNPROTO declares a node TYPE and has no body, so it owns no
-    // DEF/USE scope and (4.9.1) carries no field defaults to descend into.
-    case NODE.ROUTE:
-    case NODE.EXTERNPROTO:
+    // A ROUTE contributes two route-node and two route-event references
+    // (WD1.5-P2C). It opens no scope and declares nothing, so the walk records
+    // it against the scope it is IN and does not descend.
+    case NODE.ROUTE: b.addRoute(stmt, ctx.scope); return;
     default:
   }
 }
@@ -541,7 +590,12 @@ function visitValue(b, value, ctx) {
     // DEF inside it.
     case NODE.PROTO: visitProto(b, value, ctx); return;
     case NODE.EXTERNPROTO: visitExternProto(b, value, ctx); return;
-    case NODE.ROUTE: return;
+    // Same lenient-acceptance story as PROTO directly above: Annex A's
+    // `mfnodeValue` admits only node statements, the parser accepts a ROUTE there
+    // as a Cybertown/Blaxxun compatibility measure, and dropping it here would
+    // lose every ROUTE written inside an MFNode array. It binds in the scope the
+    // array sits in -- a ROUTE opens no scope of its own.
+    case NODE.ROUTE: b.addRoute(value, ctx.scope); return;
     case NODE.ARRAY: {
       for (const item of value.items || []) visitValue(b, item, ctx);
       return;
@@ -1380,37 +1434,45 @@ function interfaceEndpoint(state, ifaceScope, name, isExtern) {
     type: entry.member.fieldType,
     range: entry.member.declRange,
     viaAlias: entry.viaAlias,
+    // The declaring interface member. Carried so a ROUTE endpoint resolution can
+    // name WHICH declaration it bound (P2C); `computeIsVerdict` picks the
+    // endpoint's fields explicitly and is unaffected by its presence.
+    member: entry.member,
   }, STATUS.RESOLVED, REASON.OK);
 }
 
-function acquireEndpoint(state, reference) {
-  const name = reference.endpointName;
+/**
+ * Acquire ONE endpoint on ONE target node, by written name (WD1.5-P2C-0).
+ *
+ * Extracted verbatim from `acquireEndpoint`'s body below the Script-`IS` branch
+ * so that `IS` (P2B) and ROUTE (P2C) share ONE endpoint authority rather than
+ * two. Nothing about the rule changed: 4.3.6 says the name is one from THE
+ * NODE'S OWN public interface, and which namespace answers is decided by the
+ * target node, never by how the reference reached it.
+ *
+ * The one generalization: P2B read the target's own Script interface scope from
+ * `reference.hostInterfaceScope`, which only an `IS` has. It is derived here from
+ * `state.interfaceScopeByAstNode` instead. The two are the same object for every
+ * `IS` host -- both originate from the interface scope's `ownerNode` -- and that
+ * equivalence is PINNED BY TEST rather than assumed (`route-semantics.test.js`,
+ * "P2C-0: hostInterfaceScope is exactly interfaceScopeByAstNode.get(hostNode)").
+ *
+ * MODULE-PRIVATE. Not exported from this module, not re-exported by
+ * `symbols.js`, and not in the `src/vrml/index.js` facade -- the reuse is
+ * internal and adds no public surface.
+ *
+ * NO ROUTE SHORTHAND LIVES HERE. 4.10.2's `set_`/`_changed` fallback is a rule
+ * about ROUTE, not about endpoint acquisition, and `IS` has no such shorthand
+ * (4.8.3). Pushing it down into this function would silently change P2B.
+ */
+function acquireEndpointOn(state, targetNode, name, nameRange) {
   if (name == null) {
     return endpointOutcome(null, STATUS.INVALID, REASON.MISSING_NAME);
   }
-
-  // The Script form needs no lookup at all: `field SFBool run IS go` DECLARES
-  // its own endpoint, so the declaration is the endpoint. G4 has already proven
-  // the declaring interface.
-  if (reference.form === sym.IS_FORM.SCRIPT_INTERFACE) {
-    const decl = reference.node;
-    const out = endpointOutcome({
-      effectiveName: name,
-      access: decl.access == null ? null : decl.access,
-      type: decl.fieldType == null ? null : decl.fieldType,
-      range: reference.endpointRange,
-      viaAlias: false,
-    }, STATUS.RESOLVED, REASON.OK);
-    out.origin = sym.ENDPOINT_ORIGIN.SCRIPT_INTERFACE;
-    return out;
-  }
-
-  // G5 -- the containing node's TYPE must be resolved by P2A, or the endpoint
+  // G5/G3 -- the target node's TYPE must be resolved by P2A, or the endpoint
   // namespace is a guess. Every non-`resolved` P2A outcome lands here, and no
-  // access or type verdict is returned; the declaration-side binding still
-  // stands on its own.
-  const hostNode = reference.hostNode;
-  const typeRef = hostNode ? state.typeReferenceByAstNode.get(hostNode) : null;
+  // access or type verdict is returned; the caller's own binding still stands.
+  const typeRef = targetNode ? state.typeReferenceByAstNode.get(targetNode) : null;
   const typeRes = typeRef ? state.resolutionByReference.get(typeRef) : null;
   if (!typeRes || typeRes.status !== STATUS.RESOLVED) {
     return endpointOutcome(null, STATUS.UNRESOLVED, REASON.IS_ENDPOINT_NODE_TYPE_UNRESOLVED);
@@ -1421,8 +1483,9 @@ function acquireEndpoint(state, reference) {
     // and are consulted before clause 6. This is the P2A precedent -- a lexical
     // declaration outranks the schema -- not candidate ranking: the two are
     // different namespaces, not two candidates in one.
-    if (hostNode.nodeType === 'Script' && reference.hostInterfaceScope) {
-      const own = interfaceEndpoint(state, reference.hostInterfaceScope, name, false);
+    const ownInterface = state.interfaceScopeByAstNode.get(targetNode) || null;
+    if (targetNode.nodeType === 'Script' && ownInterface) {
+      const own = interfaceEndpoint(state, ownInterface, name, false);
       if (own.status !== STATUS.UNRESOLVED) {
         if (own.endpoint) own.origin = sym.ENDPOINT_ORIGIN.SCRIPT_INTERFACE;
         return own;
@@ -1430,7 +1493,7 @@ function acquireEndpoint(state, reference) {
       // A miss falls through to Script's own clause-6 fields (`url`,
       // `directOutput`, `mustEvaluate`), which are schema facts.
     }
-    const found = builtinEndpoint(hostNode.nodeType, name);
+    const found = builtinEndpoint(targetNode.nodeType, name);
     if (!found) {
       return endpointOutcome(null, STATUS.UNRESOLVED, REASON.IS_ENDPOINT_UNKNOWN_FIELD);
     }
@@ -1438,7 +1501,7 @@ function acquireEndpoint(state, reference) {
       effectiveName: found.effectiveName,
       access: found.access,
       type: found.type,
-      range: reference.endpointRange,
+      range: nameRange,
       viaAlias: found.viaAlias,
     }, STATUS.RESOLVED, REASON.OK);
     out.origin = sym.ENDPOINT_ORIGIN.BUILTIN_SCHEMA;
@@ -1457,6 +1520,33 @@ function acquireEndpoint(state, reference) {
     ? sym.ENDPOINT_ORIGIN.EXTERNPROTO_INTERFACE
     : sym.ENDPOINT_ORIGIN.PROTO_INTERFACE;
   return out;
+}
+
+function acquireEndpoint(state, reference) {
+  const name = reference.endpointName;
+  if (name == null) {
+    return endpointOutcome(null, STATUS.INVALID, REASON.MISSING_NAME);
+  }
+
+  // The Script form needs no lookup at all: `field SFBool run IS go` DECLARES
+  // its own endpoint, so the declaration is the endpoint. G4 has already proven
+  // the declaring interface. This branch is `IS`-only -- a ROUTE endpoint is
+  // always a name ON a node, never a declaration that IS one -- so it stays here
+  // rather than moving into the shared helper.
+  if (reference.form === sym.IS_FORM.SCRIPT_INTERFACE) {
+    const decl = reference.node;
+    const out = endpointOutcome({
+      effectiveName: name,
+      access: decl.access == null ? null : decl.access,
+      type: decl.fieldType == null ? null : decl.fieldType,
+      range: reference.endpointRange,
+      viaAlias: false,
+    }, STATUS.RESOLVED, REASON.OK);
+    out.origin = sym.ENDPOINT_ORIGIN.SCRIPT_INTERFACE;
+    return out;
+  }
+
+  return acquireEndpointOn(state, reference.hostNode, name, reference.endpointRange);
 }
 
 const verdict = (reference, status, reason, extra) => sym.createIsVerdict({
@@ -1611,6 +1701,368 @@ function computeNodeIsIssues(state, node) {
 }
 
 // ---------------------------------------------------------------------------
+// ROUTE endpoints (WD1.5-P2C)
+// ---------------------------------------------------------------------------
+//
+// A ROUTE asks SIX independently answerable questions, and this lane keeps them
+// six. Collapsing them into one verdict would let a lost NODE come back as a
+// missing EVENT, and would throw away a perfectly provable source binding
+// because the destination's scope happened to be damaged.
+//
+//   Q1/Q2  which DEF does each node name denote?      -- P1's namespace (4.6.2)
+//   Q3/Q4  which endpoint does each event name denote? -- the node's interface
+//   Q5     is each endpoint directionally usable?      -- 4.10.2
+//   Q6     do the two types match exactly?             -- 4.10.2
+//
+// TWO ALIAS MECHANISMS COMPOSE HERE, AND THEY ARE NOT THE SAME RULE.
+//
+//   * 4.7 / 4.8.2 ALIAS EXPANSION -- a DECLARATION `exposedField zzz` also
+//     OCCUPIES `set_zzz` and `zzz_changed`. Already built (P2B), lives in
+//     `effectiveEntriesOf` / `builtinEndpoint`, and applies to `IS` and ROUTE
+//     alike.
+//   * 4.10.2 ROUTE SHORTHAND -- a WRITTEN bare `zzz` FALLS BACK to `set_zzz` /
+//     `zzz_changed`. ROUTE ONLY. `IS` has no such rule (4.8.3), so it lives in
+//     the wrapper below and must never be pushed into `acquireEndpointOn`.
+//
+// The two run in OPPOSITE DIRECTIONS and both are needed: expansion makes a
+// written `set_translation` find the declared `translation`; shorthand makes a
+// written `fraction` find the declared `fraction_changed`.
+
+/**
+ * 4.10.2's direction rule: "Routes may be established only from eventOuts to
+ * eventIns."
+ *
+ * An `exposedField` satisfies EITHER side, because 4.10.2 explicitly admits
+ * routing to and from "the eventIn or eventOut part of an exposedField" -- so a
+ * bare exposedField name is legal ROUTE shorthand on both ends. That is a
+ * ROUTE-specific allowance and is emphatically NOT `IS`'s Table 4.4, which is a
+ * 4x4 matrix with seven legal cells. There is no such matrix for ROUTE; do not
+ * import one.
+ */
+function directionCapable(access, side) {
+  if (access === sym.ACCESS.EXPOSED_FIELD) return true;
+  return side === sym.ROUTE_SIDE.SOURCE
+    ? access === sym.ACCESS.EVENT_OUT
+    : access === sym.ACCESS.EVENT_IN;
+}
+
+/** 4.10.2's fallback spelling for one side. Never the other side's. */
+function shorthandNameFor(name, side) {
+  return side === sym.ROUTE_SIDE.SOURCE ? `${name}_changed` : `set_${name}`;
+}
+
+// The shared endpoint helper reports its two lexical outcomes under `IS`-named
+// reasons, because P2B is where they were first needed. A ROUTE reports the same
+// facts under its own spellings -- one endpoint authority, two vocabularies --
+// so a consumer switching on a ROUTE result never has to know P2B exists.
+const ROUTE_REASON_FOR = Object.freeze({
+  [REASON.IS_ENDPOINT_NODE_TYPE_UNRESOLVED]: REASON.ROUTE_ENDPOINT_NODE_TYPE_UNRESOLVED,
+  [REASON.IS_ENDPOINT_UNKNOWN_FIELD]: REASON.ROUTE_ENDPOINT_UNKNOWN_FIELD,
+});
+
+function routeEndpointLookup(state, targetNode, name, range) {
+  const out = acquireEndpointOn(state, targetNode, name, range);
+  const mapped = ROUTE_REASON_FOR[out.reason];
+  if (mapped) out.reason = mapped;
+  return out;
+}
+
+/**
+ * Acquire one ROUTE endpoint, applying 4.10.2's direction-specific fallback.
+ *
+ * OWNER-ADJUDICATED (R19), and the whole point of the ordering below. 4.10.2
+ * says the fallback fires when "an eventIn of that name is NOT FOUND" -- the
+ * lookup is for an EVENT of a given direction, not for a name of any kind. So a
+ * written `zzz` that exists only as a `field` has NOT found the required event,
+ * and `set_zzz` is tried. Stopping at the field because the spelling matched
+ * reads a condition the clause does not state.
+ *
+ *   1. the written name, if it yields a DIRECTIONALLY USABLE endpoint  -- wins.
+ *      4.10.2's order is normative: the written spelling is tried FIRST, so a
+ *      real `eventIn zzz` always beats a `set_zzz` that also exists.
+ *   2. otherwise, and ONLY when the required event is PROVABLY not there,
+ *      the fallback spelling.
+ *
+ * Step 2's precondition is the safety property. "Provably not there" means the
+ * interface is fully known and either genuinely lacks the name, or holds it
+ * under a non-event access. An `unsupported` EXTERNPROTO miss, an `ambiguous`
+ * interface or a `recovered` scope prove NOTHING about absence, so the fallback
+ * does not fire and the honest non-answer is returned instead. Falling back
+ * there could bind `set_zzz` in an implementation that also declares a real
+ * `eventIn zzz` -- a WRONG endpoint binding, which the hard gate forbids.
+ */
+function acquireRouteEndpoint(state, targetNode, side, name, range) {
+  const first = routeEndpointLookup(state, targetNode, name, range);
+  if (first.status === STATUS.RESOLVED && first.endpoint
+    && directionCapable(first.endpoint.access, side)) {
+    return first;
+  }
+  // The written name resolved, but to something that cannot serve this
+  // direction -- 4.10.2's "not found" precondition for THIS side is met.
+  const wrongDirection = first.status === STATUS.RESOLVED && !!first.endpoint;
+  const provablyAbsent = first.status === STATUS.UNRESOLVED
+    && first.reason === REASON.ROUTE_ENDPOINT_UNKNOWN_FIELD;
+  if (!wrongDirection && !provablyAbsent) return first;
+
+  const second = routeEndpointLookup(state, targetNode, shorthandNameFor(name, side), range);
+  if (second.status === STATUS.RESOLVED && second.endpoint
+    && directionCapable(second.endpoint.access, side)) {
+    second.viaShorthand = true;
+    return second;
+  }
+  // The fallback could not be proven absent either -- `unsupported`, `ambiguous`
+  // or `recovered` is the strongest true statement available, and it outranks a
+  // direction verdict on the written name.
+  if (second.status !== STATUS.RESOLVED && second.status !== STATUS.UNRESOLVED) return second;
+  // Neither spelling is usable. Report the AUTHOR'S OWN spelling where it
+  // resolved to something -- that is the declaration they actually named -- and
+  // otherwise whatever the fallback found.
+  if (wrongDirection) return first;
+  if (second.status === STATUS.RESOLVED) return second;
+  return first;
+}
+
+/**
+ * The recovery proof gate for a ROUTE, asked ONCE and UP FRONT.
+ *
+ * G1 -- a hard parse cap aborted the tree, so no scope anywhere is provable.
+ *       MEASURED AS FULLY SUBSUMED BY G2, AND KEPT ANYWAY. `markRecovery`'s cap
+ *       branch marks EVERY scope recovered *and* stamps the same
+ *       `document-parse-incomplete` reason on it, so G2 fires next and returns a
+ *       byte-identical answer -- unlike P2B's G1, this one does not even own its
+ *       reason. It is retained because the redundancy is a property of that
+ *       blanket pass, not of the rule: narrow the cap's attribution and this
+ *       becomes the live guard. The enabling invariant is pinned by test
+ *       (`route-semantics.test.js` 49), so if it stops holding the suite says so
+ *       rather than a gap opening silently.
+ * G2 -- the ROUTE's own enclosing DEF scope is unprovable. An unclosed body
+ *       absorbs the statements after it, which MOVES WHICH SCOPE THE ROUTE IS
+ *       IN. That makes the positive binding, the "not declared here" negative
+ *       AND the duplicate claim all unsayable at once.
+ *
+ *       What it UNIQUELY defends is the negative and the ambiguous claim. On a
+ *       POSITIVE binding it is doubly covered: `guardLexical` independently
+ *       downgrades a `resolved` answer decided in, or found in, an unprovable
+ *       scope. Both halves are pinned by mutation (test 49) -- the duplicate
+ *       fabrication is G2's alone, the wrong binding is prevented twice over.
+ *
+ * G3 (the target node's type) and G4 (the target's interface scope) are not
+ * here: they gate only the ENDPOINT half, and they arrive through
+ * `acquireEndpointOn` so that a provable NODE binding survives an unprovable
+ * endpoint. That split is P2B's G5 rule reached through a DEF binding instead of
+ * lexical containment.
+ */
+function routeChainWithholds(state, reference) {
+  if (state.documentIncomplete) {
+    return result(reference, STATUS.RECOVERED, REASON.DOCUMENT_PARSE_INCOMPLETE);
+  }
+  const scope = reference.scope;
+  if (scope && scope.recovered) {
+    return result(reference, STATUS.RECOVERED, scope.recoveredReason || REASON.SCOPE_RECOVERED);
+  }
+  return null;
+}
+
+/**
+ * Q1/Q2 -- which DEF declaration does one ROUTE node name denote?
+ *
+ * P1's lookup, unchanged and unforked. No second DEF table, no proximity, no
+ * structural path, no first-match: 4.6.2 puts ROUTE in USE's namespace, so a
+ * ROUTE that cannot be bound is bound by nobody.
+ */
+function resolveRouteNodeReference(state, reference) {
+  // A token fact, true whatever the surrounding scopes turn out to be.
+  if (reference.name == null) {
+    return result(reference, STATUS.INVALID, REASON.MISSING_NAME);
+  }
+  const withheld = routeChainWithholds(state, reference);
+  if (withheld) return withheld;
+
+  const scope = reference.scope;
+  // 4.10.2's "defined before the ROUTE statement", through P1's own predicate.
+  const candidates = lookupDef(state, scope, reference.name, reference.offset);
+
+  // Ambiguity is decided on the NAME ALONE, before node type or endpoint
+  // availability is looked at. Narrowing duplicates by "which one has the event"
+  // would be candidate ranking -- the WD.md §7 failure mode -- and is the single
+  // most tempting wrong turn in this lane.
+  if (candidates.length > 1) {
+    return result(reference, STATUS.AMBIGUOUS, REASON.DUPLICATE_DEF_IN_SCOPE, {
+      candidateCount: candidates.length,
+      evidence: candidates.map((c) => c.declRange),
+    });
+  }
+  if (candidates.length === 1) {
+    const symbol = candidates[0];
+    return guardLexical(state, reference, result(reference, STATUS.RESOLVED, REASON.OK, {
+      symbol, candidateCount: 1, evidence: [symbol.declRange],
+    }), symbol);
+  }
+
+  // Declared in this scope, but only AFTER the ROUTE. 4.10.2 is explicit that
+  // this is not a binding, and it is a DIFFERENT fact from never-declared, so it
+  // gets its own reason rather than being folded into the one below.
+  const later = lookupDefAnyPosition(state, scope, reference.name);
+  if (later.length > 0) {
+    return result(reference, STATUS.UNRESOLVED, REASON.ROUTE_NODE_NOT_DEFINED_BEFORE_ROUTE, {
+      candidateCount: later.length,
+      evidence: later.map((c) => c.declRange),
+    });
+  }
+  // 4.8.4 via 4.6.2, in both directions: declared, but behind a PROTO boundary.
+  if (declaredOutsideChain(state, scope, reference.name)) {
+    return result(reference, STATUS.UNRESOLVED, REASON.DEF_NOT_VISIBLE_ACROSS_PROTO_BOUNDARY);
+  }
+  return result(reference, STATUS.UNRESOLVED, REASON.DEF_NOT_DECLARED_IN_SCOPE);
+}
+
+/**
+ * Q3/Q4 + Q5 -- which endpoint does one ROUTE event name denote, and can it
+ * serve this side?
+ *
+ * INDEPENDENCE IS A HARD REQUIREMENT. When the paired node reference did not
+ * resolve, this question is NOT ASKED: there is no interface to consult, so
+ * "unknown field" would be a fabrication. The node's own status is propagated
+ * instead, and `route-endpoint-unknown-field` is unreachable from here.
+ */
+function resolveRouteEventReference(state, reference) {
+  if (reference.name == null) {
+    return result(reference, STATUS.INVALID, REASON.MISSING_NAME);
+  }
+  const withheld = routeChainWithholds(state, reference);
+  if (withheld) return withheld;
+
+  const nodeRes = reference.nodeReference
+    ? state.routeResolutionByReference.get(reference.nodeReference) : null;
+  if (!nodeRes || nodeRes.status !== STATUS.RESOLVED || !nodeRes.symbol) {
+    return result(reference, nodeRes ? nodeRes.status : STATUS.UNRESOLVED,
+      nodeRes ? nodeRes.reason : REASON.DEF_NOT_DECLARED_IN_SCOPE);
+  }
+
+  const targetNode = nodeRes.symbol.node;
+  const acquired = acquireRouteEndpoint(state, targetNode, reference.side,
+    reference.name, reference.range);
+  if (acquired.status !== STATUS.RESOLVED || !acquired.endpoint) {
+    return result(reference, acquired.status, acquired.reason, {
+      evidence: acquired.evidence,
+    });
+  }
+
+  const endpoint = sym.createEndpoint({
+    origin: acquired.origin,
+    name: reference.name,
+    effectiveName: acquired.endpoint.effectiveName,
+    access: acquired.endpoint.access,
+    type: acquired.endpoint.type,
+    range: acquired.endpoint.range,
+  });
+  state.routeEndpointByReference.set(reference, endpoint);
+
+  // Q5. Reached only when the endpoint EXISTS, so this is a directional verdict
+  // and never a lexical one -- which is exactly the distinction 4.10.2 draws
+  // between "not found" and "not an eventOut".
+  if (!directionCapable(endpoint.access, reference.side)) {
+    return result(reference, STATUS.INVALID,
+      reference.side === sym.ROUTE_SIDE.SOURCE
+        ? REASON.ROUTE_SOURCE_NOT_AN_EVENT_OUT
+        : REASON.ROUTE_DEST_NOT_AN_EVENT_IN,
+      { evidence: acquired.endpoint.range ? [acquired.endpoint.range] : [] });
+  }
+
+  let detail = null;
+  if (acquired.viaShorthand) detail = REASON.ROUTE_ENDPOINT_VIA_SHORTHAND;
+  else if (acquired.endpoint.viaAlias) detail = REASON.ROUTE_ENDPOINT_VIA_IMPLICIT_ALIAS;
+
+  return result(reference, STATUS.RESOLVED, REASON.OK, {
+    // The declaring interface member, where one exists. A built-in endpoint is a
+    // clause-6 SCHEMA fact and is declared nowhere in the file, so it has no
+    // symbol -- `endpoint.origin` is what says which of the four namespaces
+    // answered, and a consumer must read that rather than infer it from `symbol`.
+    symbol: acquired.endpoint.member || null,
+    candidateCount: 1,
+    evidence: acquired.endpoint.range ? [acquired.endpoint.range] : [],
+    detail,
+  });
+}
+
+const routeVerdictOf = (node, status, reason, extra) => sym.createRouteVerdict({
+  node,
+  status,
+  reason,
+  side: (extra && extra.side) || null,
+  sourceEndpoint: (extra && extra.sourceEndpoint) || null,
+  destinationEndpoint: (extra && extra.destinationEndpoint) || null,
+  evidence: (extra && extra.evidence) || [],
+});
+
+/**
+ * Q6 and the whole-ROUTE answer: may these two endpoints be connected?
+ *
+ * Reached only when BOTH sides produced a directionally usable endpoint --
+ * anything less is propagated with the `side` that defeated it, so a consumer
+ * can tell `source-node-unresolved` from `destination-node-unresolved` without
+ * re-running either sub-question.
+ *
+ * NOT A SECOND TYPE TABLE. 4.10.2's "shall match exactly" is exact TOKEN
+ * equality against Annex A.2's `fieldType` production -- the same set and the
+ * same rule `IS` uses. No coercion, no SF<->MF promotion, no inspection of the
+ * node type inside an SFNode/MFNode; the standard imposes none and inventing one
+ * would be interpretation-grade.
+ *
+ * R18 (redundant routing) is DELIBERATELY ABSENT. 4.10.2 says a repeated
+ * identical route "is ignored", which is a RUNTIME de-duplication rule and not a
+ * lexical error -- P2C is static only. `analyze.js`'s existing `VRML044` warning
+ * stays exactly where it is; this lane neither reproduces nor contradicts it.
+ */
+function computeRouteVerdict(state, record) {
+  const node = record.node;
+  const srcNodeRes = state.routeResolutionByReference.get(record.sourceNodeRef);
+  const dstNodeRes = state.routeResolutionByReference.get(record.destNodeRef);
+  const srcEvtRes = state.routeResolutionByReference.get(record.sourceEventRef);
+  const dstEvtRes = state.routeResolutionByReference.get(record.destEventRef);
+
+  // Recovery first and whole: when the ROUTE's own scope is unprovable, no
+  // claim about it -- positive, negative, directional or type -- is sayable.
+  if (srcNodeRes.status === STATUS.RECOVERED) return routeVerdictOf(node, STATUS.RECOVERED, srcNodeRes.reason);
+  if (dstNodeRes.status === STATUS.RECOVERED) return routeVerdictOf(node, STATUS.RECOVERED, dstNodeRes.reason);
+
+  // Source before destination, and the NODE half before the EVENT half, so the
+  // reported failure is always the earliest unanswerable question rather than a
+  // downstream consequence of it.
+  const stages = [
+    { res: srcNodeRes, side: sym.ROUTE_SIDE.SOURCE },
+    { res: dstNodeRes, side: sym.ROUTE_SIDE.DESTINATION },
+    { res: srcEvtRes, side: sym.ROUTE_SIDE.SOURCE },
+    { res: dstEvtRes, side: sym.ROUTE_SIDE.DESTINATION },
+  ];
+  for (const stage of stages) {
+    if (stage.res.status !== STATUS.RESOLVED) {
+      return routeVerdictOf(node, stage.res.status, stage.res.reason, {
+        side: stage.side, evidence: stage.res.evidence,
+      });
+    }
+  }
+
+  const sourceEndpoint = state.routeEndpointByReference.get(record.sourceEventRef) || null;
+  const destinationEndpoint = state.routeEndpointByReference.get(record.destEventRef) || null;
+  const both = { sourceEndpoint, destinationEndpoint };
+  const evidence = [record.sourceEventRef.range, record.destEventRef.range].filter(Boolean);
+
+  const a = sourceEndpoint ? sourceEndpoint.type : null;
+  const bType = destinationEndpoint ? destinationEndpoint.type : null;
+  if (a == null || bType == null
+    || !VRML97_FIELD_TYPES.has(a) || !VRML97_FIELD_TYPES.has(bType)) {
+    return routeVerdictOf(node, STATUS.UNRESOLVED, REASON.ROUTE_TYPE_UNKNOWN,
+      { ...both, evidence });
+  }
+  if (a !== bType) {
+    return routeVerdictOf(node, STATUS.INVALID, REASON.ROUTE_TYPE_MISMATCH,
+      { ...both, evidence });
+  }
+  return routeVerdictOf(node, STATUS.RESOLVED, REASON.OK, { ...both, evidence });
+}
+
+// ---------------------------------------------------------------------------
 // Input validation
 // ---------------------------------------------------------------------------
 
@@ -1735,6 +2187,7 @@ function buildScopeGraph(parseResult) {
   b.references.sort(byPosition);
   b.typeDecls.sort(byPosition);
   b.typeRefs.sort(byPosition);
+  b.routes.sort(byPosition);
 
   const symbols = b.symbols.map((rec, i) => sym.createDefSymbol({
     name: rec.name,
@@ -1879,6 +2332,59 @@ function buildScopeGraph(parseResult) {
       rec.outerInterfaces.map((s) => interfaceScopeList[s.index]));
   });
 
+  // --- ROUTE references (WD1.5-P2C) ----------------------------------------
+  //
+  // Four references per ROUTE, in two SEPARATE published lists. The node half
+  // and the event half answer different questions in different namespaces, and a
+  // merged list would invite exactly the collapse §7 of the plan forbids.
+  //
+  // Both lists are ordered by ROUTE source position, then source-side before
+  // destination-side -- deterministic, and never insertion or hash order.
+  const routeNodeReferenceList = [];
+  const routeEventReferenceList = [];
+  const routeRecords = b.routes.map((rec) => {
+    const scope = scopes[rec.scopeIndex];
+    const mk = (side, name, range) => sym.createRouteNodeReference({
+      name,
+      side,
+      node: rec.node,
+      scope,
+      range: range || rec.range,
+      sourceOrder: routeNodeReferenceList.length,
+      // 4.10.2 scopes "defined before the ROUTE statement" to the STATEMENT, so
+      // both sides share the statement's start offset.
+      offset: rec.offset,
+    }, graph);
+    const sourceNodeRef = mk(sym.ROUTE_SIDE.SOURCE, rec.sourceNodeName, rec.sourceNodeRange);
+    routeNodeReferenceList.push(sourceNodeRef);
+    const destNodeRef = mk(sym.ROUTE_SIDE.DESTINATION, rec.destNodeName, rec.destNodeRange);
+    routeNodeReferenceList.push(destNodeRef);
+
+    const mkEvent = (side, name, range, nodeReference) => sym.createRouteEventReference({
+      name,
+      side,
+      node: rec.node,
+      nodeReference,
+      scope,
+      range: range || rec.range,
+      sourceOrder: routeEventReferenceList.length,
+      offset: rec.offset,
+    }, graph);
+    const sourceEventRef = mkEvent(sym.ROUTE_SIDE.SOURCE, rec.sourceEventName,
+      rec.sourceEventRange, sourceNodeRef);
+    routeEventReferenceList.push(sourceEventRef);
+    const destEventRef = mkEvent(sym.ROUTE_SIDE.DESTINATION, rec.destEventName,
+      rec.destEventRange, destNodeRef);
+    routeEventReferenceList.push(destEventRef);
+
+    return {
+      node: rec.node, range: rec.range, sourceNodeRef, destNodeRef, sourceEventRef, destEventRef,
+    };
+  });
+
+  const routeRecordByAstNode = new WeakMap();
+  for (const rec of routeRecords) routeRecordByAstNode.set(rec.node, rec);
+
   const referenceByAstNode = new WeakMap();
   for (const r of references) referenceByAstNode.set(r.node, r);
 
@@ -1922,6 +2428,16 @@ function buildScopeGraph(parseResult) {
     isEntryByReference: new Map(),
     isVerdictByReference: new Map(),
     isReferencesByMember: new Map(),
+    // ROUTE endpoints (WD1.5-P2C)
+    routeRecords,
+    routeNodeReferenceList,
+    routeEventReferenceList,
+    routeRecordByAstNode,
+    routeResolutionByReference: new Map(),
+    routeEndpointByReference: new Map(),
+    routeVerdictByAstNode: new Map(),
+    routesFromBySymbol: new Map(),
+    routesToBySymbol: new Map(),
   };
 
   const bind = (reference, res) => {
@@ -1955,6 +2471,50 @@ function buildScopeGraph(parseResult) {
   }
   for (const reference of isReferenceList) {
     state.isVerdictByReference.set(reference, computeIsVerdict(state, reference));
+  }
+
+  // ROUTE resolution (WD1.5-P2C) runs LAST. Its node half needs P1's DEF tables
+  // (built above) and its event half needs P2A's type answers for the RESOLVED
+  // target node, so both must already exist. The node half of every ROUTE is
+  // resolved before any event half, because an event question is only asked once
+  // its own node question has been answered.
+  for (const reference of routeNodeReferenceList) {
+    state.routeResolutionByReference.set(reference,
+      resolveRouteNodeReference(state, reference));
+  }
+  for (const reference of routeEventReferenceList) {
+    state.routeResolutionByReference.set(reference,
+      resolveRouteEventReference(state, reference));
+  }
+  for (const rec of routeRecords) {
+    const v = computeRouteVerdict(state, rec);
+    state.routeVerdictByAstNode.set(rec.node, v);
+    // REVERSE INDEXES ARE PROVEN-ONLY, and the bar is the WHOLE ROUTE.
+    //
+    // A `routesFrom` entry claims "this node drives that node", which is a
+    // statement about BOTH ends: it needs both node bindings, both endpoints and
+    // a legal connection between them. An edge admitted on a resolved source
+    // alone would be a half-proven relationship presented as a whole one, and a
+    // scene-tree or rename consumer has no way to tell the difference. Anything
+    // less than `resolved` is readable through `routeReferences` instead, where
+    // its status travels with it.
+    if (v.status !== STATUS.RESOLVED) continue;
+    const fromSymbol = state.routeResolutionByReference.get(rec.sourceNodeRef).symbol;
+    const toSymbol = state.routeResolutionByReference.get(rec.destNodeRef).symbol;
+    const edge = Object.freeze({
+      route: rec.node,
+      range: rec.range,
+      source: fromSymbol,
+      sourceEndpoint: v.sourceEndpoint,
+      destination: toSymbol,
+      destinationEndpoint: v.destinationEndpoint,
+    });
+    const outList = state.routesFromBySymbol.get(fromSymbol);
+    if (outList) outList.push(edge);
+    else state.routesFromBySymbol.set(fromSymbol, [edge]);
+    const inList = state.routesToBySymbol.get(toSymbol);
+    if (inList) inList.push(edge);
+    else state.routesToBySymbol.set(toSymbol, [edge]);
   }
 
   INTERNALS.set(graph, state);
@@ -2268,6 +2828,178 @@ function isReferencesTo(graph, memberOrNode) {
   return Object.freeze((state.isReferencesByMember.get(member) || []).slice());
 }
 
+// --- ROUTE endpoints (WD1.5-P2C) -------------------------------------------
+//
+// A FOURTH set of accessors, exactly as P2A added a second and P2B a third.
+// `symbols`/`references`/`resolutions` stay DEF/USE, the type trio stays
+// node-type and the interface accessors stay interface-member; none changes
+// meaning or count because this lane landed.
+
+/** Every ROUTE node reference, source-ordered (source side first). Frozen, fresh. */
+function routeNodeReferences(graph) {
+  return Object.freeze(internalsOf(graph, 'routeNodeReferences').routeNodeReferenceList.slice());
+}
+
+/** Every ROUTE event reference, source-ordered (source side first). Frozen, fresh. */
+function routeEventReferences(graph) {
+  return Object.freeze(internalsOf(graph, 'routeEventReferences').routeEventReferenceList.slice());
+}
+
+/**
+ * Every ROUTE reference of both kinds, source-ordered.
+ *
+ * Grouped per ROUTE as source-node, destination-node, source-event,
+ * destination-event -- a reading order, not a merged namespace. The two kinds
+ * remain separately listed above, and a consumer that cares which question it is
+ * asking should use those.
+ */
+function routeReferences(graph) {
+  const state = internalsOf(graph, 'routeReferences');
+  const out = [];
+  for (const rec of state.routeRecords) {
+    out.push(rec.sourceNodeRef, rec.destNodeRef, rec.sourceEventRef, rec.destEventRef);
+  }
+  return Object.freeze(out);
+}
+
+/** Every ROUTE answer of both kinds, in `routeReferences` order. Frozen, fresh. */
+function routeResolutions(graph) {
+  const state = internalsOf(graph, 'routeResolutions');
+  return Object.freeze(routeReferences(graph)
+    .map((r) => state.routeResolutionByReference.get(r)));
+}
+
+function assertRouteSide(side, label) {
+  if (side !== sym.ROUTE_SIDE.SOURCE && side !== sym.ROUTE_SIDE.DESTINATION) {
+    throw scopeError(SCOPE_ERROR.REFERENCE,
+      `${label}: side must be '${sym.ROUTE_SIDE.SOURCE}' or '${sym.ROUTE_SIDE.DESTINATION}'`);
+  }
+}
+
+function routeRecordFor(state, astRouteNode, label) {
+  if (!astRouteNode || typeof astRouteNode !== 'object' || astRouteNode.type !== NODE.ROUTE) {
+    throw scopeError(SCOPE_ERROR.REFERENCE, `${label}: expected a Route AST node`);
+  }
+  return state.routeRecordByAstNode.get(astRouteNode) || null;
+}
+
+/**
+ * The `route-node` reference on one side of an AST `Route`, or `null`.
+ *
+ * A lookup, not a resolution: `null` means this graph holds no such projection,
+ * never "not declared".
+ */
+function routeNodeReferenceFor(graph, astRouteNode, side) {
+  const state = internalsOf(graph, 'routeNodeReferenceFor');
+  assertRouteSide(side, 'routeNodeReferenceFor');
+  const rec = routeRecordFor(state, astRouteNode, 'routeNodeReferenceFor');
+  if (!rec) return null;
+  return side === sym.ROUTE_SIDE.SOURCE ? rec.sourceNodeRef : rec.destNodeRef;
+}
+
+/** The `route-event` reference on one side of an AST `Route`, or `null`. */
+function routeEventReferenceFor(graph, astRouteNode, side) {
+  const state = internalsOf(graph, 'routeEventReferenceFor');
+  assertRouteSide(side, 'routeEventReferenceFor');
+  const rec = routeRecordFor(state, astRouteNode, 'routeEventReferenceFor');
+  if (!rec) return null;
+  return side === sym.ROUTE_SIDE.SOURCE ? rec.sourceEventRef : rec.destEventRef;
+}
+
+/**
+ * Which DEF declaration does one ROUTE node name denote? (Q1/Q2)
+ *
+ * @returns {object} A frozen resolution -- a status, a stable reason, and a
+ *   symbol only when the status is `resolved`.
+ * @throws {Error} codes ESCOPEGRAPH, ESCOPEREF.
+ */
+function resolveRouteNode(graph, reference) {
+  const state = internalsOf(graph, 'resolveRouteNode');
+  assertMember(state, reference, sym.isRouteNodeReferenceShape, SCOPE_ERROR.REFERENCE,
+    'resolveRouteNode', 'a ROUTE node reference from this graph');
+  return state.routeResolutionByReference.get(reference);
+}
+
+/**
+ * Which endpoint does one ROUTE event name denote, and can it serve its side?
+ * (Q3/Q4 + Q5)
+ *
+ * `resolved` means the endpoint exists AND is directionally usable. An endpoint
+ * that exists but cannot serve the side answers `invalid` with
+ * `route-source-not-an-event-out` / `route-dest-not-an-event-in`, which is a
+ * different fact from `route-endpoint-unknown-field` and is reported as one.
+ *
+ * When the paired NODE reference did not resolve, its status is propagated
+ * unchanged -- the event question is never asked against a node this module
+ * declined to bind.
+ *
+ * @throws {Error} codes ESCOPEGRAPH, ESCOPEREF.
+ */
+function resolveRouteEndpoint(graph, reference) {
+  const state = internalsOf(graph, 'resolveRouteEndpoint');
+  assertMember(state, reference, sym.isRouteEventReferenceShape, SCOPE_ERROR.REFERENCE,
+    'resolveRouteEndpoint', 'a ROUTE event reference from this graph');
+  return state.routeResolutionByReference.get(reference);
+}
+
+/**
+ * The endpoint record one `route-event` reference bound, or `null`.
+ *
+ * Present whenever the endpoint was ACQUIRED -- including when it then failed
+ * the direction test, so a consumer reporting a direction error can still say
+ * what the author actually named. `origin` says which of the four namespaces
+ * answered; a consumer asking whether an EXTERNPROTO member was locally declared
+ * reads THAT, never the status.
+ */
+function routeEndpointFor(graph, reference) {
+  const state = internalsOf(graph, 'routeEndpointFor');
+  assertMember(state, reference, sym.isRouteEventReferenceShape, SCOPE_ERROR.REFERENCE,
+    'routeEndpointFor', 'a ROUTE event reference from this graph');
+  return state.routeEndpointByReference.get(reference) || null;
+}
+
+/**
+ * May this whole ROUTE be connected -- 4.10.2's direction and exact-type rules?
+ *
+ * @param {object} astRouteNode A `Route` AST node from this graph's parse.
+ * @returns {object} A frozen verdict. `side` names which end defeated it.
+ * @throws {Error} codes ESCOPEGRAPH, ESCOPEREF.
+ */
+function routeVerdict(graph, astRouteNode) {
+  const state = internalsOf(graph, 'routeVerdict');
+  const rec = routeRecordFor(state, astRouteNode, 'routeVerdict');
+  if (!rec) {
+    throw scopeError(SCOPE_ERROR.REFERENCE,
+      'routeVerdict: this ROUTE does not belong to this graph\'s parse');
+  }
+  return state.routeVerdictByAstNode.get(rec.node);
+}
+
+/**
+ * Every ROUTE this DEF declaration drives / is driven by.
+ *
+ * PROVEN RELATIONSHIPS ONLY. An edge appears only when the whole ROUTE resolved:
+ * both node bindings, both endpoints, both directions and an exact type match.
+ * There is no "probable" or "likely" tier, and there will not be one -- a
+ * reverse index is what a rename or a scene-tree consumer trusts to enumerate
+ * THE connections of a node, and a merely-plausible edge there is WD.md §7's
+ * failure mode wearing a different hat.
+ *
+ * @throws {Error} codes ESCOPEGRAPH, ESCOPESYMBOL.
+ */
+function routesFrom(graph, symbolOrNode) {
+  const state = internalsOf(graph, 'routesFrom');
+  const symbol = coerceSymbol(state, symbolOrNode, 'routesFrom');
+  return Object.freeze((state.routesFromBySymbol.get(symbol) || []).slice());
+}
+
+/** The destination-side counterpart of `routesFrom`, under the same rule. */
+function routesTo(graph, symbolOrNode) {
+  const state = internalsOf(graph, 'routesTo');
+  const symbol = coerceSymbol(state, symbolOrNode, 'routesTo');
+  return Object.freeze((state.routesToBySymbol.get(symbol) || []).slice());
+}
+
 /**
  * Resolve one reference.
  *
@@ -2403,6 +3135,7 @@ module.exports = {
   ACCESS: sym.ACCESS,
   ENDPOINT_ORIGIN: sym.ENDPOINT_ORIGIN,
   IS_FORM: sym.IS_FORM,
+  ROUTE_SIDE: sym.ROUTE_SIDE,
   STATUS: sym.STATUS,
   REASON: sym.REASON,
   // predicates
@@ -2446,4 +3179,17 @@ module.exports = {
   interfaceMemberIsUniqueInScope,
   nodeIsBindingIssues,
   isReferencesTo,
+  // ROUTE endpoints (WD1.5-P2C)
+  routeReferences,
+  routeNodeReferences,
+  routeEventReferences,
+  routeResolutions,
+  routeNodeReferenceFor,
+  routeEventReferenceFor,
+  resolveRouteNode,
+  resolveRouteEndpoint,
+  routeEndpointFor,
+  routeVerdict,
+  routesFrom,
+  routesTo,
 };

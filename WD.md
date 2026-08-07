@@ -72,8 +72,8 @@ supersedes this file:
 | WD1.5 | scope semantics **design gate** | committed `bf4f8f9` (spike + plan only) |
 | WD1.5-P1 | DEF/USE scope graph (`symbols.js`, `scope-graph.js`) | committed `66783c1` |
 | WD1.5-P2A | PROTO/EXTERNPROTO type-name resolution | committed `5176d28` |
-| WD1.5-P2B | interface members + `IS` (§8.1) | **implemented, uncommitted** |
-| WD1.5-P2C | ROUTE endpoints | **not started** |
+| WD1.5-P2B | interface members + `IS` (§8.1) | committed `51ff283` |
+| WD1.5-P2C | ROUTE endpoints (§8.2) | **implemented, uncommitted** |
 | WD2 | scene tree / inspector / viewport | **not started** |
 
 ## 4. WD1.1 — source mapping
@@ -229,6 +229,81 @@ call.
 it, because its consumers are identity and rename, where the §7 hard gate forbids
 ranking. If viewer fidelity ever needs the browser's answer it belongs in a
 separately named `languageSemantics` query that never feeds identity.
+
+### 8.2 WD1.5-P2C — ROUTE endpoints
+
+`src/vrml/symbols.js` + `src/vrml/scope-graph.js`, internal and **consumer-free**
+like P1/P2A/P2B. Doc: `docs/white-dune-2026/WD1_5_P2C_ROUTE_SEMANTICS_PLAN.md`
+(as built). It resolves both ends of a `ROUTE` and judges whether the connection
+is legal — and it adds **no fourth namespace**.
+
+**ISO 4.6.2 is the decisive citation:** a DEF'd node "may be referenced by name
+later in the same file with USE **or ROUTE** statements". ROUTE node names are
+therefore P1's namespace under P1's rules — no second DEF table, and 4.8.4
+disjointness in both directions for free. The event names are not a lexical
+namespace at all: once the node binds, the event is answered by that node's
+**public interface**, so P2B's endpoint acquisition was **extracted** into a
+module-private `acquireEndpointOn` and shared rather than forked.
+
+A ROUTE asks **six independently answerable questions** (two node bindings, two
+endpoints, two directions, one type verdict), and keeping them six is the design:
+a lost NODE must never come back as a missing EVENT, and a provable source
+binding survives a damaged destination.
+
+Three rules worth not re-deriving:
+
+1. **ROUTE and `IS` have different exposedField rules, running in opposite
+   directions.** 4.7 *expansion* means a declared `exposedField zzz` also
+   occupies `set_zzz`/`zzz_changed` (P2B, shared). 4.10.2 *shorthand* means a
+   written bare `zzz` falls back to them — **ROUTE only**, so it lives in a
+   ROUTE-only wrapper. There is **no Table 4.4 for ROUTE**; do not import one.
+   Order is normative: the written name is tried first.
+2. **The fallback's precondition is the safety property.** It fires only when
+   the required event is *provably* absent. An `unsupported` EXTERNPROTO miss, an
+   `ambiguous` interface or a `recovered` scope prove nothing, so the fallback
+   does not fire — otherwise it could bind `set_zzz` in an implementation that
+   also declares a real `eventIn zzz`, a wrong endpoint binding.
+3. **R19 was settled by owner adjudication** (2026-08-07): the lookup is
+   direction-specific, so a written `zzz` found only as a `field` has *not* found
+   the required event and the fallback applies.
+
+**Corpus:** 0 wrong node bindings, 0 wrong endpoint bindings and 0 confident
+answers from an unprovable scope, against an independently authored oracle, over
+**245,540 ROUTEs in 4,466 unique decoded documents** (14,226 discovered paths at
+that measurement; the raw-path count drifts with the external roots, the
+canonical denominator has not) through the production path. Direction violations: **0**. Type mismatches: **1**.
+That is a striking contrast with P2B's 1,481 Table 4.4 violations in the same
+corpus — the ROUTE rules were followed essentially universally, so P4 should not
+assume P2B's remediation volume repeats here.
+
+The denominator matters and is easy to get wrong twice over. De-duplicate by
+**decoded** text, never raw bytes — a `.wrz` and its `.wrl` twin are one
+document, and byte-dedup overcounted by ~32%. And the same ROUTEs counted per
+discovered path rather than per unique document total 574,073, a 2.3× inflation.
+A ROUTE figure quoted without its denominator is unusable.
+
+The sweep and the oracle are **reproducible from the repository** —
+`spikes/wd1-route-semantics/`, deterministic, read-only, boundary-guarded, with
+the oracle structurally unable to load the resolver it grades. They were a
+session scratchpad first, which cost the lane a
+`BLOCKED — EVIDENCE INSUFFICIENT` QA verdict; a hard zero-wrong-bindings gate
+whose measurement cannot be rerun is an assertion, not evidence.
+
+`0 confident answers from an unprovable scope` is a **measured result for this
+corpus**, not a universal proof. The audit keys that invariant on the ROUTE
+statement's own enclosing scope, which is sound here because every observed
+recovery-bearing endpoint is a case where that same scope is the recovered one.
+A future corpus could hold the other shape — a clean ROUTE scope whose target's
+*owning interface scope* is independently recovered — and would need a more
+granular key **in the harness**. Production is unaffected either way: it already
+withholds an endpoint whose required interface scope is unprovable.
+
+**Reverse indexes are proven-only, and the bar is the WHOLE ROUTE** — both node
+bindings, both endpoints, both directions and an exact type match. A half-proven
+edge is indistinguishable from a proven one to a rename or scene-tree consumer.
+
+`REFERENCE_KIND` is now **complete** for WD1.5: `route-node` and `route-event`
+were the last two kinds the taxonomy declared but nothing built.
 
 ## 9. Standards-first, always
 

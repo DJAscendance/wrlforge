@@ -65,6 +65,15 @@ test('symbols: the published string values are exactly the committed ones', () =
     USE: 'use',
     NODE_TYPE: 'node-type',
     IS: 'is',
+    // WD1.5-P2C: a ROUTE's two halves, deliberately two kinds. The node half is
+    // 4.6.2's NODE_NAME namespace (the clause names ROUTE beside USE); the event
+    // half is no lexical namespace at all.
+    ROUTE_NODE: 'route-node',
+    ROUTE_EVENT: 'route-event',
+  });
+  assert.deepEqual({ ...sym.ROUTE_SIDE }, {
+    SOURCE: 'source',
+    DESTINATION: 'destination',
   });
   assert.deepEqual({ ...sym.ACCESS }, {
     FIELD: 'field',
@@ -105,19 +114,23 @@ test('symbols: the published string values are exactly the committed ones', () =
 test('symbols: no kind is published that nothing constructs', () => {
   // The invariant is unchanged from P1 -- publish nothing you cannot build --
   // and only the lane boundary moves. P2A constructed `proto-decl`,
-  // `externproto-decl` and `node-type`; WD1.5-P2B constructs the three interface
-  // SCOPE kinds, both interface MEMBER kinds and the `is` reference kind, so all
-  // six left this list and are pinned as PRESENT in the table test above.
+  // `externproto-decl` and `node-type`; P2B the three interface SCOPE kinds,
+  // both interface MEMBER kinds and the `is` reference kind; WD1.5-P2C the two
+  // ROUTE endpoint kinds. All of them are pinned as PRESENT in the table test
+  // above.
   //
-  // Only P2C's ROUTE endpoint kinds remain unbuilt. Advertising either today
-  // would claim support that does not exist.
+  // The taxonomy is now COMPLETE for WD1.5, so this test no longer names a
+  // not-yet-built kind. It keeps the OTHER half of the invariant, which is the
+  // half a published-string test cannot see: every listed kind must be genuinely
+  // CONSTRUCTIBLE from real source. `interface-is.test.js` and
+  // `route-semantics.test.js` prove each one.
+  //
+  // A kind added from here on needs a lane that actually mints it -- there is no
+  // longer a pending lane to hold a placeholder for.
   const refKinds = Object.values(sym.REFERENCE_KIND);
-  for (const later of ['route-node', 'route-event']) {
-    assert.equal(refKinds.includes(later), false, `${later} must not be published yet`);
+  for (const now of ['route-node', 'route-event']) {
+    assert.equal(refKinds.includes(now), true, `${now} is constructed by P2C`);
   }
-  // And the six P2B kinds must be genuinely CONSTRUCTIBLE, not merely listed --
-  // which is the half of the invariant that a published-string test cannot see.
-  // `interface-is.test.js` proves each one against real source.
   const scopeKinds = Object.values(sym.SCOPE_KIND);
   for (const now of ['proto-interface', 'externproto-interface', 'script-interface']) {
     assert.equal(scopeKinds.includes(now), true, `${now} is constructed by P2B`);

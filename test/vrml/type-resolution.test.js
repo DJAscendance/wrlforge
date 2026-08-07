@@ -1466,13 +1466,21 @@ test('boundary: P2A wires no consumer and holds no second built-in list', () => 
   }
 });
 
-test('boundary: ROUTE is absent, not stubbed -- and P2A\'s own lists did not grow', () => {
-  // WD1.5-P2B landed the interface-member namespace, so the interface and `IS`
-  // kinds are now built and pinned as present in `symbols.test.js`. ROUTE is
-  // still P2C's, and publishing either endpoint kind today would advertise
-  // support that does not exist.
-  for (const later of ['route-node', 'route-event']) {
-    assert.equal(Object.values(sym.REFERENCE_KIND).includes(later), false);
+test('boundary: P2A\'s own lists did not grow when P2B and P2C landed', () => {
+  // WD1.5-P2B landed the interface-member namespace and WD1.5-P2C the two ROUTE
+  // endpoint kinds, so all of them are now built and pinned as present in
+  // `symbols.test.js`. What this test still guards is the part that would have
+  // broken every existing caller silently: the P2C references live in their OWN
+  // lists and must NOT have joined P1's or P2A's.
+  const routeSource = `${H}DEF C TimeSensor { }\nDEF I ScalarInterpolator { }\n`
+    + 'ROUTE C.fraction_changed TO I.set_fraction\n';
+  const routeGraph = build(routeSource).graph;
+  assert.equal(sg.routeNodeReferences(routeGraph).length, 2, 'P2C built its own list');
+  for (const r of sg.references(routeGraph)) {
+    assert.equal(r.kind, sym.REFERENCE_KIND.USE, 'references() stays USE-only');
+  }
+  for (const r of sg.typeReferences(routeGraph)) {
+    assert.equal(r.kind, sym.REFERENCE_KIND.NODE_TYPE, 'typeReferences() stays type-only');
   }
 
   // The half of this test that matters MORE after P2B than before: P2A's three
@@ -1499,7 +1507,8 @@ test('boundary: ROUTE is absent, not stubbed -- and P2A\'s own lists did not gro
       `scopes() must stay lexical, saw ${s.kind}`);
   }
   assert.equal(sg.interfaceScopes(graph).length, 2);
-  // No ROUTE projection of any kind exists yet.
-  assert.equal('routeReferences' in sg, false);
-  assert.equal('resolveRoute' in sg, false);
+  // The ROUTE in this fixture DOES now project (P2C), and the point of asserting
+  // it here is that it did so WITHOUT joining any P1/P2A list above.
+  assert.equal(sg.routeNodeReferences(graph).length, 2);
+  assert.equal(sg.routeEventReferences(graph).length, 2);
 });

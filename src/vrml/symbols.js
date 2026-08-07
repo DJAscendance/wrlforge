@@ -48,9 +48,11 @@
 //   * SCOPE_KIND / SYMBOL_KIND / REFERENCE_KIND list ONLY what is constructed
 //     TODAY. Publishing a kind that nothing ever creates would advertise support
 //     that does not exist. P2A added `proto-decl`, `externproto-decl` and
-//     `node-type`; P2B adds the three interface SCOPE kinds, the two interface
-//     MEMBER kinds and the `is` reference kind, all of which it constructs. Only
-//     P2C's `route-node` / `route-event` remain absent.
+//     `node-type`; P2B added the three interface SCOPE kinds, the two interface
+//     MEMBER kinds and the `is` reference kind; P2C adds `route-node` and
+//     `route-event`, both of which it constructs. The table is now COMPLETE --
+//     every kind WD1.5 designed is built, so a kind added from here on needs a
+//     lane that actually mints it.
 //     NOTE: P2A creates NO new scope KIND. A type scope is not a new region --
 //     it is the existing `document`/`proto-body` scope viewed through its
 //     `typeParent` link, which is the second, independent parent chain.
@@ -201,13 +203,41 @@ const SYMBOL_KIND = Object.freeze({
   SCRIPT_INTERFACE_MEMBER: 'script-interface-member',
 });
 
-/** Reference kinds P1/P2A/P2B construct. */
+/** Reference kinds P1/P2A/P2B/P2C construct. */
 const REFERENCE_KIND = Object.freeze({
   USE: 'use',
   /** A node instance naming its type: `Transform { }`, `MyProto { }`. */
   NODE_TYPE: 'node-type',
   /** The DECLARATION-side (right-hand) name of an `IS` (WD1.5-P2B). */
   IS: 'is',
+
+  // --- ROUTE endpoints (WD1.5-P2C) --------------------------------------
+  //
+  // A ROUTE contributes FOUR references, in two pairs, and they are deliberately
+  // two KINDS rather than one. The node half is a NODE_NAME lookup -- 4.6.2 names
+  // ROUTE beside USE in the DEF/USE clause, so it is the same namespace under the
+  // same scoping rule. The event half is not a lexical lookup at all: once the
+  // node is known, the event name is answered by that node's PUBLIC INTERFACE,
+  // which is a schema fact for a built-in and an interface-scope fact for a
+  // PROTO/EXTERNPROTO/Script. Merging them would let a lost NODE masquerade as a
+  // missing EVENT, which is the one thing §7 of the plan forbids.
+  /** A ROUTE's source or destination NODE name. NODE_NAME namespace. */
+  ROUTE_NODE: 'route-node',
+  /** A ROUTE's source or destination EVENT name. No lexical namespace. */
+  ROUTE_EVENT: 'route-event',
+});
+
+/**
+ * Which end of a ROUTE a reference sits on (WD1.5-P2C).
+ *
+ * The two sides are NOT symmetric at the event level: 4.10.2 routes only from an
+ * eventOut to an eventIn, and its base-name fallback is direction-specific
+ * (`zzz_changed` for a source, `set_zzz` for a destination). Every ROUTE query
+ * therefore takes a side, and no code path infers one from the other.
+ */
+const ROUTE_SIDE = Object.freeze({
+  SOURCE: 'source',
+  DESTINATION: 'destination',
 });
 
 /**
@@ -349,6 +379,56 @@ const REASON = Object.freeze({
   EXPOSED_FIELD_IN_SCRIPT_INTERFACE: 'exposed-field-in-script-interface',
   /** Annex A.2 gives an interface DECLARATION no `IS` form at all. Corpus: 20. */
   IS_IN_INTERFACE_DECLARATION_LIST: 'is-in-interface-declaration-list',
+
+  // --- ROUTE endpoints (WD1.5-P2C) --------------------------------------
+  //
+  // Reasons that already say the right thing are REUSED rather than respelled --
+  // a ROUTE naming an undeclared node answers `def-not-declared-in-scope`, the
+  // same fact a USE reports, because it IS the same fact in the same namespace
+  // (4.6.2). Only the genuinely ROUTE-specific claims get new spellings.
+  /**
+   * 4.10.2 -- "nodes referenced in a ROUTE statement shall be defined before the
+   * ROUTE statement". A declaration of this name exists in this very scope, but
+   * only AFTER the ROUTE. ROUTE's analogue of `use-before-def`, and a DIFFERENT
+   * fact from `def-not-declared-in-scope`: one says the author wrote it later,
+   * the other says they never wrote it here at all.
+   */
+  ROUTE_NODE_NOT_DEFINED_BEFORE_ROUTE: 'route-node-not-defined-before-route',
+  /** P2A did not `resolve` the target node's type, so its interface is a guess. */
+  ROUTE_ENDPOINT_NODE_TYPE_UNRESOLVED: 'route-endpoint-node-type-unresolved',
+  /**
+   * The resolved interface genuinely has no such endpoint -- after BOTH 4.7 alias
+   * expansion AND 4.10.2's base-name fallback. NEVER used for an EXTERNPROTO,
+   * whose local silence is unknowable rather than absent (4.9.2).
+   */
+  ROUTE_ENDPOINT_UNKNOWN_FIELD: 'route-endpoint-unknown-field',
+  /**
+   * 4.10.2 -- "routes may be established only from eventOuts to eventIns". The
+   * source endpoint exists but its EFFECTIVE access can supply no eventOut, so it
+   * cannot drive a ROUTE. Distinct from `route-endpoint-unknown-field`: the name
+   * was found, and the failure is directional rather than lexical.
+   */
+  ROUTE_SOURCE_NOT_AN_EVENT_OUT: 'route-source-not-an-event-out',
+  /** 4.10.2, the other direction -- the destination can accept no eventIn. */
+  ROUTE_DEST_NOT_AN_EVENT_IN: 'route-dest-not-an-event-in',
+  /** 4.10.2 -- "the types shall match exactly". No coercion, no SF<->MF. */
+  ROUTE_TYPE_MISMATCH: 'route-type-mismatch',
+  /** A field-type token one side cannot identify. Never a silent pass. */
+  ROUTE_TYPE_UNKNOWN: 'route-type-unknown',
+
+  // --- non-binding detail (WD1.5-P2C) -----------------------------------
+  //
+  // Both are `detail`, on an otherwise complete `resolved` answer. Neither
+  // changes the status, the reason or the bound endpoint.
+  /**
+   * 4.10.2's ROUTE-ONLY base-name fallback fired: the written spelling supplied
+   * no directionally usable event, so `set_<name>` / `<name>_changed` was tried
+   * and bound. This is the hook §11.3 of the plan asks for -- the one place a
+   * consumer can see that the author's spelling was not the one that resolved.
+   */
+  ROUTE_ENDPOINT_VIA_SHORTHAND: 'route-endpoint-via-shorthand',
+  /** The binding came from 4.7/4.8.2 `set_`/`_changed` alias EXPANSION. */
+  ROUTE_ENDPOINT_VIA_IMPLICIT_ALIAS: 'route-endpoint-via-implicit-alias',
 
   // --- query answers ----------------------------------------------------
   /** A uniqueness or reference query was handed something that is not a DEF. */
@@ -649,6 +729,110 @@ function createIsReference(fields, owner) {
 }
 
 /**
+ * One end of a ROUTE's NODE half -- a NODE_NAME reference (WD1.5-P2C).
+ *
+ * ISO/IEC 14772-1 4.6.2: "A node given a name using DEF may be referenced by
+ * name later in the same file with USE or ROUTE statements." ROUTE node names
+ * are therefore the SAME namespace under the SAME scoping rule as USE, which is
+ * what lets P2C reuse P1's DEF tables wholesale instead of building a second
+ * lookup. Nothing about ROUTE gets its own visibility exception, in either
+ * direction across a PROTO boundary (4.8.4).
+ *
+ * `scope` is the ROUTE statement's own enclosing DEF scope, FIXED ON DESCENT.
+ * It is never recovered afterwards by an innermost-containment search: parser
+ * recovery MOVES ranges, and searching over moved ranges is precisely how a
+ * confident wrong binding gets produced (WD.md §7).
+ */
+function createRouteNodeReference(fields, owner) {
+  return brand(Object.freeze({
+    kind: REFERENCE_KIND.ROUTE_NODE,
+    namespace: NAMESPACE.NODE_NAME,
+    /** The node name as written, or `null` where the parse recovered none. */
+    name: fields.name == null ? null : fields.name,
+    /** `source` or `destination`. */
+    side: fields.side,
+    /** The `Route` AST node. Both sides share it; `side` tells them apart. */
+    node: fields.node,
+    /** The DEF scope this reference is looked up in. */
+    scope: fields.scope,
+    /** The node name's own span. */
+    range: fields.range || null,
+    /** Source-ordered position among this graph's ROUTE references. */
+    sourceOrder: fields.sourceOrder,
+    /**
+     * 4.10.2's "defined before the ROUTE statement" boundary -- the ROUTE
+     * STATEMENT's own start offset, not the name token's. Both endpoints of one
+     * ROUTE share it, because the clause scopes the rule to the statement.
+     */
+    offset: fields.offset,
+  }), owner);
+}
+
+/**
+ * One end of a ROUTE's EVENT half (WD1.5-P2C).
+ *
+ * NOT a lexical namespace reference, and `namespace` is `null` to say so out
+ * loud. An event name is not resolved in a SCOPE: once the node half has bound a
+ * declaration, the event is answered by that node's PUBLIC INTERFACE -- clause 6
+ * for a built-in, an interface scope for a PROTO/EXTERNPROTO/Script. That is the
+ * same asymmetry P2B records for an `IS` definition-side name.
+ *
+ * It carries its paired `nodeReference` so a consumer never has to re-derive
+ * which node the event sits on -- and so the two questions stay separately
+ * answerable: an event whose node did not resolve is NOT evaluated at all, and
+ * must never come back as "unknown field".
+ */
+function createRouteEventReference(fields, owner) {
+  return brand(Object.freeze({
+    kind: REFERENCE_KIND.ROUTE_EVENT,
+    /** Deliberately `null`: an event name is an interface fact, not a lexical one. */
+    namespace: null,
+    /** The event name as written -- possibly an exposedField base name (4.10.2). */
+    name: fields.name == null ? null : fields.name,
+    /** `source` or `destination`. */
+    side: fields.side,
+    /** The `Route` AST node. */
+    node: fields.node,
+    /** The paired `route-node` reference this endpoint sits on. */
+    nodeReference: fields.nodeReference || null,
+    /** The enclosing lexical DEF scope, carried for the recovery gate. */
+    scope: fields.scope,
+    /** The event name's own span. */
+    range: fields.range || null,
+    sourceOrder: fields.sourceOrder,
+    offset: fields.offset,
+  }), owner);
+}
+
+/**
+ * The answer to a whole ROUTE -- may these two endpoints actually be connected?
+ *
+ * Deliberately NOT a `createResolution`, for the reason `createIsVerdict` gives:
+ * a resolution answers "which declaration does this name denote" and this
+ * answers "may these two be connected". One shape would let a consumer mistake a
+ * compatibility verdict for a binding.
+ *
+ * `side` names WHICH end defeated the verdict, so `source-node-unresolved` and
+ * `destination-node-unresolved` are distinguishable without re-running either
+ * sub-question. It is `null` on `ok` and on a whole-ROUTE recovery.
+ */
+function createRouteVerdict(fields) {
+  return Object.freeze({
+    status: fields.status,
+    reason: fields.reason,
+    /** The `Route` AST node this answers. */
+    node: fields.node,
+    /** `source`, `destination`, or `null`. */
+    side: fields.side == null ? null : fields.side,
+    /** The source endpoint record, or `null` when unavailable. */
+    sourceEndpoint: fields.sourceEndpoint || null,
+    /** The destination endpoint record, or `null` when unavailable. */
+    destinationEndpoint: fields.destinationEndpoint || null,
+    evidence: Object.freeze(fields.evidence ? fields.evidence.slice() : []),
+  });
+}
+
+/**
  * The answer to an `IS` CONNECTION question -- §7.1's second half (WD1.5-P2B).
  *
  * Deliberately NOT a `createResolution`: a resolution answers "which declaration
@@ -788,6 +972,16 @@ const isTypeDeclSymbolShape = (v) => !!v && typeof v === 'object' && !Array.isAr
   && v.namespace === NAMESPACE.NODE_TYPE;
 const isNodeTypeReferenceShape = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
   && v.kind === REFERENCE_KIND.NODE_TYPE && v.namespace === NAMESPACE.NODE_TYPE;
+const ROUTE_SIDES = new Set(Object.values(ROUTE_SIDE));
+const isRouteNodeReferenceShape = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
+  && v.kind === REFERENCE_KIND.ROUTE_NODE && v.namespace === NAMESPACE.NODE_NAME
+  && ROUTE_SIDES.has(v.side);
+// `namespace === null` is part of the SHAPE, not an omission: an event name is
+// answered by a node's interface, never looked up in a lexical scope, and a
+// projection claiming otherwise is not a route-event.
+const isRouteEventReferenceShape = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
+  && v.kind === REFERENCE_KIND.ROUTE_EVENT && v.namespace === null
+  && ROUTE_SIDES.has(v.side);
 
 /** Did a lookup prove exactly one declaration? */
 const isResolved = (r) => !!r && r.status === STATUS.RESOLVED;
@@ -809,6 +1003,7 @@ module.exports = {
   ACCESS,
   ENDPOINT_ORIGIN,
   IS_FORM,
+  ROUTE_SIDE,
   STATUS,
   REASON,
   scopeError,
@@ -823,6 +1018,9 @@ module.exports = {
   createInterfaceMemberSymbol,
   createIsReference,
   createIsVerdict,
+  createRouteNodeReference,
+  createRouteEventReference,
+  createRouteVerdict,
   createEndpoint,
   createNodeIsIssues,
   createResolution,
@@ -835,6 +1033,8 @@ module.exports = {
   isNodeTypeReferenceShape,
   isInterfaceMemberShape,
   isIsReferenceShape,
+  isRouteNodeReferenceShape,
+  isRouteEventReferenceShape,
   isResolved,
   isUnresolved,
   isAmbiguous,
