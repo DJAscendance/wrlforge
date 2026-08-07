@@ -16,3 +16,12 @@ spikes/xite-mall-fit/fixtures/** -text
 # the binaries. See docs/ICONS.md.
 assets/wrl-forge-*.svg -text
 assets/generated/icons/** -text
+
+# The VRML engine core must check out as LF on every platform. Git for Windows'
+# core.autocrlf=true rewrites plain-text source to CRLF on checkout; that broke
+# the generated node-schema.js LF-only invariant and made two node-identity.js
+# source-inspection tests misread `//` comments (their per-line strip regex
+# anchors on `$`/`.`, neither of which matches a trailing `\r`) on Windows CI.
+# `text` (not `-text`) because this is text that should still get Git's normal
+# text handling -- only the EOL is pinned, unlike the byte-exact fixtures above.
+src/vrml/** text eol=lf
