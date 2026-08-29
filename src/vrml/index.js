@@ -65,6 +65,15 @@ const semanticFindings = require('./semantic-findings');
 // walks a candidate list and recurses across documents is `src/proto-resolution/`
 // and is deliberately NOT reachable from this facade.
 const protoTarget = require('./proto-target');
+// WD1.7-D's PURE half: ISO 4.9.2 interface agreement between a local EXTERNPROTO
+// declaration and the PROTO declaration WD1.7-C proved to implement it. It lives
+// HERE for the same reason `proto-target.js` does -- 4.9.2 is a statement about
+// two DOCUMENTS, not about a filesystem: it takes two scope graphs and two
+// declarations, and it has never heard of a URL, a base document, an archive or
+// a retrieval. The Node-side orchestration that consumes WD1.7-C evidence and
+// composes this with the 4.8.3 class authority is `src/proto-enrichment/` and is
+// deliberately NOT reachable from this facade.
+const protoAgreement = require('./proto-agreement');
 
 const publicDocumentTransaction = Object.freeze({
   // Prove that an edit set is exactly what turned one exact text into another.
@@ -147,6 +156,13 @@ const publicInterfaceQuery = Object.freeze({
  */
 const publicContainment = Object.freeze({
   childLegality: containment.childLegality,
+  // ISO 4.8.3 entered at a prototype DECLARATION rather than at an occurrence --
+  // the SAME derivation `childLegality` runs, published because WD1.7-D needs to
+  // ask it of an externally proven target and a second implementation of "the
+  // first body node determines the class" is exactly what must not exist. An
+  // `ExternProto` is answered strictly (`UNSUPPORTED`), with no way to reach
+  // external evidence from here.
+  protoImplementationClass: containment.protoImplementationClass,
   CONTAINMENT_STATUS: containment.CONTAINMENT_STATUS,
   CONTAINMENT_REASON: containment.CONTAINMENT_REASON,
   CANDIDATE_KIND: containment.CANDIDATE_KIND,
@@ -198,6 +214,29 @@ const publicProtoTarget = Object.freeze({
   COVERAGE_GAP: protoTarget.COVERAGE_GAP,
 });
 
+/**
+ * WD1.7-D (pure) -- does a local EXTERNPROTO interface satisfy ISO 4.9.2 against
+ * the implementation WD1.7-C proved?
+ *
+ * Narrow, in the same spirit as the others: one comparison, one `NOT_ATTEMPTED`
+ * constructor for a caller whose C outcome proved no target, and the constant
+ * tables a consumer must branch on. There is no resolver here and no retrieval --
+ * both sides arrive as a scope graph this facade's own `buildScopeGraph` built.
+ *
+ * NO PRESENTATION and NO COMPATIBILITY PROFILE. A finding carries what was
+ * observed and whose rule it is (`AGREEMENT_BASIS`); severity is P4's and profile
+ * classification is WD1.7-E's, and neither is reachable from here.
+ */
+const publicProtoAgreement = Object.freeze({
+  compareInterfaceAgreement: protoAgreement.compareInterfaceAgreement,
+  notAttempted: protoAgreement.notAttempted,
+  AGREEMENT_STATUS: protoAgreement.AGREEMENT_STATUS,
+  MEMBER_STATUS: protoAgreement.MEMBER_STATUS,
+  AGREEMENT_FINDING: protoAgreement.AGREEMENT_FINDING,
+  AGREEMENT_BASIS: protoAgreement.AGREEMENT_BASIS,
+  AGREEMENT_REASON: protoAgreement.AGREEMENT_REASON,
+});
+
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
 function parse(text, opts = {}) {
   const syntax = parseSyntax(text, opts);
@@ -236,6 +275,7 @@ module.exports = {
   containment: publicContainment,
   semanticFindings: publicSemanticFindings,
   protoTarget: publicProtoTarget,
+  protoAgreement: publicProtoAgreement,
   ast,
   diagnostics,
   assetRefs,

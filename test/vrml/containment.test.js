@@ -87,8 +87,14 @@ test('01 the uncertain statuses ARE the scope-graph statuses, not copies of them
 });
 
 test('02 the facade publishes exactly the intended C surface', () => {
+  // `protoImplementationClass` joined this surface in WD1.7-D. It is the SAME
+  // ISO 4.8.3 derivation `childLegality` runs, entered at a prototype
+  // DECLARATION instead of at an occurrence, and it is published for exactly one
+  // reason: an externally proven implementation class must not be derived by a
+  // second implementation of "the first node type determines the class".
   assert.deepEqual(Object.keys(vrml.containment).sort(),
-    ['CANDIDATE_KIND', 'CONTAINMENT_REASON', 'CONTAINMENT_STATUS', 'childLegality']);
+    ['CANDIDATE_KIND', 'CONTAINMENT_REASON', 'CONTAINMENT_STATUS',
+      'childLegality', 'protoImplementationClass']);
   assert.ok(Object.isFrozen(vrml.containment));
   // Internal reasoning is NOT published: a consumer must read the verdict, not
   // re-implement the judgement.
@@ -668,4 +674,82 @@ test('51 C carries no compatibility-profile, Mall, Cybertown or X3D acceptance r
   const v = d.ask(d.node('Appearance'), 'shaders', 'Shape');
   assert.equal(v.status, CS.INVALID);
   assert.equal(v.reason, CR.FIELD_NOT_DECLARED);
+});
+
+// ---------------------------------------------------------------------------
+// The declaration-side entry point (added for WD1.7-D)
+// ---------------------------------------------------------------------------
+//
+// `protoImplementationClass` is not a new rule. It is the SAME 4.8.3 derivation
+// the tests above exercise through `childLegality`, entered at a prototype
+// DECLARATION rather than at an occurrence -- so that an externally proven
+// implementation class is derived by ONE authority and cannot drift from the
+// local one. These tests pin the equivalence, and the strictness.
+
+const { protoImplementationClass } = containment;
+
+test('52 the declaration entry point and the occurrence path agree, always', () => {
+  const cases = [
+    ['PROTO P [] { Transform {} }\nGroup { children [ P {} ] }', 'Transform'],
+    ['PROTO Inner [] { Shape {} }\nPROTO P [] { Inner {} }\nGroup { children [ P {} ] }', 'Shape'],
+    ['PROTO P [] { ROUTE A.b_changed TO C.set_d }\nGroup { children [ P {} ] }', null],
+    ['PROTO P [] { NoSuchType {} }\nGroup { children [ P {} ] }', null],
+    ['PROTO P [] { DEF T Transform {} }\nGroup { children [ P {} ] }', 'Transform'],
+  ];
+  for (const [text, expected] of cases) {
+    const d = doc(text);
+    const decl = d.find((n) => n.type === 'Proto' && n.name === 'P');
+    const viaDecl = protoImplementationClass(d.graph, decl);
+    const viaOccurrence = d.ask(d.node('Group'), 'children', d.node('P'));
+    assert.equal(viaDecl.nodeType, expected, text);
+    assert.equal(viaDecl.nodeType, viaOccurrence.candidate.nodeType, text);
+    assert.equal(viaDecl.status, viaOccurrence.candidate.status, text);
+    assert.equal(viaDecl.reason, viaOccurrence.candidate.reason, text);
+    assert.deepEqual([...viaDecl.derivation], [...viaOccurrence.candidate.derivation], text);
+  }
+});
+
+test('53 an EXTERNPROTO declaration is answered STRICTLY -- no evidence is reachable', () => {
+  const d = doc('EXTERNPROTO E [] "e.wrl"\nGroup { children [ E {} ] }');
+  const decl = d.find((n) => n.type === 'ExternProto');
+  const v = protoImplementationClass(d.graph, decl);
+  assert.equal(v.status, CS.UNSUPPORTED);
+  assert.equal(v.reason, CR.EXTERNPROTO_CLASS_NOT_LOCALLY_VERIFIABLE);
+  assert.equal(v.kind, CANDIDATE_KIND.EXTERNPROTO);
+  assert.equal(v.nodeType, 'E', 'the declared TYPE NAME is local; the CLASS is not');
+  assert.deepEqual([...v.classes], []);
+  assert.equal(protoImplementationClass.length, 2,
+    'there is no evidence, context or resolver parameter to pass');
+});
+
+test('54 a recovered or nameless prototype body withholds, as it does on the occurrence path', () => {
+  const empty = doc('PROTO P [] { }');
+  const v = protoImplementationClass(empty.graph, empty.find((n) => n.type === 'Proto'));
+  assert.equal(v.status, CS.RECOVERED);
+  assert.equal(v.reason, CR.PROTO_BODY_NOT_PROVABLE);
+  assert.ok(!TERMINAL.has(v.status));
+});
+
+test('55 an ill-formed argument is INVALID -- never a class claim', () => {
+  const d = doc('PROTO P [] { Transform {} }');
+  for (const bad of [null, undefined, 42, 'P', d.node('Transform')]) {
+    const v = protoImplementationClass(d.graph, bad);
+    assert.equal(v.status, CS.INVALID);
+    assert.equal(v.reason, CR.NOT_A_PROTOTYPE_DECLARATION);
+    assert.equal(v.nodeType, null);
+  }
+  // A declaration from ANOTHER parse is not answered from this graph's tree.
+  const other = doc('PROTO P [] { Shape {} }');
+  const v = protoImplementationClass(d.graph, other.find((n) => n.type === 'Proto'));
+  assert.equal(v.status, CS.INVALID);
+});
+
+test('56 the class record is frozen and carries no legality verdict', () => {
+  const d = doc('PROTO P [] { Transform {} }');
+  const v = protoImplementationClass(d.graph, d.find((n) => n.type === 'Proto'));
+  assert.ok(Object.isFrozen(v) && Object.isFrozen(v.classes) && Object.isFrozen(v.derivation));
+  for (const forbidden of [CS.LEGAL, CS.ILLEGAL]) {
+    assert.notEqual(v.status, forbidden, 'a class is not a containment verdict');
+  }
+  assert.equal(v.given, d.find((n) => n.type === 'Proto'));
 });

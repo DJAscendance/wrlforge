@@ -2859,6 +2859,49 @@ function membersOf(graph, interfaceScope) {
   return Object.freeze(state.interfaceMemberList.filter((m) => m.scope === interfaceScope));
 }
 
+/**
+ * Is the DECLARED-MEMBER ENUMERATION of one interface scope provable?
+ *
+ * The SAME two upfront gates `interfaceMemberIsUniqueInScope` applies, asked
+ * about the SCOPE rather than about one member -- because a consumer that has to
+ * prove a member is ABSENT (ISO 4.9.2, WD1.7-D) has no member to ask about, and
+ * "no member of that name was returned" is only evidence when the returned set
+ * is known to be the whole set. Generalised here rather than re-derived in the
+ * consumer: `documentIncomplete` and `scope.recovered` are this module's state,
+ * and a second reading of them is a second authority.
+ *
+ * NOT a uniqueness claim and NOT a legality claim. `true` says only that
+ * `membersOf` for this scope is the author's declaration list.
+ *
+ * @throws {Error} codes ESCOPEGRAPH.
+ */
+function interfaceScopeIsProvable(graph, interfaceScope) {
+  const state = internalsOf(graph, 'interfaceScopeIsProvable');
+  assertMember(state, interfaceScope, sym.isInterfaceScopeShape, SCOPE_ERROR.GRAPH,
+    'interfaceScopeIsProvable', 'an interface scope from this graph');
+  if (state.documentIncomplete) {
+    return sym.createUniqueness(false, REASON.DOCUMENT_PARSE_INCOMPLETE);
+  }
+  if (interfaceScope.recovered) {
+    return sym.createUniqueness(false,
+      interfaceScope.recoveredReason || REASON.INTERFACE_SCOPE_NOT_PROVABLE);
+  }
+  return sym.createUniqueness(true, REASON.OK);
+}
+
+/**
+ * Is this token one of Annex A.2's twenty `fieldType` productions?
+ *
+ * The SAME set the `IS` and ROUTE type comparisons use, published rather than
+ * copied. A consumer comparing two declared types (ISO 4.9.2) must be able to
+ * tell "these two tokens differ" from "one of them is not a field type at all",
+ * and deriving that set from the WD1.3 schema would be nineteen tokens -- see
+ * `VRML97_FIELD_TYPES` for why that is the wrong table.
+ */
+function isFieldTypeToken(token) {
+  return typeof token === 'string' && VRML97_FIELD_TYPES.has(token);
+}
+
 function coerceIsReference(state, referenceOrNode, label) {
   let reference = referenceOrNode;
   if (referenceOrNode && typeof referenceOrNode === 'object'
@@ -3429,6 +3472,8 @@ module.exports = {
   interfaceMemberFor,
   isReferenceFor,
   membersOf,
+  interfaceScopeIsProvable,
+  isFieldTypeToken,
   resolveIs,
   // shared interface authority (WD1.6-B1) -- facade-private, consumed by
   // `interface-query.js`; NOT part of the published `src/vrml/index.js` surface.

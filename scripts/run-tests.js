@@ -37,6 +37,7 @@ const DIRS = [
   'test/vrml',
   'test/external-proto',
   'test/proto-resolution',
+  'test/proto-enrichment',
 ];
 
 const files = [...EXPLICIT];

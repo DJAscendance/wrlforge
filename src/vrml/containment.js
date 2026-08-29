@@ -151,6 +151,12 @@ const CONTAINMENT_REASON = Object.freeze({
   PROTO_BODY_HAS_NO_FIRST_NODE: 'proto-body-has-no-first-node',
   /** Class derivation re-entered a PROTO it was already deriving. */
   PROTO_CLASS_CYCLE: 'proto-class-cycle',
+  /**
+   * `protoImplementationClass` was handed something that is not a `Proto` or
+   * `ExternProto` declaration of this graph's parse. Caller error, not a
+   * legality claim -- the same shape as `PARENT_NOT_A_NODE`.
+   */
+  NOT_A_PROTOTYPE_DECLARATION: 'not-a-prototype-declaration',
 
   // --- terminal verdicts ------------------------------------------------
   /** The candidate's type is in the field's exact accepted-type set. */
@@ -285,6 +291,15 @@ function createCandidate(fields) {
      * `Inner`, which instantiates as a `Transform`. Empty for a direct built-in.
      */
     derivation: freezeList(fields.derivation),
+    /**
+     * The `ExternProto` declaration a 4.8.3 derivation STOPPED at, or `null`.
+     *
+     * Present so a caller holding external evidence can identify the dependency
+     * whose implementation the local walk could not see. It is NOT a class, NOT
+     * a resolution, and reading it changes no verdict: `status` is `UNSUPPORTED`
+     * either way.
+     */
+    externProtoDeclaration: fields.externProtoDeclaration || null,
     status: fields.status,
     reason: fields.reason,
   });
@@ -347,6 +362,11 @@ function classifyOccurrence(graph, astNode) {
       status: STATUS.UNSUPPORTED,
       reason: CONTAINMENT_REASON.EXTERNPROTO_CLASS_NOT_LOCALLY_VERIFIABLE,
       nodeType: source.nodeType,
+      // P2A's OWN binding for the written type name, carried so a caller that
+      // holds EXTERNAL evidence can identify WHICH declaration the walk stopped
+      // at. It changes no verdict here: the strict-local answer is, and stays,
+      // `UNSUPPORTED`. WD1.7-D reads it; nothing in WD1.6 does.
+      decl: source.decl,
     };
   }
   if (source.origin === ENDPOINT_ORIGIN.PROTO_INTERFACE) {
@@ -417,10 +437,57 @@ function protoBodyScopeFor(graph, protoAstNode) {
  * picking one of the two answers.
  */
 function resolveCandidateType(graph, astNode) {
-  const derivation = [];
-  const seenDecls = new Set();
-  let current = astNode;
+  return runClassWalk(graph, astNode, [], new Set());
+}
 
+/**
+ * ONE STEP of 4.8.3, from a prototype DECLARATION into its implementation.
+ *
+ * Extracted from the walk below rather than duplicated, because WD1.7-D needs to
+ * enter the same derivation at a `Proto` declaration (an EXTERNPROTO's proven
+ * external target) instead of at a node occurrence. Everything the step decides
+ * -- the cycle guard, the recovered-body gate, the first-node rule, the leading
+ * `USE` -- is decided HERE and in exactly one place, so a local class and an
+ * externally proven class cannot drift apart.
+ *
+ * @returns {{next: object}|{terminal: object}} `next` is the occurrence the walk
+ *   continues at; `terminal` is a finished, uncertain result.
+ */
+function stepIntoPrototype(graph, decl, derivation, seenDecls) {
+  const stop = (status, reason) => ({
+    terminal: {
+      kind: CANDIDATE_KIND.PROTO, nodeType: null, status, reason, derivation, stoppedAt: null,
+    },
+  });
+  if (!decl || seenDecls.has(decl)) {
+    return stop(STATUS.UNRESOLVED, CONTAINMENT_REASON.PROTO_CLASS_CYCLE);
+  }
+  seenDecls.add(decl);
+
+  // Recovery moved the body's boundaries, so its "first node" may be a
+  // statement the author never put there -- an unclosed PROTO absorbs whatever
+  // follows it. An upfront gate, as everywhere else in this lane: a recovered
+  // body withholds the positive answer too.
+  const bodyScope = decl.node ? protoBodyScopeFor(graph, decl.node) : null;
+  if (!decl.node || !bodyScope || bodyScope.recovered) {
+    return stop(STATUS.RECOVERED, CONTAINMENT_REASON.PROTO_BODY_NOT_PROVABLE);
+  }
+
+  const first = firstBodyNode(decl.node);
+  if (!first) {
+    return stop(STATUS.UNRESOLVED, CONTAINMENT_REASON.PROTO_BODY_HAS_NO_FIRST_NODE);
+  }
+
+  const next = first.type === NODE.USE ? resolveUse(graph, first) : first;
+  if (!next) {
+    return stop(STATUS.UNRESOLVED, CONTAINMENT_REASON.CANDIDATE_USE_NOT_PROVABLE);
+  }
+  return { next };
+}
+
+/** The 4.8.3 walk itself, from a node OCCURRENCE. Shared by both entry points. */
+function runClassWalk(graph, startNode, derivation, seenDecls) {
+  let current = startNode;
   for (;;) {
     const info = classifyOccurrence(graph, current);
     if (info.kind !== CANDIDATE_KIND.PROTO) {
@@ -430,60 +497,93 @@ function resolveCandidateType(graph, astNode) {
         status: info.status,
         reason: info.reason,
         derivation,
+        /**
+         * The occurrence the walk ENDED at, and the declaration its type bound
+         * to when that was an EXTERNPROTO. Additive evidence: no WD1.6 branch
+         * reads either, and the verdict above is byte-identical without them.
+         */
+        stoppedAt: current,
+        externProtoDeclaration: info.kind === CANDIDATE_KIND.EXTERNPROTO && info.decl
+          ? info.decl.node || null
+          : null,
       };
     }
 
     derivation.push(info.nodeType);
-    const decl = info.decl;
-    if (!decl || seenDecls.has(decl)) {
-      return {
-        kind: CANDIDATE_KIND.PROTO,
-        nodeType: null,
-        status: STATUS.UNRESOLVED,
-        reason: CONTAINMENT_REASON.PROTO_CLASS_CYCLE,
-        derivation,
-      };
-    }
-    seenDecls.add(decl);
-
-    // Recovery moved the body's boundaries, so its "first node" may be a
-    // statement the author never put there -- an unclosed PROTO absorbs whatever
-    // follows it. An upfront gate, as everywhere else in this lane: a recovered
-    // body withholds the positive answer too.
-    const bodyScope = decl.node ? protoBodyScopeFor(graph, decl.node) : null;
-    if (!decl.node || !bodyScope || bodyScope.recovered) {
-      return {
-        kind: CANDIDATE_KIND.PROTO,
-        nodeType: null,
-        status: STATUS.RECOVERED,
-        reason: CONTAINMENT_REASON.PROTO_BODY_NOT_PROVABLE,
-        derivation,
-      };
-    }
-
-    const first = firstBodyNode(decl.node);
-    if (!first) {
-      return {
-        kind: CANDIDATE_KIND.PROTO,
-        nodeType: null,
-        status: STATUS.UNRESOLVED,
-        reason: CONTAINMENT_REASON.PROTO_BODY_HAS_NO_FIRST_NODE,
-        derivation,
-      };
-    }
-
-    const next = first.type === NODE.USE ? resolveUse(graph, first) : first;
-    if (!next) {
-      return {
-        kind: CANDIDATE_KIND.PROTO,
-        nodeType: null,
-        status: STATUS.UNRESOLVED,
-        reason: CONTAINMENT_REASON.CANDIDATE_USE_NOT_PROVABLE,
-        derivation,
-      };
-    }
-    current = next;
+    const step = stepIntoPrototype(graph, info.decl, derivation, seenDecls);
+    if (step.terminal) return step.terminal;
+    current = step.next;
   }
+}
+
+/**
+ * ISO 4.8.3 -- what does this prototype DECLARATION instantiate as?
+ *
+ *   "The first node type determines how instantiations of the prototype can be
+ *    used in a VRML file."
+ *
+ * The declaration-side companion to the occurrence-side derivation `childLegality`
+ * runs, and the SAME machinery: one `stepIntoPrototype`, one `runClassWalk`, one
+ * cycle guard, one recovered-body gate. There is no second first-body-node rule
+ * anywhere in this repository.
+ *
+ * AN `ExternProto` IS ANSWERED, and answered STRICTLY: its implementation is not
+ * in this document, so 4.8.3 cannot run and the result is `UNSUPPORTED` /
+ * `EXTERNPROTO_CLASS_NOT_LOCALLY_VERIFIABLE` -- the same pair `childLegality`
+ * has always produced for an EXTERNPROTO child. External evidence never reaches
+ * this function; a caller that holds some composes it OUTSIDE (WD1.7-D).
+ *
+ * @param {object} graph A scope graph from `buildScopeGraph`.
+ * @param {object} declAstNode A `Proto` or `ExternProto` node from that parse.
+ * @returns {object} A frozen record shaped like a verdict's `candidate`.
+ * @throws {Error} `ESCOPEGRAPH`/`ESCOPEPARSE` for a foreign graph or parse.
+ */
+function protoImplementationClass(graph, declAstNode) {
+  const isProto = !!declAstNode && typeof declAstNode === 'object'
+    && (declAstNode.type === NODE.PROTO || declAstNode.type === NODE.EXTERNPROTO);
+  if (!isProto) {
+    return createCandidate({
+      given: declAstNode,
+      status: CONTAINMENT_STATUS.INVALID,
+      reason: CONTAINMENT_REASON.NOT_A_PROTOTYPE_DECLARATION,
+    });
+  }
+  // P2A's own declaration symbol. A lookup, not a search: if this graph holds no
+  // symbol for the node, the node is not from this parse and no answer is owed.
+  const decl = scopeGraph.typeDeclFor(graph, declAstNode);
+  if (!decl) {
+    return createCandidate({
+      given: declAstNode,
+      status: CONTAINMENT_STATUS.INVALID,
+      reason: CONTAINMENT_REASON.NOT_A_PROTOTYPE_DECLARATION,
+    });
+  }
+
+  const name = decl.name == null ? null : decl.name;
+  if (declAstNode.type === NODE.EXTERNPROTO) {
+    return createCandidate({
+      given: declAstNode,
+      kind: CANDIDATE_KIND.EXTERNPROTO,
+      nodeType: name,
+      status: CONTAINMENT_STATUS.UNSUPPORTED,
+      reason: CONTAINMENT_REASON.EXTERNPROTO_CLASS_NOT_LOCALLY_VERIFIABLE,
+    });
+  }
+
+  const derivation = name == null ? [] : [name];
+  const seenDecls = new Set();
+  const step = stepIntoPrototype(graph, decl, derivation, seenDecls);
+  const resolved = step.terminal || runClassWalk(graph, step.next, derivation, seenDecls);
+  return createCandidate({
+    given: declAstNode,
+    nodeType: resolved.nodeType,
+    kind: resolved.kind,
+    classes: resolved.nodeType ? nodeSchema.getNodeClasses(resolved.nodeType) : EMPTY,
+    derivation: resolved.derivation,
+    status: resolved.status,
+    reason: resolved.reason || CONTAINMENT_REASON.OK,
+    externProtoDeclaration: resolved.externProtoDeclaration || null,
+  });
 }
 
 /** P1's answer for one `USE`, or `null` when P1 declined to bind it. */
@@ -730,6 +830,7 @@ function resolveCandidate(graph, candidate) {
 
 module.exports = {
   childLegality,
+  protoImplementationClass,
   CONTAINMENT_STATUS,
   CONTAINMENT_REASON,
   CANDIDATE_KIND,

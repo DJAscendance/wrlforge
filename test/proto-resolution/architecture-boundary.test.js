@@ -133,7 +133,7 @@ test('C consults no ambient machine state', () => {
   }
 });
 
-test('nothing depends on C -- the direction is one-way', () => {
+test('C is consumed ONLY by the lane recorded here -- the direction is one-way', () => {
   const holders = [];
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -147,10 +147,16 @@ test('nothing depends on C -- the direction is one-way', () => {
   for (const f of ['main.js', 'preload.js', 'validator.js']) {
     assert.ok(!codeOf(path.join(ROOT, f)).includes('proto-resolution'), f);
   }
-  // WD1.7-C ships as a resolver and a graph. A World Project consumer of it is a
-  // separate, deliberate decision (WD1.7-C brief §37/§38) and would be recorded
-  // here rather than discovered in a diff.
-  assert.deepEqual(holders, [], 'no production module may consume C yet');
+  // C ships as a resolver and a graph, and this list is the record of who may
+  // read them. WD1.7-D is the FIRST entry: it consumes C's proven target and
+  // C's dependency graph, and re-resolves nothing (`test/proto-enrichment/
+  // architecture-boundary.test.js` enforces that from the other side).
+  //
+  // A World Project consumer is still a separate, deliberate decision (WD1.7-C
+  // brief §37/§38) and would be added here rather than discovered in a diff.
+  assert.deepEqual(holders.map((p) => p.split(path.sep).join('/')).sort(), [
+    'src/proto-enrichment/external-enrichment.js',
+  ], 'only WD1.7-D may consume C, and only through its orchestration module');
 });
 
 test('the module require graph inside the lane is acyclic and one-way', () => {

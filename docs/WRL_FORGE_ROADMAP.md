@@ -207,8 +207,26 @@ The same applies to a type binding P2A withheld without proving the name
 undeclared. Every reason is enumerated in `INCOMPLETENESS_REASON` with its own
 evidence.
 
-C is a **general resolver, not a World Project feature**, and nothing in the
-World Project lane consumes it yet. B2's rule is unchanged — a bundle still
+**WD1.7-D** then consumes C's proof to add the two external semantic facts WD1.6
+could not establish locally
+(`docs/white-dune-2026/WD1_7_D_INTERFACE_CLASS_ENRICHMENT.md`): the **ISO 4.9.2**
+directional interface check (`local ⊆ target`, so a target superset is
+conforming; a missing member and a declared-type difference are the clause's two
+errors, while an access-category difference is ISO-*silent* and is reported as
+its own observation, never as non-conformance), and an **externally proven ISO
+4.8.3 implementation class** — including the case where the target's own first
+body node is an EXTERNPROTO, which is followed through C's already-proven edges
+rather than through a second resolver. `containment.js`'s 4.8.3 derivation was
+**extracted, not duplicated**, so the local class and the externally proven one
+cannot drift.
+
+D **enriches; it never mutates.** No WD1.6 query gained an evidence, context or
+resolver parameter, `childLegality` is unchanged and independently observable,
+and the reserved `compatibility` slot stays `null` — profile classification is
+**WD1.7-E**, which remains blocked.
+
+C and D are a **general resolver and a general enrichment layer, not World
+Project features**, and nothing in the World Project lane consumes either yet. B2's rule is unchanged — a bundle still
 packages *every locally retrievable fallback artifact*, because a viewer may
 reach for one C did not select. Recursive discovery of assets referenced only
 inside a **selected** external library remains deferred
