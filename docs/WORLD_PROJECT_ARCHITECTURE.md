@@ -56,16 +56,62 @@ Given a **primary** `.wrl`, the walker:
    names, node type recorded).
 3. Classifies each reference relative to **its own directory** and the project
    root, and resolves local ones.
-4. Follows nested `Inline`/EXTERNPROTO `.wrl` children (each resolved relative to
+4. Follows nested `Inline` `.wrl` children (each resolved relative to
    its own directory), **bounded** by `maxWrlNodes`/`maxDepth` and made
    **cycle-safe** by a visited set (cycles are reported, never re-entered).
 5. Records, per reference: referrer, node type, field, authored url,
    project-relative path, resolved path, local/remote, existence, exact-case,
    asset kind, byte size, texture dimensions, depth, parent, duplicate flag,
    warnings.
+6. Discovers every **EXTERNPROTO** declaration from the parsed AST and records it
+   as its own dependency kind in `graph.externProtos` — see below.
 
 Malformed nested files are recorded as `unreadable` nodes without aborting the
 rest of the walk. Nothing is ever written.
+
+### EXTERNPROTO dependencies (WD1.7-B2)
+
+Steps 2–3 are anchored on url-**named** fields (`url`, `frontUrl`, …). An
+EXTERNPROTO's URL list has no field name — the grammar is
+`EXTERNPROTO nodeTypeId [ externInterfaceDeclarations ] URLList` — so until
+WD1.7-B2 external prototype libraries were **invisible** to this graph, and a
+bundle could omit every one of them and still report `ready`.
+
+`src/world-project/externproto-deps.js` closes that. It is a thin **consumer**,
+not a second implementation of anything:
+
+- **Discovery** comes from the existing VRML97 parser and AST
+  (`src/vrml/parser` + `src/vrml/ast`), never from a regex over source text.
+  There is one syntax authority.
+- **Retrieval** goes through the WD1.7-B substrate's public facade
+  (`src/external-proto`) — classification, routing, exact-case lookup, symlink
+  containment, gzip-by-magic decoding and every resource bound belong to it.
+  World Project performs **no** filesystem lookup of its own for a candidate.
+  The project maps to one archive-local source rooted at the project root, with
+  **no** URL prefix, so an absolute `http(s)` or URL-root-relative candidate
+  fails closed rather than being host-stripped into a search of the tree.
+- **Candidates stay a group.** An EXTERNPROTO URL list is an *ordered fallback*
+  (ISO 4.5.2), not a set of independent mandatory files, so each declaration
+  keeps its candidates in written order with their index, written URL, fragment
+  and individual retrieval outcome. Every candidate is evaluated and every
+  outcome is kept — there is no winner to pick.
+- **ISO 4.5.3 is a hard gate.** For an EXTERNPROTO written *inside a PROTO body*
+  the base document is the file where that prototype is **instantiated**, which a
+  per-document scan cannot know. Such a declaration is reported
+  `context-required` and **no retrieval is attempted** — never resolved against
+  the declaring file. (Corpus prevalence: 1 of 1,667 declarations, 0.06%.)
+- **Recovery may not manufacture certainty.** A declaration a parser error
+  touched, or one with no URL list, is `unprovable` and is not retrieved.
+
+Per declaration the graph records a group status: `retrievable` · `missing` ·
+`not-portable` · `indeterminate` · `unsupported` · `context-required` ·
+`unprovable` · `no-candidates`.
+
+**`retrievable` means bytes, not resolution.** Whether a retrieved artifact
+actually contains the named PROTO — ISO 4.9.3 target selection, `#fragment`
+lookup, the fragment-less first-PROTO rule — is **WD1.7-C's** and is not claimed
+here. Neither is traversal into a retrieved library's *own* references: those
+assets are not yet walked.
 
 ### More than 20 textures
 
@@ -209,7 +255,33 @@ missing, case-mismatched, an absolute path, escapes the project root, or is remo
 — i.e. anything that could not be reproduced portably. A dependency **cycle** is
 reported but does **not** block (all its files are local and the walk is bounded,
 so the packaged set is finite and complete). Status is `ready` / `needs-review`
-(cycles, unused files, or a truncated/depth-capped graph) / `blocked`.
+(cycles, unused files, a truncated/depth-capped graph, or an EXTERNPROTO
+declaration this lane cannot judge) / `blocked`.
+
+**What `ready` means.** Every *required* file the scan accounted for is present
+under the project root at its exact written case and was read and hashed, so the
+bundle can be reproduced portably. It has never meant "this world is semantically
+valid VRML97", and WD1.7-B2 does not change that — it only widens *accounted for*
+to include external prototype libraries.
+
+**EXTERNPROTO blocking rules (WD1.7-B2).** Each declaration's group status maps
+to its own code, and the four kinds of uncertainty are deliberately **not**
+collapsed into `missing-assets` — they are different problems with different
+fixes:
+
+| group status | plan effect | code |
+|---|---|---|
+| `retrievable` | every retrieved candidate artifact is packaged (deduped by path) | — |
+| `missing` | **blocks** | `externproto-missing` |
+| `not-portable` (remote, URL-root-relative, or out-of-root) | **blocks** | `externproto-not-portable` |
+| `indeterminate` (unreadable / decode / limit / ambiguous source) | **blocks** | `externproto-indeterminate` |
+| `unsupported` (`urn:`, `file:`, unknown scheme) | needs-review | — |
+| `context-required` (ISO 4.5.3 instantiation base) | needs-review | — |
+| `unprovable` (recovery-damaged declaration) | needs-review | — |
+| `no-candidates` (provably empty URL list) | needs-review | — |
+
+A `urn:inet:blaxxun.com:node:HUD` names a built-in and is **not** reported as a
+missing file, a broken path, or invalid VRML.
 
 **Review bundle (`bundle-builder.js` + `zip-writer.js`).** The one write path.
 `buildReviewBundle` prompts (main-process Save dialog defaulting OUTSIDE the

@@ -157,7 +157,9 @@ packaging/upload.
 - [x] Open a project folder (not just a single file), with primary-file
   detection (ambiguity surfaced, never guessed) — plus direct primary-file open
 - [x] Parse local URL references across the primary world and nested
-  `Inline`/EXTERNPROTO assets (gzip + plain, bounded + cycle-safe)
+  `Inline` assets (gzip + plain, bounded + cycle-safe)
+- [x] Discover **EXTERNPROTO** dependencies (added in **WD1.7-B2** — Phase 4A/5A
+  shipped without them; see the note below)
 - [x] Discover textures and nested local assets, however many — **no** arbitrary
   20-texture limit (fixtures + tests cover 24 and 70 unique textures)
 - [x] Missing-file, filename-case-mismatch, absolute/traversal (unsafe), remote,
@@ -179,6 +181,18 @@ packaging/upload.
 assets in a real multi-texture project (`test/fixtures/world/mini`, 25 textures)
 and flags deliberately-broken references (`test/fixtures/world/broken`: missing,
 case mismatch, unsafe, remote).
+
+**EXTERNPROTO note (corrected in WD1.7-B2).** As shipped, Phase 4A/5A discovery
+was anchored on url-**named** fields, and an EXTERNPROTO URL list has no field
+name — so external prototype libraries were never in the asset graph, and a
+bundle could omit all of them and still report `ready`
+(`F3-WORLD-PROJECT-SCANNER-EXTERNPROTO-OMISSION`, recorded in
+`docs/white-dune-2026/WD1_7_A_EXTERNAL_PROTO_EVIDENCE.md` §19). **WD1.7-B2**
+closed it by discovering declarations from the AST and retrieving candidates
+through the WD1.7-B substrate; see
+`docs/white-dune-2026/WD1_7_B2_WORLD_PROJECT_INTEGRATION.md`. What that lane
+deliberately does **not** prove — that a retrieved artifact contains the named
+PROTO (ISO 4.9.3), and what the artifact's own dependencies are — is WD1.7-C's.
 
 ### Phase 4B — World Preview ✅
 

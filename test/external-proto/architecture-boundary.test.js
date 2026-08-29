@@ -9,7 +9,9 @@
 //     the editor load -- must not pull retrieval, and therefore must not pull
 //     `fs`, `zlib`, `crypto` or `child_process` in behind it;
 //   * retrieval may depend on pure helpers, never the other way round;
-//   * World Project gains NO coupling to retrieval in this lane (that is B2);
+//   * World Project reaches retrieval through EXACTLY ONE module and only via the
+//     public facade (WD1.7-B2 introduced that consumer; the direction stays
+//     one-way and no other module may acquire the dependency);
 //   * the substrate contains no target-PROTO semantics and no network path.
 
 const test = require('node:test');
@@ -57,26 +59,55 @@ test('requiring the vrml facade pulls in no Node capability module', () => {
   assert.deepEqual(JSON.parse(out), [], 'the browser-safe semantic layer must stay capability-free');
 });
 
-test('no module outside the lane requires the retrieval substrate yet', () => {
+// The consumer allow-list. WD1.7-B2 added the FIRST and so far only consumer of
+// the retrieval substrate. Keeping it a list rather than deleting this audit is
+// the point: a second module acquiring the dependency is a design decision that
+// must be made deliberately, not discovered later in a diff.
+const ALLOWED_CONSUMERS = new Set([
+  path.join('src', 'world-project', 'externproto-deps.js'),
+]);
+
+test('only the allow-listed consumers require the retrieval substrate', () => {
   const scanned = [];
+  const holders = [];
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, entry.name);
       if (entry.isDirectory()) { if (entry.name !== 'external-proto' && entry.name !== 'node_modules') walk(p); continue; }
       if (!entry.name.endsWith('.js')) continue;
       scanned.push(p);
-      assert.ok(!codeOf(p).includes('external-proto'), `${path.relative(ROOT, p)} must not depend on the retrieval substrate in WD1.7-B`);
+      const rel = path.relative(ROOT, p);
+      if (!codeOf(p).includes('external-proto')) continue;
+      assert.ok(ALLOWED_CONSUMERS.has(rel), `${rel} must not depend on the retrieval substrate`);
+      holders.push(rel);
     }
   };
   for (const dir of ['src', 'renderer', 'qa']) walk(path.join(ROOT, dir));
   for (const f of ['main.js', 'preload.js', 'validator.js']) assert.ok(!codeOf(path.join(ROOT, f)).includes('external-proto'), f);
   assert.ok(scanned.length > 50, 'the audit must actually have scanned the tree');
+  assert.deepEqual(holders.sort(), [...ALLOWED_CONSUMERS].sort(), 'every allow-listed consumer must still exist');
 });
 
-test('World Project is not coupled to retrieval in this lane', () => {
-  for (const f of fs.readdirSync(path.join(ROOT, 'src', 'world-project'))) {
+test('World Project reaches retrieval only through the PUBLIC facade', () => {
+  const wp = path.join(ROOT, 'src', 'world-project');
+  for (const f of fs.readdirSync(wp)) {
     if (!f.endsWith('.js')) continue;
-    assert.ok(!codeOf(path.join(ROOT, 'src', 'world-project', f)).includes('external-proto'), f);
+    const code = codeOf(path.join(wp, f));
+    if (!code.includes('external-proto')) continue;
+    assert.ok(code.includes("require('../external-proto')"), `${f} must import the facade`);
+    for (const inner of ['retrieval', 'routing', 'reference-forms', 'resolver-context', 'url-origin']) {
+      assert.ok(!code.includes(`../external-proto/${inner}`), `${f} must not reach into ${inner}.js`);
+    }
+    assert.ok(!code.includes('_internals'), `${f} must not use B's test-only internals`);
+  }
+});
+
+test('the retrieval substrate acquires no dependency on a profile (one-way)', () => {
+  for (const f of EP_FILES) {
+    const code = codeOf(path.join(EP, f));
+    for (const forbidden of ['world-project', 'mall', 'validator', 'package-plan', 'asset-graph']) {
+      assert.ok(!code.includes(forbidden), `${f} must stay profile-neutral (found ${forbidden})`);
+    }
   }
 });
 

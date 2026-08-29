@@ -22,6 +22,23 @@
 // i.e. anything that could not be reproduced portably. A dependency CYCLE is
 // reported but does NOT block (all its files are local and the walk is bounded).
 //
+// WHAT `ready` MEANS, stated because WD1.7-B2 extends it: every REQUIRED file the
+// scan accounted for is present under the project root at its exact written case
+// and was read and hashed, so the bundle can be reproduced portably. It has never
+// meant "this world is semantically valid VRML97" and it does not mean that now.
+//
+// EXTERNPROTO (WD1.7-B2). External prototype libraries used to be invisible to
+// the graph, so a bundle could omit every one of them and still report `ready`.
+// They now arrive as `graph.externProtos` -- one record per DECLARATION, holding
+// its ordered candidate list. A retrieved candidate artifact is packaged (deduped
+// against everything else by absolute path); a declaration whose candidates were
+// provably absent, refused as non-portable, or indeterminate BLOCKS; and a
+// declaration this lane honestly cannot judge -- a `urn:`, an ISO 4.5.3
+// instantiation-relative base, a recovery-damaged declaration -- is surfaced for
+// REVIEW rather than presented as a failure. What is still NOT proven, and is
+// WD1.7-C's: that a retrieved artifact contains the named PROTO, and what that
+// artifact's own dependencies are.
+//
 // It never repairs a URL, renames/flattens, copies an external asset, or rewrites
 // WRL source. Pure/injectable (fs reads + hashing injected) so it is unit-tested
 // against the committed fixtures without Electron.
@@ -29,6 +46,9 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+
+const { kindOf } = require('./asset-graph');
+const { EXTERNPROTO_GROUP_STATUS } = require('./externproto-deps');
 
 const PACKAGE_SCHEMA_VERSION = 1;
 const GENERATOR = 'WRL Forge — World Project packaging (Phase 5A)';
@@ -99,6 +119,17 @@ function buildPackagePlan(scan, deps = {}) {
     if (!refMap.has(key)) refMap.set(key, new Set());
     if (r.referrerRelative) refMap.get(key).add(r.referrerRelative);
   }
+  // EXTERNPROTO declarations contribute referrer provenance for the artifacts
+  // they retrieved, exactly as a url-field reference does for its target.
+  const externProtoGroups = graph.externProtos || [];
+  for (const g of externProtoGroups) {
+    for (const c of g.candidates || []) {
+      if (!c.artifactPath) continue;
+      const key = path.resolve(projectRoot, c.artifactPath);
+      if (!refMap.has(key)) refMap.set(key, new Set());
+      if (g.referrerRelative) refMap.get(key).add(g.referrerRelative);
+    }
+  }
   const referrersOf = (abs) => [...(refMap.get(path.resolve(abs)) || new Set())].sort();
 
   // wrl abs -> depth (from the bounded walk).
@@ -120,6 +151,22 @@ function buildPackagePlan(scan, deps = {}) {
       .filter((d) => d != null);
     const depth = referrerDepths.length ? Math.min(...referrerDepths) + 1 : 1;
     candidates.push({ abs, kind: a.kind, depth, refCount: a.refCount });
+  }
+
+  // Every candidate artifact whose bytes were retrieved is packaged. Conservative
+  // ON PURPOSE: an EXTERNPROTO URL list is an ORDERED FALLBACK (ISO 4.5.2), and
+  // which entry a browser settles on depends on target interpretability -- a
+  // WD1.7-C question. Packaging only the first retrieved candidate would silently
+  // break the author's fallback chain on evidence this lane does not have.
+  for (const g of externProtoGroups) {
+    for (const c of g.candidates || []) {
+      if (!c.artifactPath) continue;
+      candidates.push({
+        abs: path.resolve(projectRoot, c.artifactPath),
+        kind: kindOf(c.artifactPath),
+        depth: (g.depth || 0) + 1,
+      });
+    }
   }
 
   // De-dup by absolute path (a repeated reference is packaged ONCE), read + hash.
@@ -183,6 +230,49 @@ function buildPackagePlan(scan, deps = {}) {
   const repeated = files.filter((f) => (f.refCount || 0) > 1)
     .map((f) => ({ relPath: f.relPath, refCount: f.refCount }));
 
+  // One finding per EXTERNPROTO DECLARATION, keeping the written candidate order,
+  // the written URL, the fragment and each candidate's own retrieval outcome. The
+  // four uncertainty kinds NOT_FOUND / NOT_RETRIEVED_BY_POLICY /
+  // UNSUPPORTED_REFERENCE / context-required stay distinguishable here -- they are
+  // different problems with different fixes and must not collapse to "missing".
+  const externProtos = externProtoGroups.map((g) => ({
+    referrer: relOf(projectRoot, g.referrer),
+    name: g.name,
+    status: g.status,
+    base: g.base,
+    enclosingProto: g.enclosingProto || null,
+    candidates: (g.candidates || []).map((c) => ({
+      index: c.index,
+      writtenUrl: c.writtenUrl,
+      form: c.form || null,
+      // Preserved as provenance. NOT validated against a PROTO name and NOT part
+      // of any filename -- ISO 4.9.3 target selection is WD1.7-C's.
+      fragment: c.fragment == null ? null : c.fragment,
+      retrieval: c.status || null,
+      reason: c.reason || null,
+      artifact: c.artifactPath || null,
+    })),
+  })).sort((a, b) => a.referrer.localeCompare(b.referrer)
+    || String(a.name).localeCompare(String(b.name))
+    || (a.candidates.length - b.candidates.length));
+
+  const externProtoBlocking = externProtos.filter((g) => (
+    g.status === EXTERNPROTO_GROUP_STATUS.MISSING
+    || g.status === EXTERNPROTO_GROUP_STATUS.NOT_PORTABLE
+    || g.status === EXTERNPROTO_GROUP_STATUS.INDETERMINATE
+  ));
+  const externProtoReview = externProtos.filter((g) => (
+    g.status === EXTERNPROTO_GROUP_STATUS.UNSUPPORTED
+    || g.status === EXTERNPROTO_GROUP_STATUS.CONTEXT_REQUIRED
+    || g.status === EXTERNPROTO_GROUP_STATUS.UNPROVABLE
+    || g.status === EXTERNPROTO_GROUP_STATUS.NO_CANDIDATES
+  ));
+  // A document whose EXTERNPROTO declarations could not be enumerated at all.
+  // Unknown is not the same as none, so it is surfaced rather than assumed empty.
+  const externProtoErrors = (graph.externProtoErrors || []).map((e) => ({
+    referrer: relOf(projectRoot, e.referrer), error: e.error,
+  })).sort((a, b) => a.referrer.localeCompare(b.referrer));
+
   // Blocking rules: anything that could not be reproduced portably.
   const blocking = [];
   if (missing.length) blocking.push({ code: 'missing-assets', count: missing.length,
@@ -197,9 +287,22 @@ function buildPackagePlan(scan, deps = {}) {
     message: `${readErrors.length} referenced file(s) could not be read` });
   if (!usable) blocking.push({ code: 'primary-unreadable', count: 1,
     message: 'the primary world file could not be read/parsed' });
+  // Each EXTERNPROTO failure keeps its own name. Collapsing them into
+  // `missing-assets` would tell a user to go find a file when the real problem is
+  // a remote library, an unreadable archive, or a base this lane cannot know.
+  const epMissing = externProtoBlocking.filter((g) => g.status === EXTERNPROTO_GROUP_STATUS.MISSING);
+  const epNotPortable = externProtoBlocking.filter((g) => g.status === EXTERNPROTO_GROUP_STATUS.NOT_PORTABLE);
+  const epIndeterminate = externProtoBlocking.filter((g) => g.status === EXTERNPROTO_GROUP_STATUS.INDETERMINATE);
+  if (epMissing.length) blocking.push({ code: 'externproto-missing', count: epMissing.length,
+    message: `${epMissing.length} EXTERNPROTO declaration(s) name an external prototype library that is missing on disk` });
+  if (epNotPortable.length) blocking.push({ code: 'externproto-not-portable', count: epNotPortable.length,
+    message: `${epNotPortable.length} EXTERNPROTO declaration(s) can only be satisfied from outside the project (remote or out-of-root) and cannot be bundled` });
+  if (epIndeterminate.length) blocking.push({ code: 'externproto-indeterminate', count: epIndeterminate.length,
+    message: `${epIndeterminate.length} EXTERNPROTO declaration(s) could not be read, decoded, or resolved to a single artifact` });
 
   const needsReview = !blocking.length &&
-    (cycles.length > 0 || unusedFiles.length > 0 || !!graph.truncated || !!graph.depthCapped);
+    (cycles.length > 0 || unusedFiles.length > 0 || !!graph.truncated || !!graph.depthCapped
+      || externProtoReview.length > 0 || externProtoErrors.length > 0);
   const status = blocking.length ? 'blocked' : (needsReview ? 'needs-review' : 'ready');
 
   const totals = {
@@ -218,7 +321,9 @@ function buildPackagePlan(scan, deps = {}) {
     status,
     totals,
     files,
-    findings: { missing, caseMismatches, unsafe, remote, cycles, repeated },
+    findings: { missing, caseMismatches, unsafe, remote, cycles, repeated, externProtos },
+    externProtoReview,
+    externProtoErrors,
     unusedFiles,
     readErrors,
     blocking,
@@ -304,6 +409,18 @@ function renderReport(plan) {
   section('Unsafe references', f.unsafe.map((u) => `\`${u.url}\` (${u.category})`));
   section('Remote references', f.remote.map((r) => `\`${r.url}\``));
   section('Dependency cycles (reported, not blocking)', f.cycles.map((c) => `\`${c.from}\` → \`${c.to}\``));
+  // One line per DECLARATION, then its candidates in written order. Order is
+  // normative (ISO 4.5.2 "decreasing order of preference"), so the report shows
+  // the list rather than a chosen winner -- this lane has no winner to show.
+  section('EXTERNPROTO declarations (external prototype libraries)', (f.externProtos || []).map((g) => {
+    const where = g.base === 'context-required'
+      ? ' — base is the instantiating file (ISO 4.5.3); not resolvable from this document alone'
+      : g.base === 'unavailable' ? ' — no project-relative base for the declaring file' : '';
+    const cands = g.candidates.map((c) => `\n  - [${c.index}] \`${c.writtenUrl}\`${c.fragment ? ` (fragment \`${c.fragment}\`)` : ''} → ${c.retrieval || 'not evaluated'}${c.reason ? ` (${c.reason})` : ''}${c.artifact ? ` → \`${c.artifact}\`` : ''}`).join('');
+    return `\`${g.referrer}\` declares \`${g.name}\` — **${g.status}**${where}${cands}`;
+  }));
+  section('EXTERNPROTO scan errors (declarations could not be enumerated)',
+    (plan.externProtoErrors || []).map((e) => `\`${e.referrer}\` — ${e.error}`));
   section('Repeated references (packaged once)', f.repeated.map((r) => `\`${r.relPath}\` (×${r.refCount})`));
   section('Unused files under the project root (NOT included in the bundle)',
     plan.unusedFiles.map((u) => `\`${u.relPath}\``));

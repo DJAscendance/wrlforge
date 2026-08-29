@@ -3,8 +3,8 @@
 //
 // Promoted, production home of the Phase 3A recon walker
 // (qa/world-recon/asset-graph.js now re-exports from here). Given a primary world
-// .wrl it walks local references -- following nested Inline / EXTERNPROTO .wrl
-// files -- and produces a dependency graph plus per-reference diagnostics:
+// .wrl it walks local references -- following nested Inline `.wrl` children --
+// and produces a dependency graph plus per-reference diagnostics:
 //   * every referenced local asset (texture / audio / movie / other .wrl / other),
 //     resolved relative to the referencing file's own directory,
 //   * node type + field name + authored url + project-relative + resolved path,
@@ -12,6 +12,17 @@
 //   * dependency depth, parent reference, duplicate-reference status,
 //   * missing references, case mismatches, remote references (surfaced, not
 //     followed), and unsafe references (absolute paths / project-root traversal).
+//
+// EXTERNPROTO (WD1.7-B2). Url-field extraction is field-NAME anchored, and an
+// EXTERNPROTO's URL list has no field name, so external prototype libraries were
+// invisible to this graph and could be omitted from a bundle that still reported
+// `ready`. They are now discovered from the AST by
+// `./externproto-deps.js` and retrieved through the WD1.7-B substrate, and land
+// in `externProtos` as their own dependency kind -- NOT folded into `references`
+// or `assets`, because an ordered EXTERNPROTO candidate list is a group of
+// alternatives, not a set of independent mandatory files. A retrieved artifact's
+// OWN references are not walked in this lane: traversal into external prototype
+// targets is WD1.7-C's.
 //
 // Bounded on purpose (inline graphs can be large or cyclic): traversal is capped
 // by maxWrlNodes and maxDepth, and a visited-set makes cycles safe. All of the
@@ -27,6 +38,11 @@ const { readWrlSource } = require('../preview/wrl-source');
 const { extractUrlRefs } = require('./url-fields');
 const { imageSize } = require('./image-size');
 const { classifyReference, CATEGORY } = require('./path-policy');
+const {
+  createProjectResolverContext,
+  scanExternProtoDependencies,
+  EXTERNPROTO_GROUP_STATUS,
+} = require('./externproto-deps');
 
 const WRL_EXT = new Set(['.wrl', '.wrz']);
 const TEXTURE_EXT = new Set(['.jpg', '.jpeg', '.gif', '.png', '.bmp', '.tga']);
@@ -70,6 +86,10 @@ function defaultStatSize(p) {
 //   statSize(absPath) -> number|null       (default: fs.statSync().size)
 //   readHead(absPath, n) -> Buffer|null    (default: first n bytes; texture dims)
 //   projectRoot                            (default: dirname of the primary .wrl)
+//   externProtoDeps                        (default: real fs; B's injectable
+//                                           readdirSync/realpathSync/statSync/
+//                                           readFileSync surface, passed straight
+//                                           through to the retrieval substrate)
 function buildAssetGraph(rootWrlPath, opts = {}) {
   const cfg = { ...DEFAULTS, ...opts };
   const readSource = opts.readSource || ((p) => readWrlSource(p));
@@ -81,6 +101,19 @@ function buildAssetGraph(rootWrlPath, opts = {}) {
   const root = path.resolve(rootWrlPath);
   const projectRoot = opts.projectRoot ? path.resolve(opts.projectRoot) : path.dirname(root);
 
+  // ONE retrieval context for the whole project, built from state the project
+  // already has. A World Project owns no URL namespace, so the source carries no
+  // `prefix` and every absolute-http / URL-root-relative candidate fails closed.
+  let externProtoContext = null;
+  let externProtoContextError = null;
+  try {
+    externProtoContext = createProjectResolverContext(projectRoot);
+  } catch (err) {
+    externProtoContextError = String((err && err.message) || err);
+  }
+
+  const externProtos = [];           // { referrer, referrerRelative, depth, ...group }
+  const externProtoErrors = [];      // { referrer, referrerRelative, error }
   const wrlNodes = [];               // { path, depth, refs, remoteRefs, bytes, unreadable? }
   const assets = new Map();          // resolvedPath -> { path, kind, refCount, referencedBy, bytes, dimensions, present }
   const edges = [];                  // { from, to, kind }
@@ -172,6 +205,24 @@ function buildAssetGraph(rootWrlPath, opts = {}) {
     const node = { path: abs, depth, parent, refs: [], remoteRefs: [], bytes: statSize(abs) };
     const remoteSeen = new Set();
     const dir = path.dirname(abs);
+
+    // EXTERNPROTO dependencies of THIS file (AST-derived, retrieved through the
+    // WD1.7-B substrate). Kept beside the url-field references, never merged
+    // into them.
+    if (externProtoContext) {
+      const ep = scanExternProtoDependencies(
+        { text, referrerAbs: abs, projectRoot, context: externProtoContext },
+        opts.externProtoDeps || {},
+      );
+      if (ep.parseError) {
+        externProtoErrors.push({ referrer: abs, referrerRelative: relToRoot(abs), error: ep.parseError });
+      }
+      for (const group of ep.groups) {
+        externProtos.push({ referrer: abs, referrerRelative: relToRoot(abs), depth, ...group });
+      }
+    } else if (externProtoContextError) {
+      externProtoErrors.push({ referrer: abs, referrerRelative: relToRoot(abs), error: externProtoContextError });
+    }
 
     for (const ref of extractUrlRefs(text)) {
       const authored = ref.value;
@@ -325,6 +376,8 @@ function buildAssetGraph(rootWrlPath, opts = {}) {
     remoteRefs,
     unsafe,
     cycles,
+    externProtos,
+    externProtoErrors,
     truncated,
     depthCapped,
     stats: {
@@ -341,6 +394,10 @@ function buildAssetGraph(rootWrlPath, opts = {}) {
       missing: missing.length,
       caseMismatches: caseMismatches.length,
       cycles: cycles.length,
+      externProtos: externProtos.length,
+      externProtoCandidates: externProtos.reduce((n, g) => n + g.candidates.length, 0),
+      externProtoRetrievable: externProtos.filter((g) => g.status === EXTERNPROTO_GROUP_STATUS.RETRIEVABLE).length,
+      externProtoErrors: externProtoErrors.length,
       duplicateRefs,
       viewpoints: viewpointCount,
       scripts: scriptCount,
