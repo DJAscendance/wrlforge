@@ -47,6 +47,10 @@ const nodeIdentity = require('./node-identity');
 // instead of the consumer layer. `symbols.js` stays unpublished entirely.
 const scopeGraph = require('./scope-graph');
 const interfaceQuery = require('./interface-query');
+// WD1.6-C, the containment query over the same graph. Like `interface-query.js`
+// it is a CONSUMER layer, not a new authority: every fact it judges came from
+// P1/P2A, WD1.6-B or the WD1.6-A schema.
+const containment = require('./containment');
 
 const publicDocumentTransaction = Object.freeze({
   // Prove that an edit set is exactly what turned one exact text into another.
@@ -110,6 +114,30 @@ const publicInterfaceQuery = Object.freeze({
   isRecovered: scopeGraph.isRecovered,
 });
 
+/**
+ * WD1.6-C -- may a candidate legally occupy a node-valued field?
+ *
+ * Narrow ON PURPOSE. The class-derivation helpers, the exclusion-completeness
+ * whitelist and the class-complement table are the module's reasoning, not its
+ * contract; publishing them would invite a consumer to re-implement the
+ * judgement instead of reading the verdict. `CANDIDATE_KIND` IS published
+ * because a verdict carries it and a consumer must be able to branch on it.
+ *
+ * The scope graph is built through `interfaceQuery.buildScopeGraph`, so the whole
+ * consumer path is `parse -> interfaceQuery.buildScopeGraph ->
+ * containment.childLegality` with no internal import anywhere in it.
+ *
+ * NO POLICY. `UNSUPPORTED` does not mean "permit" and `UNRESOLVED` does not mean
+ * "warn" -- what a UI does with an uncertain verdict is WD2's decision, and
+ * encoding it here would make the semantic answer unrecoverable.
+ */
+const publicContainment = Object.freeze({
+  childLegality: containment.childLegality,
+  CONTAINMENT_STATUS: containment.CONTAINMENT_STATUS,
+  CONTAINMENT_REASON: containment.CONTAINMENT_REASON,
+  CANDIDATE_KIND: containment.CANDIDATE_KIND,
+});
+
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
 function parse(text, opts = {}) {
   const syntax = parseSyntax(text, opts);
@@ -145,6 +173,7 @@ module.exports = {
   documentTransaction: publicDocumentTransaction,
   nodeIdentity: publicNodeIdentity,
   interfaceQuery: publicInterfaceQuery,
+  containment: publicContainment,
   ast,
   diagnostics,
   assetRefs,
