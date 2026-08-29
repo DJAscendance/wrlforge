@@ -132,6 +132,52 @@ That test is a **provenance statement about that one generated file**, not a res
 the old prohibition. If a future lane derives schema content from another source, the
 test and this section change together.
 
+### 4.1 Research & Reference
+
+The register above records **incorporated implementation material**. This section records
+something different and deliberately kept separate: external implementation sources that
+were **deliberately studied** — for architecture, algorithms, UX/workflow, or
+cross-checking — where **no source code has been copied, adapted, translated, or
+incorporated**.
+
+A record here is **not** a claim that any WRL Forge file became derivative. Reading a
+GPL-compatible implementation does not make the reader's own independently written code a
+derivative work, and this section must never be read as implying otherwise. It exists so
+that a reviewer can see what was consulted and when, and so that a later port has an
+honest starting point.
+
+**Transition rule.** If code that was only studied later becomes **conceptually informed,
+translated, or adapted** into WRL Forge, create or update the corresponding entry in the
+§4 production register **at that time**, with the mode set accordingly. Moving between
+the two sections is the normal, expected lifecycle — a Research & Reference record is a
+provenance *lead*, not a permanent exemption from §4.
+
+#### Current records
+
+**WD-OSS-A1 — White Dune implementation & architecture audit**
+
+| field | value |
+|---|---|
+| Project | **White Dune** (`wdune`) |
+| Local source | 1.930 source evidence, `~/Projects/white-dune-archive/white_dune-1.930-source-evidence/` (outside every Git repository) |
+| Upstream | `github.com/mufti11/white_dune`, commit **`62f9ab457004666143160909a7e348bf87c107e6`** (1.956, 2020-09-02) — last upstream commit; project dormant |
+| License posture | White Dune-authored code is **`GPL-2.0-or-later`** (1,220 of 1,303 `src/` files), compatible with WRL Forge's `GPL-3.0-or-later` via the "or later" election. The tree also contains **separately licensed vendored third-party code** — BSD-3-Clause, MIT, LGPL, permissive — plus generated Bison/flex output and 17–18 files carrying **no grant at all**. Licensing is **not uniform**; verify per artifact. |
+| Purpose | implementation and architecture audit, to decide the next WRL Forge lane |
+| Resulting document | [`docs/white-dune-2026/WD_OSS_A1_IMPLEMENTATION_ARCHITECTURE_AUDIT.md`](docs/white-dune-2026/WD_OSS_A1_IMPLEMENTATION_ARCHITECTURE_AUDIT.md) |
+| Code incorporated | **None.** No White Dune implementation code, fixture, example scene, or asset was copied, adapted, translated, vendored, submoduled, or committed. No file under `src/`, `renderer/`, `scripts/`, `main.js`, `preload.js` or `validator.js` was modified by the audit. |
+| Status | research only; §4 register correctly still reads **None** |
+
+**Reuse leads recorded by that audit** — none acted on, each requiring a §4 entry *before*
+any code lands: White Dune's handle protocol and `Scene3DView::Handle3D` frame math
+(adaptation candidates), and its command/undo model, `Proto` unified type descriptor, and
+ROUTE/`IS` authoring UI (architecture/UX reference). Its **document core is rejected
+outright** — a live object graph with full regeneration on write, incompatible with
+WRL Forge's byte-preserving document invariant.
+
+**If geometry algorithms are ever wanted**, take Poly2Tri (BSD-3-Clause), catmull-clark
+(MIT) and FTGL (MIT) from **their own upstreams**, not through White Dune: better terms,
+cleaner provenance, active maintenance. Those would be `THIRD_PARTY_NOTICES.md` entries.
+
 ## 5. Source headers
 
 **Do not mass-add GPL boilerplate headers to existing files.** The root `LICENSE` plus
@@ -155,6 +201,20 @@ that **throw** rather than silently skip. Those guards are **corpus hygiene**, n
 license policy: a VRML97 semantics sweep measures authored Cybertown content, and a
 modeling tool's C++ source tree or a reverse-engineering artifact directory is not that.
 The guards stay, and their rationale is unchanged by the license transition.
+
+**A dedicated oracle reader is not an exemption.** A future lane may want to read named
+White Dune files as a **cross-check oracle** (for example, comparing field-constraint
+tables against the ISO mirror). That is permitted and needs **no change to any guard**,
+because the two mechanisms never meet: a corpus guard rejects a *root offered to generic
+enumeration*, whereas an oracle reader opens **explicitly named files by explicit path**
+and never enumerates a corpus at all.
+
+Such a reader must be: read-only · addressed by explicit path, never by discovery ·
+**non-normative**, with every discrepancy adjudicated against ISO/IEC 14772-1 (§7) ·
+recorded under §4.1 Research & Reference.
+
+**Do not add a corpus-guard exemption to enable one.** Needing to weaken a guard is a
+sign the tool is enumerating when it should be addressing.
 
 ## 7. Standards remain the normative authority
 
