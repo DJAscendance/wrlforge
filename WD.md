@@ -5,32 +5,52 @@ this before touching anything under `src/vrml/`, and before designing any featur
 that edits a document rather than merely reading it.
 
 Lane docs live in `docs/white-dune-2026/`. Named "WD" after the White Dune
-discovery lane that started it — **see §1, that name carries a hard licensing
-boundary.**
+discovery lane that started it — **see §1 for what that name means now that WRL
+Forge is GPL.**
 
 ---
 
-## 1. The White Dune boundary — read this first
+## 1. White Dune and open-source reuse — read this first
 
-White Dune is **GPL-2.0-or-later**. WRL Forge is not. They are
-license-incompatible, and this is not bureaucratic caution: copying, adapting or
-closely translating White Dune code into WRL Forge would create an obligation to
-relicense Ryan's product.
+**WRL Forge is `GPL-3.0-or-later`.** White Dune is `GPL-2.0-or-later`, whose "or
+later" election makes it compatible with distributing a combined work under
+GPLv3. The two are **no longer license-incompatible**, and the clean-room
+prohibition that governed WD0–WD1.5 is **retired**.
 
-**Never** open, search, copy, adapt, translate or paraphrase-into-code:
+White Dune — and any other GPL-compatible open-source implementation — **may** be
+opened, searched, studied, compared, adapted, translated, ported, and
+incorporated, provided upstream copyright, license notices, and provenance are
+preserved.
 
-- White Dune source, binaries, fixtures, examples, icons, node tables, algorithms
-- `RE-ARTIFACTS`, `blaxxun-cs-RE`, or any proprietary modeling-tool research material
-- FreeWRL, X3DVModuleSuite, Spazz3D, Flux, PlaceBuilder, VrmlPad implementation material
+The full current rules live in **`OPEN_SOURCE_PROVENANCE.md`** at the repository
+root. The three that matter most here:
 
-What *is* allowed: studying **capabilities and workflows** (that a scene tree
-pairs with a field inspector; that ROUTEs want a graph view), and taking **facts**
-from ISO/IEC 14772-1 and the MIT-licensed `x_ite.d.ts`.
+1. **Verify the specific artifact's license.** Do not assume every White Dune
+   file, version, or packaged binary carries identical license metadata.
+2. **Record what you took** — upstream project, version, component, authors,
+   license, destination file, and whether it was copied, adapted, translated, or
+   only conceptually informed. A reviewer cannot infer that from the diff.
+3. **Never replace an upstream copyright header** with a WRL Forge one.
+
+Still prohibited, and *not* changed by the license transition: proprietary source
+without permission, leaked source, material with no usable license, and
+reverse-engineering research artifacts of proprietary tools (`RE-ARTIFACTS`,
+`blaxxun-cs-RE`). A GPL project license widens what is *compatible*; it widens
+nothing about what is *lawfully obtained*.
 
 The archive lives at `~/Projects/white-dune-archive/`, outside every Git
-repository, and never enters one. Full rules and the clean-room procedure:
-`docs/white-dune-2026/GPL_PROVENANCE_BOUNDARY.md`. **Default answer is no** — if
-outside implementation material appears necessary, stop and ask Ryan.
+repository. Keeping GPL upstream trees out of this repo remains the rule — reuse
+means an attributed, provenance-recorded port into WRL Forge's own files, not
+committing somebody else's source tree wholesale.
+
+The corpus guards in `spikes/*/corpus.js` that **throw** on a White Dune or
+`RE-ARTIFACTS` path stay as they are. They are corpus hygiene — a VRML97
+semantics sweep measures authored Cybertown content, not a modeling tool's C++
+tree — and are unaffected by the licensing change.
+
+**§9 still governs meaning.** Reuse teaches technique; it does not make any
+implementation normative. ISO/IEC 14772-1 remains the authority on what VRML97
+*means*.
 
 ## 2. The canonical document model
 

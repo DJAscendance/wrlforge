@@ -13,7 +13,7 @@
 // interface, tagged so a strict-VRML97 consumer can never be handed an X3D-only
 // field by accident.
 //
-// SOURCES (both license-clean; see docs/white-dune-2026/GPL_PROVENANCE_BOUNDARY.md)
+// SOURCES (both license-clean; see OPEN_SOURCE_PROVENANCE.md)
 //   * ISO/IEC 14772-1 (VRML97), clause 6 node reference -- NORMATIVE for the
 //     VRML97 node set, field names, field types, declaration categories, and
 //     default values.
@@ -21,9 +21,11 @@
 //     repository -- the current X3D runtime shape, used to tag which fields are
 //     X3D-only.
 //
-// NO WHITE DUNE MATERIAL WAS USED. White Dune is GPL-2.0-or-later and WRL Forge
-// is MIT; no White Dune source, node table, fixture, or algorithm contributed to
-// this file, directly or indirectly.
+// NO WHITE DUNE MATERIAL WAS USED -- a provenance fact about this generated
+// file: no White Dune source, node table, fixture, or algorithm contributed to
+// it, directly or indirectly. WRL Forge is GPL-3.0-or-later and GPL-compatible
+// reuse is permitted project-wide (OPEN_SOURCE_PROVENANCE.md); this schema is
+// simply derived from the two standards sources above and nothing else.
 //
 // This file contains extracted interface FACTS -- names, types, access
 // categories, default literals. It reproduces no standards prose.

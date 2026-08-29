@@ -1,5 +1,11 @@
 # WD1.5-P2B — PROTO/EXTERNPROTO interface members and `IS` (as built)
 
+> **Historical record.** Written before WRL Forge moved to `GPL-3.0-or-later`.
+> Its clean-room rules and its references to the deleted
+> `GPL_PROVENANCE_BOUNDARY.md` are **superseded** by `/OPEN_SOURCE_PROVENANCE.md`
+> and `/WD.md` §1. Its provenance statements about what was consulted at the time
+> remain accurate. See `README.md` in this directory.
+
 Status: **implemented, uncommitted, internal and consumer-free.** The design
 below is what shipped; where the implementation session found the plan wrong or
 unimplementable, the section says so and §23 lists every such change in one

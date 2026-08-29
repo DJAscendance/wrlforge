@@ -134,9 +134,12 @@ test('the generated file and the generator name no machine-specific path', () =>
 });
 
 test('no White Dune material is referenced by the schema or its generator', () => {
-  // The GPL boundary is a standing product constraint, so it gets a test rather
-  // than only a comment. The generator may NAME the boundary doc; it must not
-  // point at the archive.
+  // This is a PROVENANCE assertion about this one generated file, not a standing
+  // prohibition -- WRL Forge is GPL-3.0-or-later and GPL-compatible reuse is
+  // permitted project-wide (OPEN_SOURCE_PROVENANCE.md). The schema is derived
+  // from ISO/IEC 14772-1 plus the MIT `x_ite.d.ts` and nothing else, and that
+  // claim gets a test rather than only a comment. The generator may NAME a
+  // provenance doc; it must not point at the archive.
   for (const file of [SCHEMA_FILE, GENERATOR]) {
     const text = fs.readFileSync(file, 'utf8');
     const label = path.basename(file);

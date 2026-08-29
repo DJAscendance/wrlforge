@@ -12,8 +12,14 @@ edits back through source-text patches.
 That core is the product. Cybertown is a **profile over it**, not its identity.
 
 @WD.md — the lossless document core (canonical model, node schema, node identity,
-scope semantics, and the **White Dune GPL boundary**). Read it before touching
+scope semantics, and the **open-source reuse policy**). Read it before touching
 `src/vrml/` or designing anything that edits rather than reads.
+
+WRL Forge is **`GPL-3.0-or-later`** free software. Reusing GPL-compatible
+open-source implementation material (White Dune included) is permitted with
+preserved notices and recorded provenance — see `OPEN_SOURCE_PROVENANCE.md`.
+Contributions are accepted under the same licence, with DCO sign-off and no
+copyright assignment — see `CONTRIBUTING.md`.
 
 ### The two halves
 

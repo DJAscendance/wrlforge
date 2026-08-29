@@ -45,7 +45,7 @@
     "digital-preservation"
   ],
   "author": "Ryan Bundy (BassMekanik2000)",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "private": true,
   "type": "commonjs",
   "dependencies": {
@@ -112,6 +112,18 @@
       {
         "from": "assets/wrl-forge-cyan.svg",
         "to": "wrl-forge.svg"
+      },
+      {
+        "from": "LICENSE",
+        "to": "licenses/LICENSE"
+      },
+      {
+        "from": "THIRD_PARTY_NOTICES.md",
+        "to": "licenses/THIRD_PARTY_NOTICES.md"
+      },
+      {
+        "from": "OPEN_SOURCE_PROVENANCE.md",
+        "to": "licenses/OPEN_SOURCE_PROVENANCE.md"
       }
     ],
     "extraMetadata": {

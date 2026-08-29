@@ -247,4 +247,4 @@ WRL Forge ships accessibility accommodations in the editor.
 
 ---
 
-Copyright © 2026 Ryan Bundy (BassMekanik2000). MIT-licensed. See [COPYRIGHT.md](../COPYRIGHT.md).
+Copyright © 2026 Ryan Bundy (BassMekanik2000) and contributors. Licensed under the GNU GPL version 3 or later (`GPL-3.0-or-later`). See [COPYRIGHT.md](../COPYRIGHT.md).

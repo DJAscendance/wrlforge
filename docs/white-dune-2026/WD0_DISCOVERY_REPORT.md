@@ -1,5 +1,11 @@
 # WD0 — Discovery Report: WRL Forge 2026 Visual Authoring Upgrade
 
+> **Historical record.** Written before WRL Forge moved to `GPL-3.0-or-later`.
+> Its clean-room rules and its references to the deleted
+> `GPL_PROVENANCE_BOUNDARY.md` are **superseded** by `/OPEN_SOURCE_PROVENANCE.md`
+> and `/WD.md` §1. Its provenance statements about what was consulted at the time
+> remain accurate. See `README.md` in this directory.
+
 **Phase:** WD0 — research, archival inspection, architecture discovery, planning only.
 **Date:** 2026-08-06
 **Repository:** `~/Projects/cybertown/wrlforge` @ `0f1fb9d` (branch `main`, clean)

@@ -1,5 +1,11 @@
 # WD1.5-P2C — ROUTE endpoint resolution and event direction/type compatibility
 
+> **Historical record.** Written before WRL Forge moved to `GPL-3.0-or-later`.
+> Its clean-room rules and its references to the deleted
+> `GPL_PROVENANCE_BOUNDARY.md` are **superseded** by `/OPEN_SOURCE_PROVENANCE.md`
+> and `/WD.md` §1. Its provenance statements about what was consulted at the time
+> remain accurate. See `README.md` in this directory.
+
 Status: **AS BUILT. Implemented, validated, UNCOMMITTED — awaiting owner
 adjudication and independently routed QA.**
 

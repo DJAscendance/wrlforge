@@ -15,9 +15,12 @@ All releases are published on GitHub:
   the beta). SmartScreen/Defender may warn on first launch — this is expected.
 - **x64 only.** Linux x64 and Windows x64. No ARM64, no macOS, no
   Snap/Flatpak/Store package.
-- **Open source (MIT).** The project is MIT-licensed (`package.json` license =
-  `MIT`) — use it freely, just keep the copyright notice. Third-party components
-  keep their own licenses.
+- **Free and open source (GPL-3.0-or-later).** WRL Forge is licensed under the GNU
+  General Public License, version 3 or any later version. See [`LICENSE`](../LICENSE),
+  [`COPYRIGHT.md`](../COPYRIGHT.md), and
+  [`OPEN_SOURCE_PROVENANCE.md`](../OPEN_SOURCE_PROVENANCE.md). Third-party components
+  keep their own licenses. Releases through `v1.3.0-beta.3` were distributed under the
+  MIT License and those copies keep the permissions granted with them.
 
 ---
 

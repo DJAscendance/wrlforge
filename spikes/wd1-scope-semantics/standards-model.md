@@ -10,7 +10,7 @@ only where the exact wording is the point.
 No White Dune material, no `RE-ARTIFACTS`, and no other implementation's source
 was consulted. Node and field metadata comes from the committed WD1.3 schema
 (`src/vrml/node-schema.js`), itself built from the same ISO mirror plus the
-MIT-licensed `x_ite.d.ts` — see `docs/white-dune-2026/GPL_PROVENANCE_BOUNDARY.md` §5.
+MIT-licensed `x_ite.d.ts` — see `OPEN_SOURCE_PROVENANCE.md`.
 
 ## Confidence grades
 

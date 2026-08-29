@@ -1,0 +1,174 @@
+# Open Source Provenance Policy
+
+**Status:** current project policy. Supersedes the WD0-era
+`docs/white-dune-2026/GPL_PROVENANCE_BOUNDARY.md`, which was written for WRL Forge's
+former MIT posture and has been removed from `main` (Git history retains it).
+
+> This is engineering provenance guidance, not legal advice. It records how WRL Forge
+> tracks the origin and licensing of the code it ships. It is not a legal opinion and
+> does not substitute for one.
+
+---
+
+## 1. Project license
+
+Original WRL Forge code and documentation are licensed **`GPL-3.0-or-later`** unless a
+file says otherwise. See [`LICENSE`](LICENSE) for the canonical GNU GPL v3 text and
+[`COPYRIGHT.md`](COPYRIGHT.md) for the copyright statement.
+
+Third-party material incorporated into WRL Forge **retains its own copyright and
+license**. The project license applies to WRL Forge's own work; it does not relicense
+anyone else's.
+
+The practical rule for anything you bring in:
+
+> It must be license-compatible with distributing the combined program under
+> `GPL-3.0-or-later`, and every required attribution, copyright line, and license
+> notice must be preserved.
+
+## 2. What is now permitted
+
+Open-source implementation material — source, algorithms, data tables, fixtures — **may
+be read, searched, studied, compared, adapted, translated, ported, and incorporated**
+into WRL Forge when:
+
+1. its license is compatible with `GPL-3.0-or-later` for the proposed combination; and
+2. its provenance is recorded here (§4); and
+3. its upstream copyright notices and license text are preserved in the tree and in the
+   distributed artifact.
+
+This is a genuine change of direction. The former clean-room prohibition existed only
+because WRL Forge was MIT-licensed and could not absorb copyleft code. That constraint
+is gone.
+
+### 2.1 White Dune
+
+**White Dune is permitted implementation material.** It is
+[GPL-2.0-or-later](https://sourceforge.net/projects/white-dune/), which is compatible
+with distributing a combined work under `GPL-3.0-or-later` (the "or later" election in
+White Dune's own headers is what makes the upgrade lawful).
+
+Two cautions that are engineering facts, not policy hedging:
+
+- **Verify the license of the specific artifact you use.** Do not assume every White
+  Dune file, version, or packaged binary carries identical license metadata. The
+  1.930 source tree's headers say "version 2 of the License, or (at your option) any
+  later version"; a different file or a different release may not, and a `.deb` of
+  binaries proves nothing about implementation licensing at all.
+- **Record what you took.** Anything copied, adapted, or closely translated gets a §4
+  entry and preserved upstream copyright headers. "Conceptually informed only" — you
+  read it, then wrote your own — should still be recorded, because a reviewer cannot
+  tell the difference from the diff alone.
+
+Reuse is a **separate approved lane** from the licensing transition itself. No White
+Dune material was imported as part of adopting the GPL.
+
+### 2.2 Other open-source projects
+
+The rule is general, not White-Dune-specific. FreeWRL, X3D toolkits, and any other
+open-source VRML/X3D implementation are usable on the same terms: verify the license,
+confirm compatibility, preserve notices, record provenance.
+
+## 3. What remains prohibited
+
+Changing WRL Forge's license did **not** widen what may be copied. Still forbidden:
+
+- **Proprietary source** without explicit written permission.
+- **Leaked source**, or source obtained in violation of a licence agreement, terms of
+  service, NDA, or access control.
+- **Software with no usable license** — "found on the internet", "no LICENSE file",
+  abandonware whose rights holder is unknown.
+- Code whose license is **GPL-incompatible for the proposed combination**.
+- **Snippets of unestablished provenance** — a Stack Overflow answer, a gist, a pasted
+  fragment whose origin cannot be traced.
+- **Removing or falsifying attribution**, upstream copyright lines, or license headers.
+
+Reverse-engineering research artifacts of proprietary tools (`RE-ARTIFACTS`,
+`blaxxun-cs-RE`, and similar) remain **implementation-prohibited**. They are not
+open-source material and a GPL project license does nothing to change that.
+
+> **Provenance before convenience.** If you cannot establish where something came from
+> and under what license, do not copy it into WRL Forge. An unprovable origin is a
+> defect, not a detail.
+
+## 4. Third-party provenance register
+
+Every piece of third-party implementation material incorporated into WRL Forge is
+recorded here with:
+
+| field | meaning |
+|---|---|
+| Upstream project | name |
+| Source | repository or download URL |
+| Version | tag, release, or commit, where practical |
+| Component | the upstream file(s) or module used |
+| Authors | upstream copyright holders |
+| License | SPDX identifier |
+| Destination | the WRL Forge file(s) |
+| Mode | `copied` · `adapted` · `translated` · `conceptually informed only` |
+| Local changes | substantial modifications made |
+| Notices | what must ship, and where it ships |
+
+### Current entries
+
+**None.** No third-party implementation code has been copied, adapted, or translated
+into WRL Forge's own source. Everything under `src/`, `renderer/`, `main.js`,
+`preload.js`, `validator.js`, and `scripts/` is original work.
+
+Third-party components that WRL Forge **depends on and redistributes unmodified**
+(x_ite, CodeMirror, Electron, and their bundled assets) are not implementation
+derivations and are inventoried separately in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+### Standards data is not third-party code
+
+`src/vrml/node-schema.js` is generated from two license-clean **fact** sources — the
+ISO/IEC 14772-1 (VRML97) node reference and the MIT-licensed `x_ite.d.ts` type
+declarations. It extracts names, types, access categories, and default literals; it
+reproduces no standards prose and no implementation. That remains true and is asserted
+by `test/vrml/node-schema.test.js`.
+
+That test is a **provenance statement about that one generated file**, not a residue of
+the old prohibition. If a future lane derives schema content from another source, the
+test and this section change together.
+
+## 5. Source headers
+
+**Do not mass-add GPL boilerplate headers to existing files.** The root `LICENSE` plus
+`package.json` metadata are sufficient for WRL Forge's original files, and a sweeping
+header commit would bury real history under churn.
+
+For **new** files, a single SPDX line is encouraged where it is unobtrusive:
+
+```js
+// SPDX-License-Identifier: GPL-3.0-or-later
+```
+
+For **third-party-derived** files, preserve the upstream copyright and license header
+verbatim and add WRL Forge's own notice **alongside** it. Never replace an upstream
+header with a WRL Forge one — that is exactly the falsified-attribution case §3 forbids.
+
+## 6. Corpus and research boundaries
+
+The spike harnesses under `spikes/` guard their corpus roots with hard path assertions
+that **throw** rather than silently skip. Those guards are **corpus hygiene**, not
+license policy: a VRML97 semantics sweep measures authored Cybertown content, and a
+modeling tool's C++ source tree or a reverse-engineering artifact directory is not that.
+The guards stay, and their rationale is unchanged by the license transition.
+
+## 7. Standards remain the normative authority
+
+WRL Forge is standards-first. Correctness questions about VRML97 are settled by
+**ISO/IEC 14772-1** and the Web3D specifications — never by any single implementation's
+behaviour, White Dune's included.
+
+Another implementation can teach *technique*: how to structure a scene tree, what a
+field inspector needs, how a ROUTE graph is usefully drawn. It cannot establish what the
+language *means*. Where an implementation and the standard disagree, the standard wins
+and the divergence is classified as a compatibility item (see [`WD.md`](WD.md) §9).
+
+## 8. Featured artwork and content
+
+Creative content — VRML scenes, models, textures — displayed *by* WRL Forge or featured
+on the project website is **not** covered by the software license. See
+[`FEATURED_CONTENT_POLICY.md`](FEATURED_CONTENT_POLICY.md).

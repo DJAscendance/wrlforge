@@ -5,7 +5,7 @@
 
 # WRL Forge
 
-[![DeepScan grade](https://deepscan.io/api/teams/30342/projects/32189/branches/1050698/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=30342&pid=32189&bid=1050698) ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/DJAscendance/wrlforge?utm_source=oss&utm_medium=github&utm_campaign=DJAscendance%2Fwrlforge&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3%2B-blue.svg)](LICENSE) [![DeepScan grade](https://deepscan.io/api/teams/30342/projects/32189/branches/1050698/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=30342&pid=32189&bid=1050698) ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/DJAscendance/wrlforge?utm_source=oss&utm_medium=github&utm_campaign=DJAscendance%2Fwrlforge&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 A Linux-first, Windows-supported desktop tool for editing, previewing, inspecting, and packaging classic VRML97 `.wrl` content for Cybertown items and worlds.
 
@@ -153,8 +153,35 @@ WRL Forge is inspired by the builders, coders, and community members who made Cy
 
 Naming these people reflects gratitude and inspiration only. It implies **no endorsement, employment, ownership, or official Cybertown affiliation**, and this project is not presented as their work.
 
-## Copyright
+## Contributing
 
-`Copyright © 2026 Ryan Bundy (BassMekanik2000).`
+Contributions are welcome — code, bug reports, VRML compatibility findings, and
+documentation fixes alike.
 
-WRL Forge is **open source** under the **MIT License** — use it freely, just keep the copyright notice ([`LICENSE`](LICENSE)). Third-party components retain their own licenses. See [COPYRIGHT.md](COPYRIGHT.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for details.
+- Contributions are accepted under **`GPL-3.0-or-later`**, the project's own licence.
+- **You keep the copyright in what you write.** There is no copyright assignment and no CLA.
+- Commits are signed off with the [Developer Certificate of Origin](https://developercertificate.org/) (`git commit -s`).
+- If you bring in code from another open-source project, disclose its source and licence, and keep its notices intact.
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). Provenance rules for reused open-source
+material are in [OPEN_SOURCE_PROVENANCE.md](OPEN_SOURCE_PROVENANCE.md).
+
+## License and Copyright
+
+`Copyright © 2026 Ryan Bundy (BassMekanik2000) and contributors.`
+
+WRL Forge is **free and open-source software** under the **GNU General Public License,
+version 3 or later** (`GPL-3.0-or-later`) — see [`LICENSE`](LICENSE). You may use, study,
+modify, and redistribute it; if you distribute it, you pass on the same freedoms and
+provide the corresponding source.
+
+Third-party components keep their own licenses and notices — see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Featured **artwork and VRML content**
+is separate from the software licence and stays with its creator — see
+[FEATURED_CONTENT_POLICY.md](FEATURED_CONTENT_POLICY.md).
+
+Full statement: [COPYRIGHT.md](COPYRIGHT.md).
+
+*(Releases through `v1.3.0-beta.3` were distributed under the MIT License. Existing copies
+retain the permissions granted by that MIT license. WRL Forge changes to `GPL-3.0-or-later`
+beginning with this transition and subsequent releases.)*

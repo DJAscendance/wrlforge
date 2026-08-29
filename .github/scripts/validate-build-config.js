@@ -13,7 +13,7 @@ const req = (cond, msg) => { if (!cond) problems.push(msg); };
 // --- top-level metadata ---
 req(pkg.version === '1.3.0-beta.3', `version must be 1.3.0-beta.3 (got ${pkg.version})`);
 req(pkg.author === 'Ryan Bundy (BassMekanik2000)', `author must be "Ryan Bundy (BassMekanik2000)" (got ${JSON.stringify(pkg.author)})`);
-req(pkg.license === 'MIT', `license must be MIT (got ${JSON.stringify(pkg.license)})`);
+req(pkg.license === 'GPL-3.0-or-later', `license must be GPL-3.0-or-later (got ${JSON.stringify(pkg.license)})`);
 req(pkg.homepage === 'https://wrlforge.com', `homepage must be https://wrlforge.com (got ${JSON.stringify(pkg.homepage)})`);
 
 const b = pkg.build || {};

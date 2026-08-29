@@ -1,10 +1,15 @@
 # Third-Party Notices
 
-WRL Forge (`Copyright © 2026 Ryan Bundy (BassMekanik2000)`, MIT-licensed) bundles and builds upon
-third-party components. **WRL Forge does not own these components.** They remain the property
-of their respective authors and are governed by their own licenses, reproduced or referenced
-below. Nothing in this file grants any rights to the WRL Forge code itself — see
-[`COPYRIGHT.md`](COPYRIGHT.md) and [`LICENSE`](LICENSE).
+WRL Forge (`Copyright © 2026 Ryan Bundy (BassMekanik2000) and contributors`, licensed
+`GPL-3.0-or-later`) bundles and builds upon third-party components. **WRL Forge does not own
+these components.** They remain the property of their respective authors and are governed by
+their own licenses, reproduced or referenced below — the GPL applies to WRL Forge's own code
+and does **not** relicense anything listed here. Nothing in this file grants any rights to the
+WRL Forge code itself — see [`COPYRIGHT.md`](COPYRIGHT.md) and [`LICENSE`](LICENSE).
+
+Every component below is distributed under a license compatible with conveying the combined
+program under `GPL-3.0-or-later`. How third-party material is vetted and recorded is described
+in [`OPEN_SOURCE_PROVENANCE.md`](OPEN_SOURCE_PROVENANCE.md).
 
 ## Why this file exists
 
@@ -16,6 +21,11 @@ those components, their notices are reproduced here instead.
 (The Electron packaging pipeline additionally emits its own bundled license blobs for
 Chromium, ffmpeg, and related runtime components; those are left in place within the
 distributed application and are not restated here.)
+
+**Where these notices ship.** The packaged application carries this file, the WRL Forge
+`LICENSE` (GPLv3), and `OPEN_SOURCE_PROVENANCE.md` in a `licenses/` directory beside the
+executable (`package.json` → `build.extraFiles`), so a recipient of a binary has the license
+text without needing the repository.
 
 ---
 
@@ -34,7 +44,11 @@ Shipped in the application bundle:
 - **@codemirror/lint**
 - **@codemirror/search**
 - **@lezer/highlight**
-- **@lezer/common**
+- **@lezer/common** (transitive)
+- **@marijn/find-cluster-break** (transitive, via `@codemirror/state`)
+- **style-mod** (transitive, via `@codemirror/view`)
+- **w3c-keyname** (transitive, via `@codemirror/view`)
+- **crelt** (transitive, via `@codemirror/view` / `@codemirror/search`)
 - **Electron**
 
 Build-time tooling only (not shipped in the application):
@@ -94,3 +108,28 @@ application bundle.
   (MPL-2.0). Used at build time only, as a development dependency, to rasterize the
   application icons. It is **not** shipped in the application bundle. The full MPL-2.0 text is
   available at <https://www.mozilla.org/MPL/2.0/>.
+
+---
+
+## Compatibility with the project license
+
+| component | license | ships? | GPL-3.0-or-later compatible |
+|---|---|---|---|
+| x_ite (+ transitive CodeMirror/@lezer deps, Electron) | MIT | yes | yes — permissive, absorbable |
+| PT Sans (in x_ite) | OFL-1.1 | yes (font data) | separately licensed font data, aggregated |
+| Droid Serif (in x_ite) | Apache-2.0 | yes (font data) | yes — Apache-2.0 is GPLv3-compatible |
+| Ubuntu Mono (in x_ite) | Ubuntu Font Licence 1.0 | yes (font data) | separately licensed font data, aggregated |
+| esbuild, electron-builder | MIT | build-only | n/a (not distributed) |
+| @resvg/resvg-js | MPL-2.0 | build-only | n/a (not distributed) |
+
+**On the bundled fonts.** The three font families travel inside the `x_ite` package's own
+`dist/assets/fonts/**`, each accompanied by its own license file, and are redistributed
+unmodified. They are font *data* consumed at runtime, not source combined into the WRL Forge
+program, and each retains its own license. No font is relicensed by this project, and their
+license texts must continue to ship with them.
+
+## Nothing here is WRL Forge's own work
+
+No component listed in this file was authored by WRL Forge, and none may be relabelled as
+such. No third-party implementation code has been copied or adapted into WRL Forge's own
+sources — see [`OPEN_SOURCE_PROVENANCE.md`](OPEN_SOURCE_PROVENANCE.md) §4.
