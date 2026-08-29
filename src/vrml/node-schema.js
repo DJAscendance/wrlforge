@@ -9,14 +9,26 @@
 //
 //     node scripts/build-node-schema.js --check
 //
-// Phase WD1.3. A machine-readable inventory of the VRML97 node and field
-// interface, tagged so a strict-VRML97 consumer can never be handed an X3D-only
-// field by accident.
+// Phases WD1.3 and WD1.6-A. A machine-readable inventory of the VRML97 node and
+// field interface, tagged so a strict-VRML97 consumer can never be handed an
+// X3D-only field by accident, plus the standards-derived semantic metadata a
+// scene tree, inspector or diagnostic layer needs: node classes, accepted node
+// types per node-valued field, and field value ranges.
+//
+// READ THIS BEFORE USING `constraints`: a `null` means NO MACHINE-REPRESENTED
+// CONSTRAINT IS AVAILABLE. It does NOT mean the field is unrestricted, and
+// nothing may be clamped or rejected on the strength of it. A present record is
+// not exhaustive either -- a `note` marks a normative restriction that this
+// shape cannot carry. This is metadata for consumers to reason with, not a
+// validator.
 //
 // SOURCES (both license-clean; see OPEN_SOURCE_PROVENANCE.md)
 //   * ISO/IEC 14772-1 (VRML97), clause 6 node reference -- NORMATIVE for the
-//     VRML97 node set, field names, field types, declaration categories, and
-//     default values.
+//     VRML97 node set, field names, field types, declaration categories,
+//     default values and field value ranges.
+//   * ISO/IEC 14772-1 (VRML97), clause 4 concepts -- NORMATIVE for the node
+//     class enumerations and for Table 4.3, the valid node types of each SFNode
+//     and MFNode field.
 //   * x_ite.d.ts from the MIT-licensed x_ite package already depended on by this
 //     repository -- the current X3D runtime shape, used to tag which fields are
 //     X3D-only.
@@ -39,12 +51,30 @@
 // any earlier estimate.
 const COUNTS = {
   accessTypePromotions: 17,
+  fieldsExamined: 544,
+  fieldsWithAcceptedNodeClasses: 7,
+  fieldsWithAcceptedNodeTypes: 18,
+  fieldsWithAllowedValues: 0,
+  fieldsWithConstraintNote: 21,
+  fieldsWithConstraints: 167,
+  fieldsWithExclusiveMax: 99,
+  fieldsWithExclusiveMin: 73,
+  fieldsWithInclusiveMax: 30,
+  fieldsWithInclusiveMin: 56,
+  fieldsWithNumericMax: 23,
+  fieldsWithNumericMin: 72,
+  fieldsWithSymbolicMax: 106,
+  fieldsWithSymbolicMin: 57,
   isoDeclarations: 312,
+  nodeClassMemberships: 107,
+  nodeClasses: 10,
+  nodeValuedVrml97Fields: 36,
   nodes: 54,
   scriptTemplatesExcluded: 3,
   shared: 309,
   uncertainDefaults: 0,
   unresolved: 0,
+  vrml97FieldsExamined: 312,
   vrml97Only: 3,
   x3dOnly: 232,
   xiteFields: 541,
@@ -52,7 +82,12 @@ const COUNTS = {
 
 const PROVENANCE = {
   generator: "scripts/build-node-schema.js",
-  generatorVersion: "1.0.0",
+  generatorVersion: "1.1.0",
+  isoConceptsSource: {
+    file: "raw/part1/concepts.html",
+    sha256: "c3a06d345d927bbb295d79b7fd2cc42259c8ed7ecab8d0a156f353f13c0167f7",
+    standard: "ISO/IEC 14772-1 (VRML97)",
+  },
   isoSource: {
     file: "raw/part1/nodesRef.html",
     sha256: "9d7fe5d9026d8e746d0c59401bfc0c3290949397903e4c5ddae90bfd3459dde5",
@@ -72,6 +107,7 @@ const NODES = {
     name: "Anchor",
     section: "6.2",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "grouping", "pointingDeviceSensor", "sensor"],
     fields: {
       addChildren: {
         type: "MFNode",
@@ -79,6 +115,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       autoRefresh: {
         type: "SFTime",
@@ -86,6 +123,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       autoRefreshTimeLimit: {
         type: "SFTime",
@@ -93,6 +131,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxCenter: {
         type: "SFVec3f",
@@ -102,6 +141,13 @@ const NODES = {
         order: 6,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       bboxDisplay: {
         type: "SFBool",
@@ -109,6 +155,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxSize: {
         type: "SFVec3f",
@@ -118,6 +165,13 @@ const NODES = {
         order: 7,
         defaultText: "-1 -1 -1",
         defaultValue: [-1, -1, -1],
+        constraints: {
+          note: {
+            category: "DISJUNCTIVE_RANGE",
+            source: "(0,infinity) or -1,-1,-1",
+          },
+          rules: ["declaration-range"],
+        },
       },
       children: {
         type: "MFNode",
@@ -127,6 +181,10 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          acceptedNodeClasses: ["children"],
+          rules: ["table-4.3"],
+        },
       },
       description: {
         type: "SFString",
@@ -136,6 +194,7 @@ const NODES = {
         order: 3,
         defaultText: "\"\"",
         defaultValue: "",
+        constraints: null,
       },
       load: {
         type: "SFBool",
@@ -143,6 +202,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -150,6 +210,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       parameter: {
         type: "MFString",
@@ -159,6 +220,7 @@ const NODES = {
         order: 4,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       removeChildren: {
         type: "MFNode",
@@ -166,6 +228,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 1,
+        constraints: null,
       },
       url: {
         type: "MFString",
@@ -175,6 +238,7 @@ const NODES = {
         order: 5,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       visible: {
         type: "SFBool",
@@ -182,6 +246,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -189,6 +254,7 @@ const NODES = {
     name: "Appearance",
     section: "6.3",
     profiles: ["vrml97", "x3d"],
+    classes: ["notValidAsChildren"],
     fields: {
       acousticProperties: {
         type: "SFNode",
@@ -196,6 +262,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       alphaCutoff: {
         type: "SFFloat",
@@ -203,6 +270,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       alphaMode: {
         type: "SFString",
@@ -210,6 +278,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       backMaterial: {
         type: "SFNode",
@@ -217,6 +286,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       blendMode: {
         type: "SFNode",
@@ -224,6 +294,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       depthMode: {
         type: "SFNode",
@@ -231,6 +302,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       fillProperties: {
         type: "SFNode",
@@ -238,6 +310,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       lineProperties: {
         type: "SFNode",
@@ -245,6 +318,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       material: {
         type: "SFNode",
@@ -254,6 +328,10 @@ const NODES = {
         order: 0,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Material"],
+          rules: ["table-4.3"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -261,6 +339,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       pointProperties: {
         type: "SFNode",
@@ -268,6 +347,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       shaders: {
         type: "MFNode",
@@ -275,6 +355,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       texture: {
         type: "SFNode",
@@ -284,6 +365,10 @@ const NODES = {
         order: 1,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["ImageTexture", "MovieTexture", "PixelTexture"],
+          rules: ["table-4.3"],
+        },
       },
       textureTransform: {
         type: "SFNode",
@@ -293,6 +378,10 @@ const NODES = {
         order: 2,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["TextureTransform"],
+          rules: ["clause-6-sentence"],
+        },
       },
     },
   },
@@ -300,6 +389,7 @@ const NODES = {
     name: "AudioClip",
     section: "6.4",
     profiles: ["vrml97", "x3d"],
+    classes: ["notValidAsChildren"],
     fields: {
       autoRefresh: {
         type: "SFTime",
@@ -307,6 +397,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       autoRefreshTimeLimit: {
         type: "SFTime",
@@ -314,6 +405,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       description: {
         type: "SFString",
@@ -323,6 +415,7 @@ const NODES = {
         order: 0,
         defaultText: "\"\"",
         defaultValue: "",
+        constraints: null,
       },
       duration_changed: {
         type: "SFTime",
@@ -330,6 +423,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 6,
+        constraints: null,
       },
       elapsedTime: {
         type: "SFTime",
@@ -337,6 +431,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       enabled: {
         type: "SFBool",
@@ -344,6 +439,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       gain: {
         type: "SFFloat",
@@ -351,6 +447,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       isActive: {
         type: "SFBool",
@@ -358,6 +455,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 7,
+        constraints: null,
       },
       isPaused: {
         type: "SFBool",
@@ -365,6 +463,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       load: {
         type: "SFBool",
@@ -372,6 +471,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       loop: {
         type: "SFBool",
@@ -381,6 +481,7 @@ const NODES = {
         order: 1,
         defaultText: "FALSE",
         defaultValue: false,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -388,6 +489,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       pauseTime: {
         type: "SFTime",
@@ -395,6 +497,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       pitch: {
         type: "SFFloat",
@@ -404,6 +507,13 @@ const NODES = {
         order: 2,
         defaultText: "1.0",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       resumeTime: {
         type: "SFTime",
@@ -411,6 +521,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       startTime: {
         type: "SFTime",
@@ -420,6 +531,13 @@ const NODES = {
         order: 3,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       stopTime: {
         type: "SFTime",
@@ -429,6 +547,13 @@ const NODES = {
         order: 4,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       url: {
         type: "MFString",
@@ -438,6 +563,7 @@ const NODES = {
         order: 5,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
     },
   },
@@ -445,6 +571,7 @@ const NODES = {
     name: "Background",
     section: "6.5",
     profiles: ["vrml97", "x3d"],
+    classes: ["children"],
     fields: {
       backUrl: {
         type: "MFString",
@@ -454,6 +581,7 @@ const NODES = {
         order: 3,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       bindTime: {
         type: "SFTime",
@@ -461,6 +589,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bottomUrl: {
         type: "MFString",
@@ -470,6 +599,7 @@ const NODES = {
         order: 4,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       frontUrl: {
         type: "MFString",
@@ -479,6 +609,7 @@ const NODES = {
         order: 5,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       groundAngle: {
         type: "MFFloat",
@@ -488,6 +619,17 @@ const NODES = {
         order: 1,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "pi/2",
+          maxInclusive: true,
+          note: {
+            category: "BOUND_IS_SYMBOLIC",
+            source: "[0,pi/2]",
+          },
+          rules: ["declaration-range"],
+        },
       },
       groundColor: {
         type: "MFColor",
@@ -497,6 +639,13 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       isBound: {
         type: "SFBool",
@@ -504,6 +653,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 11,
+        constraints: null,
       },
       leftUrl: {
         type: "MFString",
@@ -513,6 +663,7 @@ const NODES = {
         order: 6,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -520,6 +671,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       rightUrl: {
         type: "MFString",
@@ -529,6 +681,7 @@ const NODES = {
         order: 7,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       set_bind: {
         type: "SFBool",
@@ -536,6 +689,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       skyAngle: {
         type: "MFFloat",
@@ -545,6 +699,17 @@ const NODES = {
         order: 9,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "pi",
+          maxInclusive: true,
+          note: {
+            category: "BOUND_IS_SYMBOLIC",
+            source: "[0,pi]",
+          },
+          rules: ["declaration-range"],
+        },
       },
       skyColor: {
         type: "MFColor",
@@ -556,6 +721,13 @@ const NODES = {
         defaultValue: [
           [0, 0, 0],
         ],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       topUrl: {
         type: "MFString",
@@ -565,6 +737,7 @@ const NODES = {
         order: 8,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       transparency: {
         type: "SFFloat",
@@ -572,6 +745,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -579,6 +753,7 @@ const NODES = {
     name: "Billboard",
     section: "6.6",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "grouping"],
     fields: {
       addChildren: {
         type: "MFNode",
@@ -586,6 +761,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       axisOfRotation: {
         type: "SFVec3f",
@@ -595,6 +771,13 @@ const NODES = {
         order: 2,
         defaultText: "0 1 0",
         defaultValue: [0, 1, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       bboxCenter: {
         type: "SFVec3f",
@@ -604,6 +787,13 @@ const NODES = {
         order: 4,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       bboxDisplay: {
         type: "SFBool",
@@ -611,6 +801,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxSize: {
         type: "SFVec3f",
@@ -620,6 +811,13 @@ const NODES = {
         order: 5,
         defaultText: "-1 -1 -1",
         defaultValue: [-1, -1, -1],
+        constraints: {
+          note: {
+            category: "DISJUNCTIVE_RANGE",
+            source: "(0,infinity) or -1,-1,-1",
+          },
+          rules: ["declaration-range"],
+        },
       },
       children: {
         type: "MFNode",
@@ -629,6 +827,10 @@ const NODES = {
         order: 3,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          acceptedNodeClasses: ["children"],
+          rules: ["table-4.3"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -636,6 +838,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       removeChildren: {
         type: "MFNode",
@@ -643,6 +846,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 1,
+        constraints: null,
       },
       visible: {
         type: "SFBool",
@@ -650,6 +854,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -657,6 +862,7 @@ const NODES = {
     name: "Box",
     section: "6.7",
     profiles: ["vrml97", "x3d"],
+    classes: ["geometry", "notValidAsChildren"],
     fields: {
       metadata: {
         type: "SFNode",
@@ -664,6 +870,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       size: {
         type: "SFVec3f",
@@ -673,6 +880,13 @@ const NODES = {
         order: 0,
         defaultText: "2 2 2",
         defaultValue: [2, 2, 2],
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       solid: {
         type: "SFBool",
@@ -680,6 +894,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -687,6 +902,7 @@ const NODES = {
     name: "Collision",
     section: "6.8",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "environmentalSensor", "grouping", "sensor"],
     fields: {
       addChildren: {
         type: "MFNode",
@@ -694,6 +910,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       bboxCenter: {
         type: "SFVec3f",
@@ -703,6 +920,13 @@ const NODES = {
         order: 4,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       bboxDisplay: {
         type: "SFBool",
@@ -710,6 +934,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxSize: {
         type: "SFVec3f",
@@ -719,6 +944,13 @@ const NODES = {
         order: 5,
         defaultText: "-1 -1 -1",
         defaultValue: [-1, -1, -1],
+        constraints: {
+          note: {
+            category: "DISJUNCTIVE_RANGE",
+            source: "(0,infinity) or -1,-1,-1",
+          },
+          rules: ["declaration-range"],
+        },
       },
       children: {
         type: "MFNode",
@@ -728,6 +960,10 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          acceptedNodeClasses: ["children"],
+          rules: ["table-4.3"],
+        },
       },
       collide: {
         type: "SFBool",
@@ -737,6 +973,7 @@ const NODES = {
         order: 3,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       collideTime: {
         type: "SFTime",
@@ -744,6 +981,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 7,
+        constraints: null,
       },
       description: {
         type: "SFString",
@@ -751,6 +989,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       enabled: {
         type: "SFBool",
@@ -758,6 +997,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       isActive: {
         type: "SFBool",
@@ -765,6 +1005,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -772,6 +1013,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       proxy: {
         type: "SFNode",
@@ -781,6 +1023,7 @@ const NODES = {
         order: 6,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: null,
       },
       removeChildren: {
         type: "MFNode",
@@ -788,6 +1031,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 1,
+        constraints: null,
       },
       visible: {
         type: "SFBool",
@@ -795,6 +1039,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -802,6 +1047,7 @@ const NODES = {
     name: "Color",
     section: "6.9",
     profiles: ["vrml97", "x3d"],
+    classes: ["notValidAsChildren"],
     fields: {
       color: {
         type: "MFColor",
@@ -811,6 +1057,13 @@ const NODES = {
         order: 0,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -818,6 +1071,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -825,6 +1079,7 @@ const NODES = {
     name: "ColorInterpolator",
     section: "6.10",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "interpolator", "notAffectedByTransformationHierarchy"],
     fields: {
       key: {
         type: "MFFloat",
@@ -834,6 +1089,13 @@ const NODES = {
         order: 1,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       keyValue: {
         type: "MFColor",
@@ -843,6 +1105,13 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -850,6 +1119,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       set_fraction: {
         type: "SFFloat",
@@ -857,6 +1127,13 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       value_changed: {
         type: "SFColor",
@@ -864,6 +1141,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
     },
   },
@@ -871,6 +1149,7 @@ const NODES = {
     name: "Cone",
     section: "6.11",
     profiles: ["vrml97", "x3d"],
+    classes: ["geometry", "notValidAsChildren"],
     fields: {
       bottom: {
         type: "SFBool",
@@ -881,6 +1160,7 @@ const NODES = {
         order: 3,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       bottomRadius: {
         type: "SFFloat",
@@ -890,6 +1170,13 @@ const NODES = {
         order: 0,
         defaultText: "1",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       height: {
         type: "SFFloat",
@@ -899,6 +1186,13 @@ const NODES = {
         order: 1,
         defaultText: "2",
         defaultValue: 2,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -906,6 +1200,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       side: {
         type: "SFBool",
@@ -916,6 +1211,7 @@ const NODES = {
         order: 2,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       solid: {
         type: "SFBool",
@@ -923,6 +1219,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -930,6 +1227,7 @@ const NODES = {
     name: "Coordinate",
     section: "6.12",
     profiles: ["vrml97", "x3d"],
+    classes: ["notValidAsChildren"],
     fields: {
       metadata: {
         type: "SFNode",
@@ -937,6 +1235,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       point: {
         type: "MFVec3f",
@@ -946,6 +1245,13 @@ const NODES = {
         order: 0,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -953,6 +1259,7 @@ const NODES = {
     name: "CoordinateInterpolator",
     section: "6.13",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "interpolator", "notAffectedByTransformationHierarchy"],
     fields: {
       key: {
         type: "MFFloat",
@@ -962,6 +1269,13 @@ const NODES = {
         order: 1,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       keyValue: {
         type: "MFVec3f",
@@ -971,6 +1285,13 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -978,6 +1299,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       set_fraction: {
         type: "SFFloat",
@@ -985,6 +1307,13 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       value_changed: {
         type: "MFVec3f",
@@ -992,6 +1321,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
     },
   },
@@ -999,6 +1329,7 @@ const NODES = {
     name: "Cylinder",
     section: "6.14",
     profiles: ["vrml97", "x3d"],
+    classes: ["geometry", "notValidAsChildren"],
     fields: {
       bottom: {
         type: "SFBool",
@@ -1009,6 +1340,7 @@ const NODES = {
         order: 0,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       height: {
         type: "SFFloat",
@@ -1018,6 +1350,13 @@ const NODES = {
         order: 1,
         defaultText: "2",
         defaultValue: 2,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -1025,6 +1364,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       radius: {
         type: "SFFloat",
@@ -1034,6 +1374,13 @@ const NODES = {
         order: 2,
         defaultText: "1",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       side: {
         type: "SFBool",
@@ -1044,6 +1391,7 @@ const NODES = {
         order: 3,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       solid: {
         type: "SFBool",
@@ -1051,6 +1399,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       top: {
         type: "SFBool",
@@ -1061,6 +1410,7 @@ const NODES = {
         order: 4,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
     },
   },
@@ -1068,6 +1418,7 @@ const NODES = {
     name: "CylinderSensor",
     section: "6.15",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "pointingDeviceSensor", "sensor"],
     fields: {
       autoOffset: {
         type: "SFBool",
@@ -1077,6 +1428,7 @@ const NODES = {
         order: 0,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       axisRotation: {
         type: "SFRotation",
@@ -1084,6 +1436,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       description: {
         type: "SFString",
@@ -1091,6 +1444,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       diskAngle: {
         type: "SFFloat",
@@ -1100,6 +1454,17 @@ const NODES = {
         order: 1,
         defaultText: "0.262",
         defaultValue: 0.262,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "pi/2",
+          maxInclusive: false,
+          note: {
+            category: "BOUND_IS_SYMBOLIC",
+            source: "(0,pi/2)",
+          },
+          rules: ["declaration-range"],
+        },
       },
       enabled: {
         type: "SFBool",
@@ -1109,6 +1474,7 @@ const NODES = {
         order: 2,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       isActive: {
         type: "SFBool",
@@ -1116,6 +1482,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 6,
+        constraints: null,
       },
       isOver: {
         type: "SFBool",
@@ -1123,6 +1490,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       maxAngle: {
         type: "SFFloat",
@@ -1132,6 +1500,17 @@ const NODES = {
         order: 3,
         defaultText: "-1",
         defaultValue: -1,
+        constraints: {
+          minSymbolic: "-2pi",
+          minInclusive: true,
+          maxSymbolic: "2pi",
+          maxInclusive: true,
+          note: {
+            category: "BOUND_IS_SYMBOLIC",
+            source: "[-2pi,2pi]",
+          },
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -1139,6 +1518,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       minAngle: {
         type: "SFFloat",
@@ -1148,6 +1528,17 @@ const NODES = {
         order: 4,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          minSymbolic: "-2pi",
+          minInclusive: true,
+          maxSymbolic: "2pi",
+          maxInclusive: true,
+          note: {
+            category: "BOUND_IS_SYMBOLIC",
+            source: "[-2pi,2pi]",
+          },
+          rules: ["declaration-range"],
+        },
       },
       offset: {
         type: "SFFloat",
@@ -1157,6 +1548,13 @@ const NODES = {
         order: 5,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       rotation_changed: {
         type: "SFRotation",
@@ -1164,6 +1562,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 7,
+        constraints: null,
       },
       trackPoint_changed: {
         type: "SFVec3f",
@@ -1171,6 +1570,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 8,
+        constraints: null,
       },
     },
   },
@@ -1178,6 +1578,7 @@ const NODES = {
     name: "DirectionalLight",
     section: "6.16",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "lightSource"],
     fields: {
       ambientIntensity: {
         type: "SFFloat",
@@ -1187,6 +1588,13 @@ const NODES = {
         order: 0,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       color: {
         type: "SFColor",
@@ -1196,6 +1604,13 @@ const NODES = {
         order: 1,
         defaultText: "1 1 1",
         defaultValue: [1, 1, 1],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       direction: {
         type: "SFVec3f",
@@ -1205,6 +1620,13 @@ const NODES = {
         order: 2,
         defaultText: "0 0 -1",
         defaultValue: [0, 0, -1],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       global: {
         type: "SFBool",
@@ -1212,6 +1634,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       intensity: {
         type: "SFFloat",
@@ -1221,6 +1644,13 @@ const NODES = {
         order: 3,
         defaultText: "1",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -1228,6 +1658,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       on: {
         type: "SFBool",
@@ -1237,6 +1668,7 @@ const NODES = {
         order: 4,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       shadowIntensity: {
         type: "SFFloat",
@@ -1244,6 +1676,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       shadows: {
         type: "SFBool",
@@ -1251,6 +1684,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -1258,6 +1692,7 @@ const NODES = {
     name: "ElevationGrid",
     section: "6.17",
     profiles: ["vrml97", "x3d"],
+    classes: ["geometry", "notValidAsChildren"],
     fields: {
       attrib: {
         type: "MFNode",
@@ -1265,6 +1700,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       ccw: {
         type: "SFBool",
@@ -1274,6 +1710,7 @@ const NODES = {
         order: 5,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       color: {
         type: "SFNode",
@@ -1283,6 +1720,10 @@ const NODES = {
         order: 1,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Color"],
+          rules: ["table-4.3"],
+        },
       },
       colorPerVertex: {
         type: "SFBool",
@@ -1292,6 +1733,7 @@ const NODES = {
         order: 6,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       creaseAngle: {
         type: "SFFloat",
@@ -1301,6 +1743,13 @@ const NODES = {
         order: 7,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       fogCoord: {
         type: "SFNode",
@@ -1308,6 +1757,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       height: {
         type: "MFFloat",
@@ -1317,6 +1767,13 @@ const NODES = {
         order: 4,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -1324,6 +1781,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       normal: {
         type: "SFNode",
@@ -1333,6 +1791,10 @@ const NODES = {
         order: 2,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Normal"],
+          rules: ["table-4.3"],
+        },
       },
       normalPerVertex: {
         type: "SFBool",
@@ -1342,6 +1804,7 @@ const NODES = {
         order: 8,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       set_height: {
         type: "MFFloat",
@@ -1349,6 +1812,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       solid: {
         type: "SFBool",
@@ -1358,6 +1822,7 @@ const NODES = {
         order: 9,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       tangent: {
         type: "SFNode",
@@ -1365,6 +1830,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       texCoord: {
         type: "SFNode",
@@ -1374,6 +1840,10 @@ const NODES = {
         order: 3,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["TextureCoordinate"],
+          rules: ["table-4.3"],
+        },
       },
       xDimension: {
         type: "SFInt32",
@@ -1383,6 +1853,13 @@ const NODES = {
         order: 10,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       xSpacing: {
         type: "SFFloat",
@@ -1392,6 +1869,13 @@ const NODES = {
         order: 11,
         defaultText: "1.0",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       zDimension: {
         type: "SFInt32",
@@ -1401,6 +1885,13 @@ const NODES = {
         order: 12,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       zSpacing: {
         type: "SFFloat",
@@ -1410,6 +1901,13 @@ const NODES = {
         order: 13,
         defaultText: "1.0",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -1417,6 +1915,7 @@ const NODES = {
     name: "Extrusion",
     section: "6.18",
     profiles: ["vrml97", "x3d"],
+    classes: ["geometry", "notValidAsChildren"],
     fields: {
       beginCap: {
         type: "SFBool",
@@ -1426,6 +1925,7 @@ const NODES = {
         order: 4,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       ccw: {
         type: "SFBool",
@@ -1435,6 +1935,7 @@ const NODES = {
         order: 5,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       convex: {
         type: "SFBool",
@@ -1444,6 +1945,7 @@ const NODES = {
         order: 6,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       creaseAngle: {
         type: "SFFloat",
@@ -1453,6 +1955,13 @@ const NODES = {
         order: 7,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       crossSection: {
         type: "MFVec2f",
@@ -1468,6 +1977,7 @@ const NODES = {
           [-1, 1],
           [1, 1],
         ],
+        constraints: null,
       },
       endCap: {
         type: "SFBool",
@@ -1477,6 +1987,7 @@ const NODES = {
         order: 9,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -1484,6 +1995,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       orientation: {
         type: "MFRotation",
@@ -1495,6 +2007,13 @@ const NODES = {
         defaultValue: [
           [0, 0, 1, 0],
         ],
+        constraints: {
+          note: {
+            category: "PER_COMPONENT_RANGE",
+            source: "[-1,1],(-infinity,infinity)",
+          },
+          rules: ["declaration-range"],
+        },
       },
       scale: {
         type: "MFVec2f",
@@ -1506,6 +2025,13 @@ const NODES = {
         defaultValue: [
           [1, 1],
         ],
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       set_crossSection: {
         type: "MFVec2f",
@@ -1513,6 +2039,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       set_orientation: {
         type: "MFRotation",
@@ -1520,6 +2047,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 1,
+        constraints: null,
       },
       set_scale: {
         type: "MFVec2f",
@@ -1527,6 +2055,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 2,
+        constraints: null,
       },
       set_spine: {
         type: "MFVec3f",
@@ -1534,6 +2063,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
       solid: {
         type: "SFBool",
@@ -1543,6 +2073,7 @@ const NODES = {
         order: 12,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       spine: {
         type: "MFVec3f",
@@ -1555,6 +2086,13 @@ const NODES = {
           [0, 0, 0],
           [0, 1, 0],
         ],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -1562,6 +2100,7 @@ const NODES = {
     name: "Fog",
     section: "6.19",
     profiles: ["vrml97", "x3d"],
+    classes: ["children"],
     fields: {
       bindTime: {
         type: "SFTime",
@@ -1569,6 +2108,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       color: {
         type: "SFColor",
@@ -1578,6 +2118,13 @@ const NODES = {
         order: 0,
         defaultText: "1 1 1",
         defaultValue: [1, 1, 1],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       fogType: {
         type: "SFString",
@@ -1587,6 +2134,7 @@ const NODES = {
         order: 1,
         defaultText: "\"LINEAR\"",
         defaultValue: "LINEAR",
+        constraints: null,
       },
       isBound: {
         type: "SFBool",
@@ -1594,6 +2142,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 4,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -1601,6 +2150,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       set_bind: {
         type: "SFBool",
@@ -1608,6 +2158,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
       visibilityRange: {
         type: "SFFloat",
@@ -1617,6 +2168,13 @@ const NODES = {
         order: 2,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       visibilityStart: {
         type: "SFFloat",
@@ -1624,6 +2182,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -1631,6 +2190,7 @@ const NODES = {
     name: "FontStyle",
     section: "6.20",
     profiles: ["vrml97", "x3d"],
+    classes: [],
     fields: {
       family: {
         type: "MFString",
@@ -1641,6 +2201,7 @@ const NODES = {
         order: 0,
         defaultText: "\"SERIF\"",
         defaultValue: ["SERIF"],
+        constraints: null,
       },
       horizontal: {
         type: "SFBool",
@@ -1651,6 +2212,7 @@ const NODES = {
         order: 1,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       justify: {
         type: "MFString",
@@ -1661,6 +2223,7 @@ const NODES = {
         order: 2,
         defaultText: "\"BEGIN\"",
         defaultValue: ["BEGIN"],
+        constraints: null,
       },
       language: {
         type: "SFString",
@@ -1671,6 +2234,7 @@ const NODES = {
         order: 3,
         defaultText: "\"\"",
         defaultValue: "",
+        constraints: null,
       },
       leftToRight: {
         type: "SFBool",
@@ -1681,6 +2245,7 @@ const NODES = {
         order: 4,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -1688,6 +2253,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       size: {
         type: "SFFloat",
@@ -1698,6 +2264,13 @@ const NODES = {
         order: 5,
         defaultText: "1.0",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       spacing: {
         type: "SFFloat",
@@ -1708,6 +2281,13 @@ const NODES = {
         order: 6,
         defaultText: "1.0",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       style: {
         type: "SFString",
@@ -1718,6 +2298,7 @@ const NODES = {
         order: 7,
         defaultText: "\"PLAIN\"",
         defaultValue: "PLAIN",
+        constraints: null,
       },
       topToBottom: {
         type: "SFBool",
@@ -1728,6 +2309,7 @@ const NODES = {
         order: 8,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
     },
   },
@@ -1735,6 +2317,7 @@ const NODES = {
     name: "Group",
     section: "6.21",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "grouping"],
     fields: {
       addChildren: {
         type: "MFNode",
@@ -1742,6 +2325,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       bboxCenter: {
         type: "SFVec3f",
@@ -1751,6 +2335,13 @@ const NODES = {
         order: 3,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       bboxDisplay: {
         type: "SFBool",
@@ -1758,6 +2349,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxSize: {
         type: "SFVec3f",
@@ -1767,6 +2359,13 @@ const NODES = {
         order: 4,
         defaultText: "-1 -1 -1",
         defaultValue: [-1, -1, -1],
+        constraints: {
+          note: {
+            category: "DISJUNCTIVE_RANGE",
+            source: "(0,infinity) or -1,-1,-1",
+          },
+          rules: ["declaration-range"],
+        },
       },
       children: {
         type: "MFNode",
@@ -1776,6 +2375,10 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          acceptedNodeClasses: ["children"],
+          rules: ["table-4.3"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -1783,6 +2386,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       removeChildren: {
         type: "MFNode",
@@ -1790,6 +2394,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 1,
+        constraints: null,
       },
       visible: {
         type: "SFBool",
@@ -1797,6 +2402,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -1804,6 +2410,7 @@ const NODES = {
     name: "ImageTexture",
     section: "6.22",
     profiles: ["vrml97", "x3d"],
+    classes: ["notValidAsChildren"],
     fields: {
       autoRefresh: {
         type: "SFTime",
@@ -1811,6 +2418,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       autoRefreshTimeLimit: {
         type: "SFTime",
@@ -1818,6 +2426,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       colorDepth: {
         type: "SFInt32",
@@ -1825,6 +2434,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       description: {
         type: "SFString",
@@ -1832,6 +2442,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       height: {
         type: "SFInt32",
@@ -1839,6 +2450,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       load: {
         type: "SFBool",
@@ -1846,6 +2458,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -1853,6 +2466,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       repeatS: {
         type: "SFBool",
@@ -1862,6 +2476,7 @@ const NODES = {
         order: 1,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       repeatT: {
         type: "SFBool",
@@ -1871,6 +2486,7 @@ const NODES = {
         order: 2,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       textureProperties: {
         type: "SFNode",
@@ -1878,6 +2494,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       url: {
         type: "MFString",
@@ -1887,6 +2504,7 @@ const NODES = {
         order: 0,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       width: {
         type: "SFInt32",
@@ -1894,6 +2512,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -1901,6 +2520,7 @@ const NODES = {
     name: "IndexedFaceSet",
     section: "6.23",
     profiles: ["vrml97", "x3d"],
+    classes: ["geometry", "notValidAsChildren"],
     fields: {
       attrib: {
         type: "MFNode",
@@ -1908,6 +2528,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       ccw: {
         type: "SFBool",
@@ -1917,6 +2538,7 @@ const NODES = {
         order: 8,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       color: {
         type: "SFNode",
@@ -1926,6 +2548,10 @@ const NODES = {
         order: 4,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Color"],
+          rules: ["table-4.3"],
+        },
       },
       colorIndex: {
         type: "MFInt32",
@@ -1935,6 +2561,13 @@ const NODES = {
         order: 9,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: -1,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       colorPerVertex: {
         type: "SFBool",
@@ -1944,6 +2577,7 @@ const NODES = {
         order: 10,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       convex: {
         type: "SFBool",
@@ -1953,6 +2587,7 @@ const NODES = {
         order: 11,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       coord: {
         type: "SFNode",
@@ -1962,6 +2597,10 @@ const NODES = {
         order: 5,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Coordinate"],
+          rules: ["table-4.3"],
+        },
       },
       coordIndex: {
         type: "MFInt32",
@@ -1971,6 +2610,13 @@ const NODES = {
         order: 12,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: -1,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       creaseAngle: {
         type: "SFFloat",
@@ -1980,6 +2626,13 @@ const NODES = {
         order: 13,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       fogCoord: {
         type: "SFNode",
@@ -1987,6 +2640,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -1994,6 +2648,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       normal: {
         type: "SFNode",
@@ -2003,6 +2658,10 @@ const NODES = {
         order: 6,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Normal"],
+          rules: ["table-4.3"],
+        },
       },
       normalIndex: {
         type: "MFInt32",
@@ -2012,6 +2671,13 @@ const NODES = {
         order: 14,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: -1,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       normalPerVertex: {
         type: "SFBool",
@@ -2021,6 +2687,7 @@ const NODES = {
         order: 15,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       set_colorIndex: {
         type: "MFInt32",
@@ -2028,6 +2695,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       set_coordIndex: {
         type: "MFInt32",
@@ -2035,6 +2703,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 1,
+        constraints: null,
       },
       set_normalIndex: {
         type: "MFInt32",
@@ -2042,6 +2711,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 2,
+        constraints: null,
       },
       set_texCoordIndex: {
         type: "MFInt32",
@@ -2049,6 +2719,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
       solid: {
         type: "SFBool",
@@ -2058,6 +2729,7 @@ const NODES = {
         order: 16,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       tangent: {
         type: "SFNode",
@@ -2065,6 +2737,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       texCoord: {
         type: "SFNode",
@@ -2074,6 +2747,10 @@ const NODES = {
         order: 7,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["TextureCoordinate"],
+          rules: ["table-4.3"],
+        },
       },
       texCoordIndex: {
         type: "MFInt32",
@@ -2083,6 +2760,13 @@ const NODES = {
         order: 17,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: -1,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -2090,6 +2774,7 @@ const NODES = {
     name: "IndexedLineSet",
     section: "6.24",
     profiles: ["vrml97", "x3d"],
+    classes: ["geometry", "notValidAsChildren"],
     fields: {
       attrib: {
         type: "MFNode",
@@ -2097,6 +2782,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       color: {
         type: "SFNode",
@@ -2106,6 +2792,10 @@ const NODES = {
         order: 2,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Color"],
+          rules: ["table-4.3"],
+        },
       },
       colorIndex: {
         type: "MFInt32",
@@ -2115,6 +2805,13 @@ const NODES = {
         order: 4,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: -1,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       colorPerVertex: {
         type: "SFBool",
@@ -2124,6 +2821,7 @@ const NODES = {
         order: 5,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       coord: {
         type: "SFNode",
@@ -2133,6 +2831,10 @@ const NODES = {
         order: 3,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Coordinate"],
+          rules: ["table-4.3"],
+        },
       },
       coordIndex: {
         type: "MFInt32",
@@ -2142,6 +2844,13 @@ const NODES = {
         order: 6,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: -1,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       fogCoord: {
         type: "SFNode",
@@ -2149,6 +2858,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -2156,6 +2866,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       normal: {
         type: "SFNode",
@@ -2163,6 +2874,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       set_colorIndex: {
         type: "MFInt32",
@@ -2170,6 +2882,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       set_coordIndex: {
         type: "MFInt32",
@@ -2177,6 +2890,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 1,
+        constraints: null,
       },
       tangent: {
         type: "SFNode",
@@ -2184,6 +2898,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -2191,6 +2906,7 @@ const NODES = {
     name: "Inline",
     section: "6.25",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "grouping"],
     fields: {
       autoRefresh: {
         type: "SFTime",
@@ -2198,6 +2914,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       autoRefreshTimeLimit: {
         type: "SFTime",
@@ -2205,6 +2922,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxCenter: {
         type: "SFVec3f",
@@ -2214,6 +2932,13 @@ const NODES = {
         order: 1,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       bboxDisplay: {
         type: "SFBool",
@@ -2221,6 +2946,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxSize: {
         type: "SFVec3f",
@@ -2230,6 +2956,13 @@ const NODES = {
         order: 2,
         defaultText: "-1 -1 -1",
         defaultValue: [-1, -1, -1],
+        constraints: {
+          note: {
+            category: "DISJUNCTIVE_RANGE",
+            source: "(0,infinity) or -1,-1,-1",
+          },
+          rules: ["declaration-range"],
+        },
       },
       description: {
         type: "SFString",
@@ -2237,6 +2970,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       global: {
         type: "SFBool",
@@ -2244,6 +2978,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       load: {
         type: "SFBool",
@@ -2251,6 +2986,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -2258,6 +2994,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       url: {
         type: "MFString",
@@ -2267,6 +3004,7 @@ const NODES = {
         order: 0,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       visible: {
         type: "SFBool",
@@ -2274,6 +3012,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -2281,6 +3020,7 @@ const NODES = {
     name: "LOD",
     section: "6.26",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "grouping"],
     fields: {
       addChildren: {
         type: "MFNode",
@@ -2288,6 +3028,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxCenter: {
         type: "SFVec3f",
@@ -2295,6 +3036,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxDisplay: {
         type: "SFBool",
@@ -2302,6 +3044,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxSize: {
         type: "SFVec3f",
@@ -2309,6 +3052,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       center: {
         type: "SFVec3f",
@@ -2318,6 +3062,13 @@ const NODES = {
         order: 1,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       children: {
         type: "MFNode",
@@ -2325,6 +3076,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       forceTransitions: {
         type: "SFBool",
@@ -2332,6 +3084,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       level: {
         type: "MFNode",
@@ -2341,6 +3094,10 @@ const NODES = {
         order: 0,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          acceptedNodeClasses: ["children"],
+          rules: ["table-4.3"],
+        },
       },
       level_changed: {
         type: "SFInt32",
@@ -2348,6 +3105,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -2355,6 +3113,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       range: {
         type: "MFFloat",
@@ -2364,6 +3123,13 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       removeChildren: {
         type: "MFNode",
@@ -2371,6 +3137,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       visible: {
         type: "SFBool",
@@ -2378,6 +3145,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -2385,6 +3153,7 @@ const NODES = {
     name: "Material",
     section: "6.27",
     profiles: ["vrml97", "x3d"],
+    classes: ["notValidAsChildren"],
     fields: {
       ambientIntensity: {
         type: "SFFloat",
@@ -2394,6 +3163,13 @@ const NODES = {
         order: 0,
         defaultText: "0.2",
         defaultValue: 0.2,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       ambientTexture: {
         type: "SFNode",
@@ -2401,6 +3177,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       ambientTextureMapping: {
         type: "SFString",
@@ -2408,6 +3185,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       diffuseColor: {
         type: "SFColor",
@@ -2417,6 +3195,13 @@ const NODES = {
         order: 1,
         defaultText: "0.8 0.8 0.8",
         defaultValue: [0.8, 0.8, 0.8],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       diffuseTexture: {
         type: "SFNode",
@@ -2424,6 +3209,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       diffuseTextureMapping: {
         type: "SFString",
@@ -2431,6 +3217,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       emissiveColor: {
         type: "SFColor",
@@ -2440,6 +3227,13 @@ const NODES = {
         order: 2,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       emissiveTexture: {
         type: "SFNode",
@@ -2447,6 +3241,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       emissiveTextureMapping: {
         type: "SFString",
@@ -2454,6 +3249,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -2461,6 +3257,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       normalScale: {
         type: "SFFloat",
@@ -2468,6 +3265,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       normalTexture: {
         type: "SFNode",
@@ -2475,6 +3273,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       normalTextureMapping: {
         type: "SFString",
@@ -2482,6 +3281,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       occlusionStrength: {
         type: "SFFloat",
@@ -2489,6 +3289,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       occlusionTexture: {
         type: "SFNode",
@@ -2496,6 +3297,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       occlusionTextureMapping: {
         type: "SFString",
@@ -2503,6 +3305,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       shininess: {
         type: "SFFloat",
@@ -2512,6 +3315,13 @@ const NODES = {
         order: 3,
         defaultText: "0.2",
         defaultValue: 0.2,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       shininessTexture: {
         type: "SFNode",
@@ -2519,6 +3329,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       shininessTextureMapping: {
         type: "SFString",
@@ -2526,6 +3337,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       specularColor: {
         type: "SFColor",
@@ -2535,6 +3347,13 @@ const NODES = {
         order: 4,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       specularTexture: {
         type: "SFNode",
@@ -2542,6 +3361,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       specularTextureMapping: {
         type: "SFString",
@@ -2549,6 +3369,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       transparency: {
         type: "SFFloat",
@@ -2558,6 +3379,13 @@ const NODES = {
         order: 5,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -2565,6 +3393,7 @@ const NODES = {
     name: "MovieTexture",
     section: "6.28",
     profiles: ["vrml97", "x3d"],
+    classes: ["notValidAsChildren"],
     fields: {
       autoRefresh: {
         type: "SFTime",
@@ -2572,6 +3401,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       autoRefreshTimeLimit: {
         type: "SFTime",
@@ -2579,6 +3409,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       colorDepth: {
         type: "SFInt32",
@@ -2586,6 +3417,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       description: {
         type: "SFString",
@@ -2593,6 +3425,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       duration_changed: {
         type: "SFTime",
@@ -2600,6 +3433,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 7,
+        constraints: null,
       },
       elapsedTime: {
         type: "SFTime",
@@ -2607,6 +3441,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       enabled: {
         type: "SFBool",
@@ -2614,6 +3449,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       gain: {
         type: "SFFloat",
@@ -2621,6 +3457,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       hasSound: {
         type: "SFInt32",
@@ -2628,6 +3465,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       height: {
         type: "SFInt32",
@@ -2635,6 +3473,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       isActive: {
         type: "SFBool",
@@ -2642,6 +3481,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 8,
+        constraints: null,
       },
       isPaused: {
         type: "SFBool",
@@ -2649,6 +3489,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       load: {
         type: "SFBool",
@@ -2656,6 +3497,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       loop: {
         type: "SFBool",
@@ -2665,6 +3507,7 @@ const NODES = {
         order: 0,
         defaultText: "FALSE",
         defaultValue: false,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -2672,6 +3515,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       pauseTime: {
         type: "SFTime",
@@ -2679,6 +3523,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       pitch: {
         type: "SFFloat",
@@ -2686,6 +3531,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       repeatS: {
         type: "SFBool",
@@ -2695,6 +3541,7 @@ const NODES = {
         order: 5,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       repeatT: {
         type: "SFBool",
@@ -2704,6 +3551,7 @@ const NODES = {
         order: 6,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       resumeTime: {
         type: "SFTime",
@@ -2711,6 +3559,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       speed: {
         type: "SFFloat",
@@ -2720,6 +3569,13 @@ const NODES = {
         order: 1,
         defaultText: "1.0",
         defaultValue: 1,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       startTime: {
         type: "SFTime",
@@ -2729,6 +3585,13 @@ const NODES = {
         order: 2,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       stopTime: {
         type: "SFTime",
@@ -2738,6 +3601,13 @@ const NODES = {
         order: 3,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       textureProperties: {
         type: "SFNode",
@@ -2745,6 +3615,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       url: {
         type: "MFString",
@@ -2754,6 +3625,7 @@ const NODES = {
         order: 4,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       width: {
         type: "SFInt32",
@@ -2761,6 +3633,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -2768,6 +3641,7 @@ const NODES = {
     name: "NavigationInfo",
     section: "6.29",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "notAffectedByTransformationHierarchy"],
     fields: {
       avatarSize: {
         type: "MFFloat",
@@ -2777,6 +3651,13 @@ const NODES = {
         order: 1,
         defaultText: "[0.25, 1.6, 0.75]",
         defaultValue: [0.25, 1.6, 0.75],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       bindTime: {
         type: "SFTime",
@@ -2784,6 +3665,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       headlight: {
         type: "SFBool",
@@ -2793,6 +3675,7 @@ const NODES = {
         order: 2,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       isBound: {
         type: "SFBool",
@@ -2800,6 +3683,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 6,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -2807,6 +3691,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       set_bind: {
         type: "SFBool",
@@ -2814,6 +3699,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       speed: {
         type: "SFFloat",
@@ -2823,6 +3709,13 @@ const NODES = {
         order: 3,
         defaultText: "1.0",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       transitionComplete: {
         type: "SFBool",
@@ -2830,6 +3723,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       transitionTime: {
         type: "SFTime",
@@ -2837,6 +3731,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       transitionType: {
         type: "MFString",
@@ -2844,6 +3739,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       type: {
         type: "MFString",
@@ -2853,6 +3749,7 @@ const NODES = {
         order: 4,
         defaultText: "[\"WALK\", \"ANY\"]",
         defaultValue: ["WALK", "ANY"],
+        constraints: null,
       },
       visibilityLimit: {
         type: "SFFloat",
@@ -2862,6 +3759,13 @@ const NODES = {
         order: 5,
         defaultText: "0.0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -2869,6 +3773,7 @@ const NODES = {
     name: "Normal",
     section: "6.30",
     profiles: ["vrml97", "x3d"],
+    classes: ["notValidAsChildren"],
     fields: {
       metadata: {
         type: "SFNode",
@@ -2876,6 +3781,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       vector: {
         type: "MFVec3f",
@@ -2885,6 +3791,13 @@ const NODES = {
         order: 0,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -2892,6 +3805,7 @@ const NODES = {
     name: "NormalInterpolator",
     section: "6.31",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "interpolator", "notAffectedByTransformationHierarchy"],
     fields: {
       key: {
         type: "MFFloat",
@@ -2901,6 +3815,13 @@ const NODES = {
         order: 1,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       keyValue: {
         type: "MFVec3f",
@@ -2910,6 +3831,13 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -2917,6 +3845,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       set_fraction: {
         type: "SFFloat",
@@ -2924,6 +3853,13 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       value_changed: {
         type: "MFVec3f",
@@ -2931,6 +3867,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
     },
   },
@@ -2938,6 +3875,7 @@ const NODES = {
     name: "OrientationInterpolator",
     section: "6.32",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "interpolator", "notAffectedByTransformationHierarchy"],
     fields: {
       key: {
         type: "MFFloat",
@@ -2947,6 +3885,13 @@ const NODES = {
         order: 1,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       keyValue: {
         type: "MFRotation",
@@ -2956,6 +3901,13 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          note: {
+            category: "PER_COMPONENT_RANGE",
+            source: "[-1,1],(-infinity,infinity)",
+          },
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -2963,6 +3915,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       set_fraction: {
         type: "SFFloat",
@@ -2970,6 +3923,13 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       value_changed: {
         type: "SFRotation",
@@ -2977,6 +3937,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
     },
   },
@@ -2984,6 +3945,7 @@ const NODES = {
     name: "PixelTexture",
     section: "6.33",
     profiles: ["vrml97", "x3d"],
+    classes: [],
     fields: {
       description: {
         type: "SFString",
@@ -2991,6 +3953,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       image: {
         type: "SFImage",
@@ -3000,6 +3963,13 @@ const NODES = {
         order: 0,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          note: {
+            category: "NON_MACHINE_EXTRACTABLE",
+            source: "see 5.5, SFImage",
+          },
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -3007,6 +3977,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       repeatS: {
         type: "SFBool",
@@ -3016,6 +3987,7 @@ const NODES = {
         order: 1,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       repeatT: {
         type: "SFBool",
@@ -3025,6 +3997,7 @@ const NODES = {
         order: 2,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       textureProperties: {
         type: "SFNode",
@@ -3032,6 +4005,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -3039,6 +4013,7 @@ const NODES = {
     name: "PlaneSensor",
     section: "6.34",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "pointingDeviceSensor", "sensor"],
     fields: {
       autoOffset: {
         type: "SFBool",
@@ -3048,6 +4023,7 @@ const NODES = {
         order: 0,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       axisRotation: {
         type: "SFRotation",
@@ -3055,6 +4031,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       description: {
         type: "SFString",
@@ -3062,6 +4039,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       enabled: {
         type: "SFBool",
@@ -3071,6 +4049,7 @@ const NODES = {
         order: 1,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       isActive: {
         type: "SFBool",
@@ -3078,6 +4057,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 5,
+        constraints: null,
       },
       isOver: {
         type: "SFBool",
@@ -3085,6 +4065,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       maxPosition: {
         type: "SFVec2f",
@@ -3094,6 +4075,13 @@ const NODES = {
         order: 2,
         defaultText: "-1 -1",
         defaultValue: [-1, -1],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -3101,6 +4089,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       minPosition: {
         type: "SFVec2f",
@@ -3110,6 +4099,13 @@ const NODES = {
         order: 3,
         defaultText: "0 0",
         defaultValue: [0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       offset: {
         type: "SFVec3f",
@@ -3119,6 +4115,13 @@ const NODES = {
         order: 4,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       trackPoint_changed: {
         type: "SFVec3f",
@@ -3126,6 +4129,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 6,
+        constraints: null,
       },
       translation_changed: {
         type: "SFVec3f",
@@ -3133,6 +4137,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 7,
+        constraints: null,
       },
     },
   },
@@ -3140,6 +4145,7 @@ const NODES = {
     name: "PointLight",
     section: "6.35",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "lightSource"],
     fields: {
       ambientIntensity: {
         type: "SFFloat",
@@ -3149,6 +4155,13 @@ const NODES = {
         order: 0,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       attenuation: {
         type: "SFVec3f",
@@ -3158,6 +4171,13 @@ const NODES = {
         order: 1,
         defaultText: "1 0 0",
         defaultValue: [1, 0, 0],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       color: {
         type: "SFColor",
@@ -3167,6 +4187,13 @@ const NODES = {
         order: 2,
         defaultText: "1 1 1",
         defaultValue: [1, 1, 1],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       global: {
         type: "SFBool",
@@ -3174,6 +4201,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       intensity: {
         type: "SFFloat",
@@ -3183,6 +4211,13 @@ const NODES = {
         order: 3,
         defaultText: "1",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       location: {
         type: "SFVec3f",
@@ -3192,6 +4227,13 @@ const NODES = {
         order: 4,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -3199,6 +4241,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       on: {
         type: "SFBool",
@@ -3208,6 +4251,7 @@ const NODES = {
         order: 5,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       radius: {
         type: "SFFloat",
@@ -3217,6 +4261,13 @@ const NODES = {
         order: 6,
         defaultText: "100",
         defaultValue: 100,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       shadowIntensity: {
         type: "SFFloat",
@@ -3224,6 +4275,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       shadows: {
         type: "SFBool",
@@ -3231,6 +4283,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -3238,6 +4291,7 @@ const NODES = {
     name: "PointSet",
     section: "6.36",
     profiles: ["vrml97", "x3d"],
+    classes: ["geometry", "notValidAsChildren"],
     fields: {
       attrib: {
         type: "MFNode",
@@ -3245,6 +4299,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       color: {
         type: "SFNode",
@@ -3254,6 +4309,10 @@ const NODES = {
         order: 0,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Color"],
+          rules: ["clause-6-sentence"],
+        },
       },
       coord: {
         type: "SFNode",
@@ -3263,6 +4322,10 @@ const NODES = {
         order: 1,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Coordinate"],
+          rules: ["clause-6-sentence"],
+        },
       },
       fogCoord: {
         type: "SFNode",
@@ -3270,6 +4333,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -3277,6 +4341,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       normal: {
         type: "SFNode",
@@ -3284,6 +4349,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       tangent: {
         type: "SFNode",
@@ -3291,6 +4357,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -3298,6 +4365,7 @@ const NODES = {
     name: "PositionInterpolator",
     section: "6.37",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "interpolator", "notAffectedByTransformationHierarchy"],
     fields: {
       key: {
         type: "MFFloat",
@@ -3307,6 +4375,13 @@ const NODES = {
         order: 1,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       keyValue: {
         type: "MFVec3f",
@@ -3316,6 +4391,13 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -3323,6 +4405,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       set_fraction: {
         type: "SFFloat",
@@ -3330,6 +4413,13 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       value_changed: {
         type: "SFVec3f",
@@ -3337,6 +4427,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
     },
   },
@@ -3344,6 +4435,7 @@ const NODES = {
     name: "ProximitySensor",
     section: "6.38",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "environmentalSensor", "sensor"],
     fields: {
       center: {
         type: "SFVec3f",
@@ -3353,6 +4445,13 @@ const NODES = {
         order: 0,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       centerOfRotation_changed: {
         type: "SFVec3f",
@@ -3360,6 +4459,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       description: {
         type: "SFString",
@@ -3367,6 +4467,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       enabled: {
         type: "SFBool",
@@ -3376,6 +4477,7 @@ const NODES = {
         order: 2,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       enterTime: {
         type: "SFTime",
@@ -3383,6 +4485,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 6,
+        constraints: null,
       },
       exitTime: {
         type: "SFTime",
@@ -3390,6 +4493,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 7,
+        constraints: null,
       },
       isActive: {
         type: "SFBool",
@@ -3397,6 +4501,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -3404,6 +4509,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       orientation_changed: {
         type: "SFRotation",
@@ -3411,6 +4517,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 5,
+        constraints: null,
       },
       position_changed: {
         type: "SFVec3f",
@@ -3418,6 +4525,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 4,
+        constraints: null,
       },
       size: {
         type: "SFVec3f",
@@ -3427,6 +4535,13 @@ const NODES = {
         order: 1,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -3434,6 +4549,7 @@ const NODES = {
     name: "ScalarInterpolator",
     section: "6.39",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "interpolator", "notAffectedByTransformationHierarchy"],
     fields: {
       key: {
         type: "MFFloat",
@@ -3443,6 +4559,13 @@ const NODES = {
         order: 1,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       keyValue: {
         type: "MFFloat",
@@ -3452,6 +4575,13 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -3459,6 +4589,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       set_fraction: {
         type: "SFFloat",
@@ -3466,6 +4597,13 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       value_changed: {
         type: "SFFloat",
@@ -3473,6 +4611,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
     },
   },
@@ -3480,6 +4619,7 @@ const NODES = {
     name: "Script",
     section: "6.40",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "notAffectedByTransformationHierarchy"],
     fields: {
       autoRefresh: {
         type: "SFTime",
@@ -3487,6 +4627,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       autoRefreshTimeLimit: {
         type: "SFTime",
@@ -3494,6 +4635,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       description: {
         type: "SFString",
@@ -3501,6 +4643,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       directOutput: {
         type: "SFBool",
@@ -3510,6 +4653,7 @@ const NODES = {
         order: 1,
         defaultText: "FALSE",
         defaultValue: false,
+        constraints: null,
       },
       field: {
         type: "MFNode",
@@ -3517,6 +4661,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       load: {
         type: "SFBool",
@@ -3524,6 +4669,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -3531,6 +4677,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       mustEvaluate: {
         type: "SFBool",
@@ -3540,6 +4687,7 @@ const NODES = {
         order: 2,
         defaultText: "FALSE",
         defaultValue: false,
+        constraints: null,
       },
       sourceCode: {
         type: "SFString",
@@ -3547,6 +4695,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       url: {
         type: "MFString",
@@ -3556,6 +4705,7 @@ const NODES = {
         order: 0,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
     },
   },
@@ -3563,6 +4713,7 @@ const NODES = {
     name: "Shape",
     section: "6.41",
     profiles: ["vrml97", "x3d"],
+    classes: ["children"],
     fields: {
       appearance: {
         type: "SFNode",
@@ -3572,6 +4723,10 @@ const NODES = {
         order: 0,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Appearance"],
+          rules: ["table-4.3"],
+        },
       },
       bboxCenter: {
         type: "SFVec3f",
@@ -3579,6 +4734,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxDisplay: {
         type: "SFBool",
@@ -3586,6 +4742,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxSize: {
         type: "SFVec3f",
@@ -3593,6 +4750,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       castShadow: {
         type: "SFBool",
@@ -3600,6 +4758,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       geometry: {
         type: "SFNode",
@@ -3609,6 +4768,10 @@ const NODES = {
         order: 1,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["Box", "Cone", "Cylinder", "ElevationGrid", "Extrusion", "IndexedFaceSet", "IndexedLineSet", "PointSet", "Sphere", "Text"],
+          rules: ["table-4.3"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -3616,6 +4779,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       pointerEvents: {
         type: "SFBool",
@@ -3623,6 +4787,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       visible: {
         type: "SFBool",
@@ -3630,6 +4795,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -3637,6 +4803,7 @@ const NODES = {
     name: "Sound",
     section: "6.42",
     profiles: ["vrml97", "x3d"],
+    classes: ["children"],
     fields: {
       description: {
         type: "SFString",
@@ -3644,6 +4811,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       direction: {
         type: "SFVec3f",
@@ -3653,6 +4821,13 @@ const NODES = {
         order: 0,
         defaultText: "0 0 1",
         defaultValue: [0, 0, 1],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       enabled: {
         type: "SFBool",
@@ -3660,6 +4835,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       intensity: {
         type: "SFFloat",
@@ -3669,6 +4845,13 @@ const NODES = {
         order: 1,
         defaultText: "1",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       location: {
         type: "SFVec3f",
@@ -3678,6 +4861,13 @@ const NODES = {
         order: 2,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       maxBack: {
         type: "SFFloat",
@@ -3687,6 +4877,13 @@ const NODES = {
         order: 3,
         defaultText: "10",
         defaultValue: 10,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       maxFront: {
         type: "SFFloat",
@@ -3696,6 +4893,13 @@ const NODES = {
         order: 4,
         defaultText: "10",
         defaultValue: 10,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -3703,6 +4907,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       minBack: {
         type: "SFFloat",
@@ -3712,6 +4917,13 @@ const NODES = {
         order: 5,
         defaultText: "1",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       minFront: {
         type: "SFFloat",
@@ -3721,6 +4933,13 @@ const NODES = {
         order: 6,
         defaultText: "1",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       priority: {
         type: "SFFloat",
@@ -3730,6 +4949,13 @@ const NODES = {
         order: 7,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       source: {
         type: "SFNode",
@@ -3739,6 +4965,10 @@ const NODES = {
         order: 8,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["AudioClip", "MovieTexture"],
+          rules: ["table-4.3"],
+        },
       },
       spatialize: {
         type: "SFBool",
@@ -3748,6 +4978,7 @@ const NODES = {
         order: 9,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
     },
   },
@@ -3755,6 +4986,7 @@ const NODES = {
     name: "Sphere",
     section: "6.43",
     profiles: ["vrml97", "x3d"],
+    classes: ["geometry", "notValidAsChildren"],
     fields: {
       metadata: {
         type: "SFNode",
@@ -3762,6 +4994,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       radius: {
         type: "SFFloat",
@@ -3771,6 +5004,13 @@ const NODES = {
         order: 0,
         defaultText: "1",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       solid: {
         type: "SFBool",
@@ -3778,6 +5018,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -3785,6 +5026,7 @@ const NODES = {
     name: "SphereSensor",
     section: "6.44",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "pointingDeviceSensor", "sensor"],
     fields: {
       autoOffset: {
         type: "SFBool",
@@ -3794,6 +5036,7 @@ const NODES = {
         order: 0,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       description: {
         type: "SFString",
@@ -3801,6 +5044,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       enabled: {
         type: "SFBool",
@@ -3810,6 +5054,7 @@ const NODES = {
         order: 1,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       isActive: {
         type: "SFBool",
@@ -3817,6 +5062,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
       isOver: {
         type: "SFBool",
@@ -3824,6 +5070,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -3831,6 +5078,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       offset: {
         type: "SFRotation",
@@ -3840,6 +5088,13 @@ const NODES = {
         order: 2,
         defaultText: "0 1 0 0",
         defaultValue: [0, 1, 0, 0],
+        constraints: {
+          note: {
+            category: "PER_COMPONENT_RANGE",
+            source: "[-1,1],(-infinity,infinity)",
+          },
+          rules: ["declaration-range"],
+        },
       },
       rotation_changed: {
         type: "SFRotation",
@@ -3847,6 +5102,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 4,
+        constraints: null,
       },
       trackPoint_changed: {
         type: "SFVec3f",
@@ -3854,6 +5110,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 5,
+        constraints: null,
       },
     },
   },
@@ -3861,6 +5118,7 @@ const NODES = {
     name: "SpotLight",
     section: "6.45",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "lightSource"],
     fields: {
       ambientIntensity: {
         type: "SFFloat",
@@ -3870,6 +5128,13 @@ const NODES = {
         order: 0,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       attenuation: {
         type: "SFVec3f",
@@ -3879,6 +5144,13 @@ const NODES = {
         order: 1,
         defaultText: "1 0 0",
         defaultValue: [1, 0, 0],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       beamWidth: {
         type: "SFFloat",
@@ -3888,6 +5160,17 @@ const NODES = {
         order: 2,
         defaultText: "1.570796",
         defaultValue: 1.570796,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "pi/2",
+          maxInclusive: true,
+          note: {
+            category: "BOUND_IS_SYMBOLIC",
+            source: "(0,pi/2]",
+          },
+          rules: ["declaration-range"],
+        },
       },
       color: {
         type: "SFColor",
@@ -3897,6 +5180,13 @@ const NODES = {
         order: 3,
         defaultText: "1 1 1",
         defaultValue: [1, 1, 1],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       cutOffAngle: {
         type: "SFFloat",
@@ -3906,6 +5196,17 @@ const NODES = {
         order: 4,
         defaultText: "0.785398",
         defaultValue: 0.785398,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "pi/2",
+          maxInclusive: true,
+          note: {
+            category: "BOUND_IS_SYMBOLIC",
+            source: "(0,pi/2]",
+          },
+          rules: ["declaration-range"],
+        },
       },
       direction: {
         type: "SFVec3f",
@@ -3915,6 +5216,13 @@ const NODES = {
         order: 5,
         defaultText: "0 0 -1",
         defaultValue: [0, 0, -1],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       global: {
         type: "SFBool",
@@ -3922,6 +5230,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       intensity: {
         type: "SFFloat",
@@ -3931,6 +5240,13 @@ const NODES = {
         order: 6,
         defaultText: "1",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       location: {
         type: "SFVec3f",
@@ -3940,6 +5256,13 @@ const NODES = {
         order: 7,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -3947,6 +5270,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       on: {
         type: "SFBool",
@@ -3956,6 +5280,7 @@ const NODES = {
         order: 8,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       radius: {
         type: "SFFloat",
@@ -3965,6 +5290,13 @@ const NODES = {
         order: 9,
         defaultText: "100",
         defaultValue: 100,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       shadowIntensity: {
         type: "SFFloat",
@@ -3972,6 +5304,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       shadows: {
         type: "SFBool",
@@ -3979,6 +5312,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -3986,6 +5320,7 @@ const NODES = {
     name: "Switch",
     section: "6.46",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "grouping"],
     fields: {
       addChildren: {
         type: "MFNode",
@@ -3993,6 +5328,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxCenter: {
         type: "SFVec3f",
@@ -4000,6 +5336,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxDisplay: {
         type: "SFBool",
@@ -4007,6 +5344,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxSize: {
         type: "SFVec3f",
@@ -4014,6 +5352,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       children: {
         type: "MFNode",
@@ -4021,6 +5360,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       choice: {
         type: "MFNode",
@@ -4030,6 +5370,10 @@ const NODES = {
         order: 0,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          acceptedNodeClasses: ["children"],
+          rules: ["table-4.3"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -4037,6 +5381,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       removeChildren: {
         type: "MFNode",
@@ -4044,6 +5389,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       visible: {
         type: "SFBool",
@@ -4051,6 +5397,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       whichChoice: {
         type: "SFInt32",
@@ -4060,6 +5407,13 @@ const NODES = {
         order: 1,
         defaultText: "-1",
         defaultValue: -1,
+        constraints: {
+          min: -1,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -4067,6 +5421,7 @@ const NODES = {
     name: "Text",
     section: "6.47",
     profiles: ["vrml97", "x3d"],
+    classes: ["geometry", "notValidAsChildren"],
     fields: {
       fontStyle: {
         type: "SFNode",
@@ -4076,6 +5431,10 @@ const NODES = {
         order: 1,
         defaultText: "NULL",
         defaultValue: null,
+        constraints: {
+          acceptedNodeTypes: ["FontStyle"],
+          rules: ["table-4.3"],
+        },
       },
       length: {
         type: "MFFloat",
@@ -4085,6 +5444,13 @@ const NODES = {
         order: 2,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       lineBounds: {
         type: "MFVec2f",
@@ -4092,6 +5458,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       maxExtent: {
         type: "SFFloat",
@@ -4101,6 +5468,13 @@ const NODES = {
         order: 3,
         defaultText: "0.0",
         defaultValue: 0,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -4108,6 +5482,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       origin: {
         type: "SFVec3f",
@@ -4115,6 +5490,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       solid: {
         type: "SFBool",
@@ -4122,6 +5498,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       string: {
         type: "MFString",
@@ -4131,6 +5508,7 @@ const NODES = {
         order: 0,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       textBounds: {
         type: "SFVec2f",
@@ -4138,6 +5516,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -4145,6 +5524,7 @@ const NODES = {
     name: "TextureCoordinate",
     section: "6.48",
     profiles: ["vrml97", "x3d"],
+    classes: ["notValidAsChildren"],
     fields: {
       mapping: {
         type: "SFString",
@@ -4152,6 +5532,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -4159,6 +5540,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       point: {
         type: "MFVec2f",
@@ -4168,6 +5550,13 @@ const NODES = {
         order: 0,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -4175,6 +5564,7 @@ const NODES = {
     name: "TextureTransform",
     section: "6.49",
     profiles: ["vrml97", "x3d"],
+    classes: ["notValidAsChildren"],
     fields: {
       center: {
         type: "SFVec2f",
@@ -4184,6 +5574,13 @@ const NODES = {
         order: 0,
         defaultText: "0 0",
         defaultValue: [0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       mapping: {
         type: "SFString",
@@ -4191,6 +5588,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -4198,6 +5596,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       rotation: {
         type: "SFFloat",
@@ -4207,6 +5606,13 @@ const NODES = {
         order: 1,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       scale: {
         type: "SFVec2f",
@@ -4216,6 +5622,13 @@ const NODES = {
         order: 2,
         defaultText: "1 1",
         defaultValue: [1, 1],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       translation: {
         type: "SFVec2f",
@@ -4225,6 +5638,13 @@ const NODES = {
         order: 3,
         defaultText: "0 0",
         defaultValue: [0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -4232,6 +5652,7 @@ const NODES = {
     name: "TimeSensor",
     section: "6.50",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "environmentalSensor", "notAffectedByTransformationHierarchy", "sensor"],
     fields: {
       cycleInterval: {
         type: "SFTime",
@@ -4241,6 +5662,13 @@ const NODES = {
         order: 0,
         defaultText: "1",
         defaultValue: 1,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       cycleTime: {
         type: "SFTime",
@@ -4248,6 +5676,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 5,
+        constraints: null,
       },
       description: {
         type: "SFString",
@@ -4255,6 +5684,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       elapsedTime: {
         type: "SFTime",
@@ -4262,6 +5692,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       enabled: {
         type: "SFBool",
@@ -4271,6 +5702,7 @@ const NODES = {
         order: 1,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       fraction_changed: {
         type: "SFFloat",
@@ -4278,6 +5710,13 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 6,
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          max: 1,
+          maxInclusive: true,
+          rules: ["declaration-range"],
+        },
       },
       isActive: {
         type: "SFBool",
@@ -4285,6 +5724,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 7,
+        constraints: null,
       },
       isPaused: {
         type: "SFBool",
@@ -4292,6 +5732,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       loop: {
         type: "SFBool",
@@ -4301,6 +5742,7 @@ const NODES = {
         order: 2,
         defaultText: "FALSE",
         defaultValue: false,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -4308,6 +5750,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       pauseTime: {
         type: "SFTime",
@@ -4315,6 +5758,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       resumeTime: {
         type: "SFTime",
@@ -4322,6 +5766,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       startTime: {
         type: "SFTime",
@@ -4331,6 +5776,13 @@ const NODES = {
         order: 3,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       stopTime: {
         type: "SFTime",
@@ -4340,6 +5792,13 @@ const NODES = {
         order: 4,
         defaultText: "0",
         defaultValue: 0,
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       time: {
         type: "SFTime",
@@ -4347,6 +5806,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 8,
+        constraints: null,
       },
     },
   },
@@ -4354,6 +5814,7 @@ const NODES = {
     name: "TouchSensor",
     section: "6.51",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "pointingDeviceSensor", "sensor"],
     fields: {
       description: {
         type: "SFString",
@@ -4361,6 +5822,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       enabled: {
         type: "SFBool",
@@ -4370,6 +5832,7 @@ const NODES = {
         order: 0,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       hitNormal_changed: {
         type: "SFVec3f",
@@ -4377,6 +5840,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 1,
+        constraints: null,
       },
       hitPoint_changed: {
         type: "SFVec3f",
@@ -4384,6 +5848,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 2,
+        constraints: null,
       },
       hitTexCoord_changed: {
         type: "SFVec2f",
@@ -4391,6 +5856,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
       isActive: {
         type: "SFBool",
@@ -4398,6 +5864,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 4,
+        constraints: null,
       },
       isOver: {
         type: "SFBool",
@@ -4405,6 +5872,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 5,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -4412,6 +5880,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       touchTime: {
         type: "SFTime",
@@ -4419,6 +5888,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 6,
+        constraints: null,
       },
     },
   },
@@ -4426,6 +5896,7 @@ const NODES = {
     name: "Transform",
     section: "6.52",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "grouping"],
     fields: {
       addChildren: {
         type: "MFNode",
@@ -4433,6 +5904,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       bboxCenter: {
         type: "SFVec3f",
@@ -4442,6 +5914,13 @@ const NODES = {
         order: 8,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       bboxDisplay: {
         type: "SFBool",
@@ -4449,6 +5928,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       bboxSize: {
         type: "SFVec3f",
@@ -4458,6 +5938,13 @@ const NODES = {
         order: 9,
         defaultText: "-1 -1 -1",
         defaultValue: [-1, -1, -1],
+        constraints: {
+          note: {
+            category: "DISJUNCTIVE_RANGE",
+            source: "(0,infinity) or -1,-1,-1",
+          },
+          rules: ["declaration-range"],
+        },
       },
       center: {
         type: "SFVec3f",
@@ -4467,6 +5954,13 @@ const NODES = {
         order: 2,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       children: {
         type: "MFNode",
@@ -4476,6 +5970,10 @@ const NODES = {
         order: 3,
         defaultText: "[]",
         defaultValue: [],
+        constraints: {
+          acceptedNodeClasses: ["children"],
+          rules: ["table-4.3"],
+        },
       },
       metadata: {
         type: "SFNode",
@@ -4483,6 +5981,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       removeChildren: {
         type: "MFNode",
@@ -4490,6 +5989,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 1,
+        constraints: null,
       },
       rotation: {
         type: "SFRotation",
@@ -4499,6 +5999,13 @@ const NODES = {
         order: 4,
         defaultText: "0 0 1 0",
         defaultValue: [0, 0, 1, 0],
+        constraints: {
+          note: {
+            category: "PER_COMPONENT_RANGE",
+            source: "[-1,1],(-infinity,infinity)",
+          },
+          rules: ["declaration-range"],
+        },
       },
       scale: {
         type: "SFVec3f",
@@ -4508,6 +6015,13 @@ const NODES = {
         order: 5,
         defaultText: "1 1 1",
         defaultValue: [1, 1, 1],
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       scaleOrientation: {
         type: "SFRotation",
@@ -4517,6 +6031,13 @@ const NODES = {
         order: 6,
         defaultText: "0 0 1 0",
         defaultValue: [0, 0, 1, 0],
+        constraints: {
+          note: {
+            category: "PER_COMPONENT_RANGE",
+            source: "[-1,1],(-infinity,infinity)",
+          },
+          rules: ["declaration-range"],
+        },
       },
       translation: {
         type: "SFVec3f",
@@ -4526,6 +6047,13 @@ const NODES = {
         order: 7,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       visible: {
         type: "SFBool",
@@ -4533,6 +6061,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -4540,6 +6069,7 @@ const NODES = {
     name: "Viewpoint",
     section: "6.53",
     profiles: ["vrml97", "x3d"],
+    classes: ["children"],
     fields: {
       bindTime: {
         type: "SFTime",
@@ -4547,6 +6077,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 6,
+        constraints: null,
       },
       centerOfRotation: {
         type: "SFVec3f",
@@ -4554,6 +6085,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       description: {
         type: "SFString",
@@ -4564,6 +6096,7 @@ const NODES = {
         order: 5,
         defaultText: "\"\"",
         defaultValue: "",
+        constraints: null,
       },
       farDistance: {
         type: "SFFloat",
@@ -4571,6 +6104,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       fieldOfView: {
         type: "SFFloat",
@@ -4580,6 +6114,17 @@ const NODES = {
         order: 1,
         defaultText: "0.785398",
         defaultValue: 0.785398,
+        constraints: {
+          min: 0,
+          minInclusive: false,
+          maxSymbolic: "pi",
+          maxInclusive: false,
+          note: {
+            category: "BOUND_IS_SYMBOLIC",
+            source: "(0,pi)",
+          },
+          rules: ["declaration-range"],
+        },
       },
       isBound: {
         type: "SFBool",
@@ -4587,6 +6132,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 7,
+        constraints: null,
       },
       jump: {
         type: "SFBool",
@@ -4596,6 +6142,7 @@ const NODES = {
         order: 2,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -4603,6 +6150,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       navigationInfo: {
         type: "SFNode",
@@ -4610,6 +6158,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       nearDistance: {
         type: "SFFloat",
@@ -4617,6 +6166,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       orientation: {
         type: "SFRotation",
@@ -4626,6 +6176,13 @@ const NODES = {
         order: 3,
         defaultText: "0 0 1 0",
         defaultValue: [0, 0, 1, 0],
+        constraints: {
+          note: {
+            category: "PER_COMPONENT_RANGE",
+            source: "[-1,1],(-infinity,infinity)",
+          },
+          rules: ["declaration-range"],
+        },
       },
       position: {
         type: "SFVec3f",
@@ -4635,6 +6192,13 @@ const NODES = {
         order: 4,
         defaultText: "0 0 10",
         defaultValue: [0, 0, 10],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       retainUserOffsets: {
         type: "SFBool",
@@ -4642,6 +6206,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       set_bind: {
         type: "SFBool",
@@ -4649,6 +6214,7 @@ const NODES = {
         vrml97Declaration: "eventIn",
         profiles: ["vrml97", "x3d"],
         order: 0,
+        constraints: null,
       },
       viewAll: {
         type: "SFBool",
@@ -4656,6 +6222,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
     },
   },
@@ -4663,6 +6230,7 @@ const NODES = {
     name: "VisibilitySensor",
     section: "6.54",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "environmentalSensor", "sensor"],
     fields: {
       center: {
         type: "SFVec3f",
@@ -4672,6 +6240,13 @@ const NODES = {
         order: 0,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          minSymbolic: "-infinity",
+          minInclusive: false,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
       description: {
         type: "SFString",
@@ -4679,6 +6254,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       enabled: {
         type: "SFBool",
@@ -4688,6 +6264,7 @@ const NODES = {
         order: 1,
         defaultText: "TRUE",
         defaultValue: true,
+        constraints: null,
       },
       enterTime: {
         type: "SFTime",
@@ -4695,6 +6272,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 3,
+        constraints: null,
       },
       exitTime: {
         type: "SFTime",
@@ -4702,6 +6280,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 4,
+        constraints: null,
       },
       isActive: {
         type: "SFBool",
@@ -4709,6 +6288,7 @@ const NODES = {
         vrml97Declaration: "eventOut",
         profiles: ["vrml97", "x3d"],
         order: 5,
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -4716,6 +6296,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       size: {
         type: "SFVec3f",
@@ -4725,6 +6306,13 @@ const NODES = {
         order: 2,
         defaultText: "0 0 0",
         defaultValue: [0, 0, 0],
+        constraints: {
+          min: 0,
+          minInclusive: true,
+          maxSymbolic: "infinity",
+          maxInclusive: false,
+          rules: ["declaration-range"],
+        },
       },
     },
   },
@@ -4732,6 +6320,7 @@ const NODES = {
     name: "WorldInfo",
     section: "6.55",
     profiles: ["vrml97", "x3d"],
+    classes: ["children", "notAffectedByTransformationHierarchy"],
     fields: {
       info: {
         type: "MFString",
@@ -4742,6 +6331,7 @@ const NODES = {
         order: 0,
         defaultText: "[]",
         defaultValue: [],
+        constraints: null,
       },
       metadata: {
         type: "SFNode",
@@ -4749,6 +6339,7 @@ const NODES = {
         vrml97Declaration: null,
         profiles: ["x3d"],
         order: null,
+        constraints: null,
       },
       title: {
         type: "SFString",
@@ -4759,10 +6350,130 @@ const NODES = {
         order: 1,
         defaultText: "\"\"",
         defaultValue: "",
+        constraints: null,
       },
     },
   },
 };
+
+// WD1.6-A. The enumerated node classes of ISO/IEC 14772-1 clause 4, each with
+// the clause it is stated in and its members in the order the standard lists
+// them. Semantic classes, NOT a node palette: no "Common", no "Geometry"
+// grouping invented for a UI, and a node may be in none, one or several.
+//
+// Complete for the ten enumerations the standard introduces with the words "The
+// following node types are". Other normative groupings exist that are written as
+// running prose in other shapes -- drag sensors (4.6.7.4), time-dependent nodes
+// (4.6.9), bindable children nodes (4.6.10) -- and are deliberately NOT here:
+// each would need its own English-sentence parser. A node's `classes` array
+// therefore means "in none of THESE ten", not "in no normative class at all".
+const NODE_CLASSES = {
+  children: {
+    form: "list",
+    id: "children",
+    label: "children nodes",
+    members: ["Anchor", "Background", "Billboard", "Collision", "ColorInterpolator", "CoordinateInterpolator", "CylinderSensor", "DirectionalLight", "Fog", "Group", "Inline", "LOD", "NavigationInfo", "NormalInterpolator", "OrientationInterpolator", "PlaneSensor", "PointLight", "PositionInterpolator", "ProximitySensor", "ScalarInterpolator", "Script", "Shape", "Sound", "SpotLight", "SphereSensor", "Switch", "TimeSensor", "TouchSensor", "Transform", "Viewpoint", "VisibilitySensor", "WorldInfo"],
+    section: "4.6.5",
+  },
+  environmentalSensor: {
+    form: "list",
+    id: "environmentalSensor",
+    label: "environmental sensors",
+    members: ["Collision", "ProximitySensor", "TimeSensor", "VisibilitySensor"],
+    section: "4.6.7.2",
+  },
+  geometry: {
+    form: "list",
+    id: "geometry",
+    label: "geometry nodes",
+    members: ["Box", "Cone", "Cylinder", "ElevationGrid", "Extrusion", "IndexedFaceSet", "IndexedLineSet", "PointSet", "Sphere", "Text"],
+    section: "4.6.3",
+  },
+  grouping: {
+    form: "list",
+    id: "grouping",
+    label: "grouping nodes",
+    members: ["Anchor", "Billboard", "Collision", "Group", "Inline", "LOD", "Switch", "Transform"],
+    section: "4.6.5",
+  },
+  interpolator: {
+    form: "list",
+    id: "interpolator",
+    label: "interpolator nodes, each based on the type of value that is interpolated",
+    members: ["ColorInterpolator", "CoordinateInterpolator", "NormalInterpolator", "OrientationInterpolator", "PositionInterpolator", "ScalarInterpolator"],
+    section: "4.6.8",
+  },
+  lightSource: {
+    form: "list",
+    id: "lightSource",
+    label: "light source nodes",
+    members: ["DirectionalLight", "PointLight", "SpotLight"],
+    section: "4.6.6",
+  },
+  notAffectedByTransformationHierarchy: {
+    form: "inline",
+    id: "notAffectedByTransformationHierarchy",
+    label: "in the scene graph but not affected by the transformation hierarchy",
+    members: ["ColorInterpolator", "CoordinateInterpolator", "NavigationInfo", "NormalInterpolator", "OrientationInterpolator", "PositionInterpolator", "Script", "ScalarInterpolator", "TimeSensor", "WorldInfo"],
+    section: "4.4.4",
+  },
+  notValidAsChildren: {
+    form: "list",
+    id: "notValidAsChildren",
+    label: "not valid as children nodes",
+    members: ["Appearance", "AudioClip", "Box", "Color", "Cone", "Coordinate", "Cylinder", "ElevationGrid", "Extrusion", "ImageTexture", "IndexedFaceSet", "IndexedLineSet", "Material", "MovieTexture", "Normal", "PointSet", "Sphere", "Text", "TextureCoordinate", "TextureTransform"],
+    section: "4.6.5",
+  },
+  pointingDeviceSensor: {
+    form: "list",
+    id: "pointingDeviceSensor",
+    label: "pointing-device sensors",
+    members: ["Anchor", "CylinderSensor", "PlaneSensor", "SphereSensor", "TouchSensor"],
+    section: "4.6.7.3",
+  },
+  sensor: {
+    form: "list",
+    id: "sensor",
+    label: "sensor nodes",
+    members: ["Anchor", "Collision", "CylinderSensor", "PlaneSensor", "ProximitySensor", "SphereSensor", "TimeSensor", "TouchSensor", "VisibilitySensor"],
+    section: "4.6.7.1",
+  },
+};
+
+// How each constraint fact was obtained, so a reviewer can trace any single
+// value back to the structure it came from. A field's constraints record cites
+// these by id in its `rules` array.
+const CONSTRAINT_RULES = {
+  'declaration-range': {
+    standard: 'ISO/IEC 14772-1',
+    clause: '4.1.3',
+    source: 'raw/part1/nodesRef.html',
+    description: "the '#' value-range annotation on a clause 6 field declaration",
+  },
+  'table-4.3': {
+    standard: 'ISO/IEC 14772-1',
+    clause: '4.6.5',
+    source: 'raw/part1/concepts.html',
+    description: 'Table 4.3, "Nodes with SFNode or MFNode fields"',
+  },
+  'clause-6-sentence': {
+    standard: 'ISO/IEC 14772-1',
+    clause: '6',
+    source: 'raw/part1/nodesRef.html',
+    description: 'an exact normative sentence template naming the node type a field shall contain',
+  },
+};
+
+// Categories for a constraint the standard states but this schema shape cannot
+// carry. A note is a POSITIVE statement that a normative restriction exists and
+// is not represented -- unlike `constraints: null`, and unlike any claim that
+// the field is unrestricted.
+const CONSTRAINT_NOTES = [
+  'BOUND_IS_SYMBOLIC',
+  'PER_COMPONENT_RANGE',
+  'DISJUNCTIVE_RANGE',
+  'NON_MACHINE_EXTRACTABLE',
+];
 
 const PROFILES = ['vrml97', 'x3d'];
 
@@ -4781,9 +6492,14 @@ function deepFreeze(value) {
 deepFreeze(NODES);
 deepFreeze(COUNTS);
 deepFreeze(PROVENANCE);
+deepFreeze(NODE_CLASSES);
+deepFreeze(CONSTRAINT_RULES);
 Object.freeze(PROFILES);
+Object.freeze(CONSTRAINT_NOTES);
 
 const NODE_NAMES = Object.freeze(Object.keys(NODES));
+const NODE_CLASS_NAMES = Object.freeze(Object.keys(NODE_CLASSES));
+const EMPTY = Object.freeze([]);
 
 function checkProfile(profile) {
   if (profile === undefined || profile === null) return null;
@@ -4894,11 +6610,63 @@ function isVRML97Field(nodeName, fieldName) {
   return isFieldAllowed(nodeName, fieldName, 'vrml97');
 }
 
+/**
+ * The clause 4 node classes a node belongs to, ASCII-sorted.
+ *
+ * An empty array is a POSITIVE answer -- "in none of the ten enumerated classes"
+ * -- for a known node, and the same empty array is all an unknown name gets. Ask
+ * getNodeSchema() first if the difference matters.
+ *
+ * @param {string} name
+ * @returns {string[]} Frozen; shared, never mutate it.
+ */
+function getNodeClasses(name) {
+  const node = getNodeSchema(name);
+  return node ? node.classes : EMPTY;
+}
+
+/**
+ * The node names in one clause 4 class, in the order the standard lists them,
+ * or an empty array for an unknown class id.
+ *
+ * @param {string} classId One of NODE_CLASS_NAMES.
+ * @returns {string[]} Frozen; shared, never mutate it.
+ */
+function listNodesInClass(classId) {
+  const record = Object.prototype.hasOwnProperty.call(NODE_CLASSES, classId) ? NODE_CLASSES[classId] : null;
+  return record ? record.members : EMPTY;
+}
+
+/**
+ * The standards-derived constraint metadata for one field, or `null`.
+ *
+ * `null` means NO MACHINE-REPRESENTED CONSTRAINT IS AVAILABLE. It does NOT mean
+ * the field is unrestricted, that a value was validated, or that the standard
+ * permits anything -- an unknown node and a field ISO says nothing extractable
+ * about answer identically. **Do not clamp or reject a value on the strength of
+ * a null**, and do not treat a present record as exhaustive: a `note` says a
+ * further normative restriction exists that this shape cannot carry.
+ *
+ * Never populated for an X3D-only field.
+ *
+ * @param {string} nodeName
+ * @param {string} fieldName
+ * @returns {object|null} Frozen; never mutate it.
+ */
+function getFieldConstraints(nodeName, fieldName) {
+  const field = getFieldSchema(nodeName, fieldName);
+  return field ? field.constraints : null;
+}
+
 module.exports = {
   nodes: NODES,
   counts: COUNTS,
   provenance: PROVENANCE,
   profiles: PROFILES,
+  nodeClasses: NODE_CLASSES,
+  nodeClassNames: NODE_CLASS_NAMES,
+  constraintRules: CONSTRAINT_RULES,
+  constraintNotes: CONSTRAINT_NOTES,
   getNodeSchema,
   getFieldSchema,
   listNodeNames,
@@ -4906,4 +6674,7 @@ module.exports = {
   isFieldAllowed,
   isVRML97Node,
   isVRML97Field,
+  getNodeClasses,
+  listNodesInClass,
+  getFieldConstraints,
 };

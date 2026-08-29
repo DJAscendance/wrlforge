@@ -20,6 +20,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 
 const schema = require('../../src/vrml/node-schema');
 const {
@@ -607,4 +608,653 @@ test('the src/vrml facade re-exports the schema additively', () => {
     'diagnostics', 'assetRefs', 'TT', 'KEYWORDS', 'DEFAULT_LIMITS']) {
     assert.ok(name in facade, `facade lost its ${name} export`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// WD1.6-A -- standards-derived semantic metadata
+// ---------------------------------------------------------------------------
+//
+// The absence policy is part of the correctness contract, so roughly half of
+// what follows asserts what the extractor deliberately does NOT claim. A wrong
+// constraint silently rejects legal input; a missing one only declines to check,
+// which is why every "we did not extract this" case is pinned by a test rather
+// than left to drift into a guess later.
+
+const {
+  nodeClasses, nodeClassNames, constraintRules, constraintNotes,
+  getNodeClasses, listNodesInClass, getFieldConstraints,
+} = schema;
+
+const vrml97Fields = () => allFields().filter(({ rec }) => rec.profiles.includes('vrml97'));
+const nodeValuedFields = () => vrml97Fields().filter(({ rec }) => rec.type === 'SFNode' || rec.type === 'MFNode');
+const withConstraints = () => allFields().filter(({ rec }) => rec.constraints !== null);
+
+// --- no-regression against the pre-WD1.6-A schema ---------------------------
+
+test('WD1.6-A changed no WD1.3 fact', () => {
+  // The baseline is the WD1.3 projection of the schema as committed at db0816a,
+  // one line per node and per field. A metadata extension may ADD properties; it
+  // may not alter a type, an access category, an order, or a default. Comparing
+  // line-by-line rather than by a single hash means a failure names the field.
+  const enc = (v) => (v === undefined ? '' : JSON.stringify(v));
+  const lines = [];
+  for (const n of Object.keys(nodes)) {
+    const nd = nodes[n];
+    lines.push(['NODE', n, nd.section, nd.profiles.join('+')].join('|'));
+    for (const f of Object.keys(nd.fields)) {
+      const r = nd.fields[f];
+      lines.push(['FIELD', n, f, r.type, r.accessType, enc(r.vrml97Declaration), enc(r.x3dAccessType),
+        r.profiles.join('+'), enc(r.order), enc(r.defaultText), enc(r.defaultValue), enc(r.defaultUncertain)].join('|'));
+    }
+  }
+  const baseline = fs.readFileSync(path.join(__dirname, '../fixtures/vrml/node-schema-wd13-baseline.txt'), 'utf8')
+    .split('\n').filter(Boolean);
+
+  assert.equal(lines.length, baseline.length, 'the node/field inventory changed size');
+  for (let i = 0; i < baseline.length; i += 1) {
+    assert.equal(lines[i], baseline[i], `WD1.3 fact changed: ${baseline[i]}`);
+  }
+});
+
+test('every record carries the new properties and nothing else new', () => {
+  const nodeKeys = new Set(['name', 'section', 'profiles', 'classes', 'fields']);
+  const fieldKeys = new Set(['type', 'accessType', 'vrml97Declaration', 'x3dAccessType', 'profiles',
+    'order', 'defaultText', 'defaultValue', 'defaultUncertain', 'constraints']);
+  for (const [name, node] of Object.entries(nodes)) {
+    for (const key of Object.keys(node)) assert.ok(nodeKeys.has(key), `${name} grew an unexpected key ${key}`);
+    assert.ok(Array.isArray(node.classes), `${name} must carry a classes array`);
+    for (const [f, rec] of Object.entries(node.fields)) {
+      for (const key of Object.keys(rec)) assert.ok(fieldKeys.has(key), `${name}.${f} grew an unexpected key ${key}`);
+      assert.ok('constraints' in rec, `${name}.${f} must carry a constraints property`);
+    }
+  }
+});
+
+// --- node classes -----------------------------------------------------------
+
+test('the ten enumerated ISO clause 4 node classes are present', () => {
+  assert.equal(nodeClassNames.length, 10, 'ISO/IEC 14772-1 clause 4 introduces ten "The following node types are" enumerations');
+  assert.equal(counts.nodeClasses, nodeClassNames.length);
+  assert.deepEqual([...nodeClassNames].sort(), [
+    'children', 'environmentalSensor', 'geometry', 'grouping', 'interpolator',
+    'lightSource', 'notAffectedByTransformationHierarchy', 'notValidAsChildren',
+    'pointingDeviceSensor', 'sensor',
+  ]);
+});
+
+test('each node class records its clause, its members and their count', () => {
+  // Member counts are the extraction's own denominators: if a source-format
+  // change silently halves a list, this fails instead of quietly shrinking the
+  // metadata every later phase builds on.
+  const expected = {
+    notAffectedByTransformationHierarchy: { section: '4.4.4', size: 10 },
+    geometry: { section: '4.6.3', size: 10 },
+    grouping: { section: '4.6.5', size: 8 },
+    children: { section: '4.6.5', size: 32 },
+    notValidAsChildren: { section: '4.6.5', size: 20 },
+    lightSource: { section: '4.6.6', size: 3 },
+    sensor: { section: '4.6.7.1', size: 9 },
+    environmentalSensor: { section: '4.6.7.2', size: 4 },
+    pointingDeviceSensor: { section: '4.6.7.3', size: 5 },
+    interpolator: { section: '4.6.8', size: 6 },
+  };
+  for (const [id, want] of Object.entries(expected)) {
+    const record = nodeClasses[id];
+    assert.ok(record, `missing node class ${id}`);
+    assert.equal(record.id, id);
+    assert.equal(record.section, want.section, `${id} cites the wrong clause`);
+    assert.equal(record.members.length, want.size, `${id} member count changed`);
+    assert.equal(new Set(record.members).size, record.members.length, `${id} lists a node twice`);
+    for (const member of record.members) {
+      assert.ok(getNodeSchema(member), `${id} names ${member}, which is not a clause 6 node`);
+    }
+  }
+  assert.equal(counts.nodeClassMemberships, 107, 'total memberships across all ten classes');
+});
+
+test('the exact members of the small classes are the ISO ones', () => {
+  assert.deepEqual(listNodesInClass('lightSource'), ['DirectionalLight', 'PointLight', 'SpotLight']);
+  assert.deepEqual(listNodesInClass('environmentalSensor'),
+    ['Collision', 'ProximitySensor', 'TimeSensor', 'VisibilitySensor']);
+  assert.deepEqual(listNodesInClass('interpolator'), ['ColorInterpolator', 'CoordinateInterpolator',
+    'NormalInterpolator', 'OrientationInterpolator', 'PositionInterpolator', 'ScalarInterpolator']);
+  assert.deepEqual(listNodesInClass('grouping'),
+    ['Anchor', 'Billboard', 'Collision', 'Group', 'Inline', 'LOD', 'Switch', 'Transform']);
+  assert.deepEqual(listNodesInClass('pointingDeviceSensor'),
+    ['Anchor', 'CylinderSensor', 'PlaneSensor', 'SphereSensor', 'TouchSensor']);
+  // 4.4.4 is written inline in its own sentence rather than as a list; it is
+  // extracted by the same normative phrase and must come out identically.
+  assert.deepEqual(listNodesInClass('notAffectedByTransformationHierarchy'),
+    ['ColorInterpolator', 'CoordinateInterpolator', 'NavigationInfo', 'NormalInterpolator',
+      'OrientationInterpolator', 'PositionInterpolator', 'Script', 'ScalarInterpolator',
+      'TimeSensor', 'WorldInfo']);
+});
+
+test('classes overlap, and membership is per-class rather than one-of', () => {
+  // The single most likely way to misuse this data is to assume a node has one
+  // class. Anchor has four, and they come from four different clauses.
+  assert.deepEqual(getNodeClasses('Anchor'), ['children', 'grouping', 'pointingDeviceSensor', 'sensor']);
+  assert.deepEqual(getNodeClasses('Collision'), ['children', 'environmentalSensor', 'grouping', 'sensor']);
+  assert.deepEqual(getNodeClasses('Transform'), ['children', 'grouping']);
+  for (const node of listNodeNames()) {
+    assert.deepEqual(getNodeClasses(node), [...getNodeClasses(node)].sort(), `${node} classes are not ASCII-sorted`);
+  }
+});
+
+test('"not valid as children" is preserved as its own fact, never an inversion', () => {
+  // The dangerous reading is notValidAsChildren === complement of children.
+  // It is not: the two lists are disjoint here but neither covers the node set,
+  // and inverting one would silently invent a verdict about the remainder --
+  // which is WD1.6-C's question, not this phase's.
+  const children = new Set(listNodesInClass('children'));
+  const notChildren = new Set(listNodesInClass('notValidAsChildren'));
+  for (const n of notChildren) assert.ok(!children.has(n), `${n} cannot be both`);
+  const covered = new Set([...children, ...notChildren]);
+  assert.ok(covered.size < listNodeNames().length,
+    'the two lists do not partition the node set, so neither may be derived by inverting the other');
+  assert.ok(notChildren.has('Box') && notChildren.has('Appearance') && notChildren.has('Material'));
+  assert.ok(children.has('Shape') && children.has('Transform'));
+  assert.ok(!covered.has('Shape') === false);
+});
+
+test('an empty class list is a positive answer, and an unknown node gets one too', () => {
+  const classless = listNodeNames().filter((n) => getNodeClasses(n).length === 0);
+  assert.ok(classless.length > 0, 'some nodes are in none of the ten enumerations');
+  assert.deepEqual(classless, ['FontStyle', 'PixelTexture'],
+    'exactly two nodes appear in none of the ten enumerations');
+  assert.deepEqual(getNodeClasses('NoSuchNode'), []);
+  assert.deepEqual(listNodesInClass('noSuchClass'), []);
+});
+
+// --- accepted node metadata -------------------------------------------------
+
+test('SFNode fields carry the exact node type ISO names', () => {
+  assert.deepEqual(getFieldConstraints('Appearance', 'material').acceptedNodeTypes, ['Material']);
+  assert.deepEqual(getFieldConstraints('Shape', 'appearance').acceptedNodeTypes, ['Appearance']);
+  assert.deepEqual(getFieldConstraints('Text', 'fontStyle').acceptedNodeTypes, ['FontStyle']);
+  assert.deepEqual(getFieldConstraints('IndexedFaceSet', 'coord').acceptedNodeTypes, ['Coordinate']);
+  assert.deepEqual(getFieldConstraints('IndexedFaceSet', 'texCoord').acceptedNodeTypes, ['TextureCoordinate']);
+});
+
+test('a field accepting several types keeps all of them, in ISO order', () => {
+  // Table 4.3 spells PixelTexture as two words for this field. There is no node
+  // called "Pixel Texture"; 6.37 defines PixelTexture and 6.3's own prose reads
+  // "(ImageTexture, MovieTexture, or PixelTexture)". The correction is the one
+  // fixup the generator holds, and it must not have widened.
+  assert.deepEqual(getFieldConstraints('Appearance', 'texture').acceptedNodeTypes,
+    ['ImageTexture', 'MovieTexture', 'PixelTexture']);
+  assert.deepEqual(getFieldConstraints('Sound', 'source').acceptedNodeTypes, ['AudioClip', 'MovieTexture']);
+  assert.deepEqual(getFieldConstraints('Shape', 'geometry').acceptedNodeTypes,
+    ['Box', 'Cone', 'Cylinder', 'ElevationGrid', 'Extrusion', 'IndexedFaceSet',
+      'IndexedLineSet', 'PointSet', 'Sphere', 'Text']);
+  // The same set the standard enumerates as the geometry class, reached by a
+  // different route -- Table 4.3 rather than the 4.6.3 list.
+  assert.deepEqual(getFieldConstraints('Shape', 'geometry').acceptedNodeTypes, listNodesInClass('geometry'));
+});
+
+test('MFNode children fields defer to a node CLASS, not a type list', () => {
+  for (const node of ['Anchor', 'Billboard', 'Collision', 'Group', 'Transform']) {
+    const c = getFieldConstraints(node, 'children');
+    assert.deepEqual(c.acceptedNodeClasses, ['children'], `${node}.children`);
+    assert.equal(c.acceptedNodeTypes, undefined, `${node}.children must not also name types`);
+  }
+  assert.deepEqual(getFieldConstraints('LOD', 'level').acceptedNodeClasses, ['children']);
+  assert.deepEqual(getFieldConstraints('Switch', 'choice').acceptedNodeClasses, ['children']);
+  for (const c of withConstraints()) {
+    for (const id of c.rec.constraints.acceptedNodeClasses || []) {
+      assert.ok(nodeClasses[id], `${c.node}.${c.field} cites unknown class ${id}`);
+    }
+  }
+});
+
+test('a node-valued field ISO says nothing extractable about gets null', () => {
+  // Table 4.3 omits the addChildren/removeChildren eventIns, Collision.proxy and
+  // both PointSet fields; clause 6 rescues only the ones stated in an exact
+  // template. The rest are ABSENT -- which does not mean they accept anything.
+  assert.equal(getFieldConstraints('Anchor', 'addChildren'), null);
+  assert.equal(getFieldConstraints('Anchor', 'removeChildren'), null);
+  assert.equal(getFieldConstraints('Collision', 'proxy'), null,
+    'stated only as running prose ("any legal children node as described in 4.6.5")');
+});
+
+test('the clause 6 templates only add what Table 4.3 omits, and never contradict it', () => {
+  const proseOnly = nodeValuedFields()
+    .filter(({ rec }) => rec.constraints && rec.constraints.rules.includes('clause-6-sentence'));
+  assert.deepEqual(proseOnly.map((f) => `${f.node}.${f.field}`).sort(),
+    ['Appearance.textureTransform', 'PointSet.color', 'PointSet.coord']);
+  assert.deepEqual(getFieldConstraints('Appearance', 'textureTransform').acceptedNodeTypes, ['TextureTransform']);
+  assert.deepEqual(getFieldConstraints('PointSet', 'coord').acceptedNodeTypes, ['Coordinate']);
+  for (const f of proseOnly) {
+    assert.deepEqual(f.rec.constraints.rules, ['clause-6-sentence'],
+      'a field cannot be sourced from both signals without them having been reconciled');
+  }
+});
+
+test('the accepted-node templates do not bind a field to a merely nearby node name', () => {
+  // "The source field specifies the sound source for the Sound node" would bind
+  // Sound.source to Sound under any loose gap. Its real answer comes from Table
+  // 4.3 and is AudioClip/MovieTexture.
+  assert.ok(!getFieldConstraints('Sound', 'source').acceptedNodeTypes.includes('Sound'));
+  // "The geometry field contains a geometry node" names a CLASS in lower case.
+  // The templates discard a captured word that is not a node name rather than
+  // inventing a type from it, so Shape.geometry's answer is Table 4.3's alone.
+  assert.deepEqual(getFieldConstraints('Shape', 'geometry').rules, ['table-4.3']);
+});
+
+test('accepted-node metadata appears only on node-valued fields', () => {
+  for (const { node, field, rec } of allFields()) {
+    const c = rec.constraints;
+    if (!c) continue;
+    if (c.acceptedNodeTypes || c.acceptedNodeClasses) {
+      assert.ok(rec.type === 'SFNode' || rec.type === 'MFNode',
+        `${node}.${field} is ${rec.type} but carries accepted-node metadata`);
+    }
+  }
+});
+
+// --- numeric ranges ---------------------------------------------------------
+
+test('a bounded scalar range is extracted with its inclusivity', () => {
+  assert.deepEqual(getFieldConstraints('Material', 'diffuseColor'),
+    { min: 0, minInclusive: true, max: 1, maxInclusive: true, rules: ['declaration-range'] });
+  assert.deepEqual(getFieldConstraints('Material', 'transparency'),
+    { min: 0, minInclusive: true, max: 1, maxInclusive: true, rules: ['declaration-range'] });
+});
+
+test('an exclusive bound is distinguished from an inclusive one', () => {
+  // ISO/IEC 14772-1 4.1.3: '[' and ']' include the endpoint, '(' and ')' exclude
+  // it. AudioClip.pitch is (0,infinity) -- zero is NOT a legal pitch -- while
+  // ElevationGrid.xDimension is [0,infinity) and zero IS legal.
+  const pitch = getFieldConstraints('AudioClip', 'pitch');
+  assert.equal(pitch.min, 0);
+  assert.equal(pitch.minInclusive, false);
+  const xDimension = getFieldConstraints('ElevationGrid', 'xDimension');
+  assert.equal(xDimension.min, 0);
+  assert.equal(xDimension.minInclusive, true);
+  assert.equal(counts.fieldsWithInclusiveMin, 56);
+  assert.equal(counts.fieldsWithExclusiveMin, 73);
+  assert.equal(counts.fieldsWithInclusiveMax, 30);
+  assert.equal(counts.fieldsWithExclusiveMax, 99);
+  // Inclusivity is recorded for exactly those fields that got a bound at all --
+  // 167 constrained fields less the 13 whose range was note-only and the 25
+  // whose only metadata is an accepted-node answer.
+  const withBound = withConstraints().filter(({ rec }) => 'minInclusive' in rec.constraints);
+  assert.equal(withBound.length, counts.fieldsWithInclusiveMin + counts.fieldsWithExclusiveMin);
+  assert.equal(withBound.length, 129);
+  for (const { node, field, rec } of withBound) {
+    assert.equal(typeof rec.constraints.maxInclusive, 'boolean',
+      `${node}.${field} states a lower bound but no upper inclusivity`);
+  }
+});
+
+test('a non-negative field with no upper bound records the symbol, not a number', () => {
+  const c = getFieldConstraints('Sound', 'maxFront');
+  assert.deepEqual(c, {
+    min: 0, minInclusive: true, maxSymbolic: 'infinity', maxInclusive: false, rules: ['declaration-range'],
+  });
+  assert.equal(c.max, undefined, 'no numeric maximum may be invented for an unbounded range');
+});
+
+test('an unbounded range is stated as unbounded, not left absent', () => {
+  // (-infinity,infinity) is a normative statement that the standard imposes no
+  // finite bound. That is a different answer from `constraints: null`, which
+  // says only that nothing was extracted.
+  assert.deepEqual(getFieldConstraints('Transform', 'translation'), {
+    minSymbolic: '-infinity', minInclusive: false, maxSymbolic: 'infinity', maxInclusive: false,
+    rules: ['declaration-range'],
+  });
+  assert.notEqual(getFieldConstraints('Transform', 'translation'), null);
+});
+
+test('a pi-valued bound stays symbolic and raises a note', () => {
+  // The trap this phase exists to avoid: the standard renders pi and infinity as
+  // GIF images, so stripping markup turns "[-2pi,2pi]" into "[-2,2]" -- a range
+  // that looks machine-readable and is wrong by a factor of pi.
+  const maxAngle = getFieldConstraints('CylinderSensor', 'maxAngle');
+  assert.deepEqual(maxAngle, {
+    minSymbolic: '-2pi', minInclusive: true, maxSymbolic: '2pi', maxInclusive: true,
+    note: { category: 'BOUND_IS_SYMBOLIC', source: '[-2pi,2pi]' },
+    rules: ['declaration-range'],
+  });
+  assert.equal(maxAngle.min, undefined);
+  assert.equal(maxAngle.max, undefined);
+  assert.notEqual(maxAngle.min, -2, 'the pi coefficient must not have been dropped');
+
+  const beamWidth = getFieldConstraints('SpotLight', 'beamWidth');
+  assert.equal(beamWidth.min, 0, 'the numeric half of a mixed range is still extracted');
+  assert.equal(beamWidth.minInclusive, false);
+  assert.equal(beamWidth.maxSymbolic, 'pi/2');
+  assert.equal(beamWidth.maxInclusive, true);
+  assert.equal(beamWidth.note.category, 'BOUND_IS_SYMBOLIC');
+});
+
+test('no constraint value is a JavaScript Infinity or NaN', () => {
+  for (const { node, field, rec } of withConstraints()) {
+    for (const key of ['min', 'max']) {
+      if (!(key in rec.constraints)) continue;
+      const v = rec.constraints[key];
+      assert.equal(typeof v, 'number', `${node}.${field}.${key}`);
+      assert.ok(Number.isFinite(v), `${node}.${field}.${key} must be finite, got ${v}`);
+    }
+  }
+});
+
+// --- known-but-unrepresented constraints ------------------------------------
+
+test('the four note categories each have real ISO-backed cases', () => {
+  assert.deepEqual([...constraintNotes].sort(),
+    ['BOUND_IS_SYMBOLIC', 'DISJUNCTIVE_RANGE', 'NON_MACHINE_EXTRACTABLE', 'PER_COMPONENT_RANGE']);
+  const byCategory = {};
+  for (const { rec } of withConstraints()) {
+    const note = rec.constraints.note;
+    if (note) byCategory[note.category] = (byCategory[note.category] || 0) + 1;
+  }
+  assert.deepEqual(byCategory, {
+    BOUND_IS_SYMBOLIC: 8, PER_COMPONENT_RANGE: 6, DISJUNCTIVE_RANGE: 6, NON_MACHINE_EXTRACTABLE: 1,
+  });
+  for (const category of constraintNotes) {
+    assert.ok(byCategory[category] > 0, `${category} is declared but no ISO field uses it`);
+  }
+  assert.equal(counts.fieldsWithConstraintNote, 21);
+});
+
+test('a per-component range yields a note and no scalar bound', () => {
+  // SFRotation is [-1,1] on the axis and unbounded on the angle. A single
+  // min/max would be wrong for one of the two.
+  const c = getFieldConstraints('Transform', 'rotation');
+  assert.deepEqual(c, {
+    note: { category: 'PER_COMPONENT_RANGE', source: '[-1,1],(-infinity,infinity)' },
+    rules: ['declaration-range'],
+  });
+  assert.equal(c.min, undefined);
+  assert.equal(c.max, undefined);
+});
+
+test('a disjunctive range yields a note that does not reject the field default', () => {
+  // bboxSize is "(0,infinity) or -1,-1,-1". Emitting min 0 exclusive would make
+  // the field's OWN ISO default illegal.
+  const c = getFieldConstraints('Transform', 'bboxSize');
+  assert.deepEqual(c, {
+    note: { category: 'DISJUNCTIVE_RANGE', source: '(0,infinity) or -1,-1,-1' },
+    rules: ['declaration-range'],
+  });
+  assert.equal(c.min, undefined);
+  assert.deepEqual(getFieldSchema('Transform', 'bboxSize').defaultValue, [-1, -1, -1]);
+});
+
+test('a cross-reference to another clause is a note, not a silent absence', () => {
+  assert.deepEqual(getFieldConstraints('PixelTexture', 'image'), {
+    note: { category: 'NON_MACHINE_EXTRACTABLE', source: 'see 5.5, SFImage' },
+    rules: ['declaration-range'],
+  });
+});
+
+// --- absence ----------------------------------------------------------------
+
+test('an unconstrained field is null, and null means "not represented"', () => {
+  // These fields have no ISO range annotation and no Table 4.3 row. `null` is
+  // the honest answer; it is NOT a statement that any value is legal.
+  assert.equal(getFieldConstraints('WorldInfo', 'title'), null);
+  assert.equal(getFieldConstraints('Anchor', 'description'), null);
+  assert.equal(getFieldConstraints('NavigationInfo', 'type'), null);
+  assert.equal(getFieldConstraints('FontStyle', 'style'), null);
+  assert.equal(getFieldConstraints('Collision', 'collide'), null);
+  // Unknown node and unknown field answer the same way, so a consumer that
+  // clamps on null would clamp on a typo.
+  assert.equal(getFieldConstraints('NoSuchNode', 'whatever'), null);
+  assert.equal(getFieldConstraints('Transform', 'noSuchField'), null);
+});
+
+test('a default value never becomes a range', () => {
+  // Box.size defaults to 2 2 2 and is annotated (0,infinity). If defaults leaked
+  // into ranges the minimum would read 2.
+  const size = getFieldConstraints('Box', 'size');
+  assert.equal(size.min, 0);
+  assert.deepEqual(getFieldSchema('Box', 'size').defaultValue, [2, 2, 2]);
+  // Fields whose ONLY numeric information is a default must stay null.
+  assert.equal(getFieldConstraints('Text', 'string'), null);
+  assert.equal(getFieldSchema('Sphere', 'radius').defaultValue, 1);
+  const radius = getFieldConstraints('Sphere', 'radius');
+  assert.ok(radius === null || radius.min !== 1, 'a default must never be read as a bound');
+});
+
+test('no enumerated allowed-value set was extracted, and none was invented', () => {
+  // A deliberate, measured zero. ISO states enumerants such as FontStyle.style's
+  // "PLAIN"/"BOLD"/"ITALIC"/"BOLDITALIC" only in running prose whose shape
+  // varies between fields; extracting them would need English interpretation,
+  // which this generator does not do. The facet is therefore absent rather than
+  // guessed, and this test records that as a finding, not an oversight.
+  assert.equal(counts.fieldsWithAllowedValues, 0);
+  for (const { node, field, rec } of withConstraints()) {
+    assert.equal(rec.constraints.allowedValues, undefined, `${node}.${field}`);
+  }
+});
+
+// --- profile separation -----------------------------------------------------
+
+test('no X3D-only field carries constraint metadata', () => {
+  const x3dOnly = allFields().filter(({ rec }) => !rec.profiles.includes('vrml97'));
+  assert.equal(x3dOnly.length, counts.x3dOnly);
+  assert.ok(x3dOnly.length > 0);
+  for (const { node, field, rec } of x3dOnly) {
+    assert.equal(rec.constraints, null, `${node}.${field} is X3D-only and must carry no ISO constraint`);
+  }
+  // Every constrained field is reachable through the strict VRML97 projection.
+  for (const { node, field } of withConstraints()) {
+    assert.ok(isFieldAllowed(node, field, 'vrml97'), `${node}.${field} leaked into the VRML97 answer`);
+  }
+});
+
+test('node classes name only VRML97 nodes', () => {
+  for (const id of nodeClassNames) {
+    for (const member of nodeClasses[id].members) {
+      assert.ok(isVRML97Node(member), `${id} names ${member}, which is not a VRML97 node`);
+    }
+  }
+});
+
+// --- counts and denominators ------------------------------------------------
+
+test('every extraction facet is counted against its denominator', () => {
+  assert.equal(counts.fieldsExamined, allFields().length);
+  assert.equal(counts.fieldsExamined, 544);
+  assert.equal(counts.vrml97FieldsExamined, 312);
+  assert.equal(counts.vrml97FieldsExamined, vrml97Fields().length);
+  assert.equal(counts.fieldsExamined - counts.vrml97FieldsExamined, counts.x3dOnly);
+  assert.equal(counts.nodeValuedVrml97Fields, 36);
+  assert.equal(counts.nodeValuedVrml97Fields, nodeValuedFields().length);
+
+  assert.equal(counts.fieldsWithConstraints, 167);
+  assert.equal(counts.fieldsWithConstraints, withConstraints().length);
+  assert.equal(counts.fieldsWithNumericMin, 72);
+  assert.equal(counts.fieldsWithNumericMax, 23);
+  assert.equal(counts.fieldsWithSymbolicMin, 57);
+  assert.equal(counts.fieldsWithSymbolicMax, 106);
+  assert.equal(counts.fieldsWithAcceptedNodeTypes, 18);
+  assert.equal(counts.fieldsWithAcceptedNodeClasses, 7);
+  assert.equal(counts.fieldsWithAcceptedNodeTypes + counts.fieldsWithAcceptedNodeClasses, 25,
+    '25 of the 36 node-valued fields have an accepted-node answer; the other 11 are absent, not unrestricted');
+
+  // Recomputed from the data, so a count that drifts from what it describes
+  // fails rather than reassuring.
+  const tally = (pred) => withConstraints().filter(({ rec }) => pred(rec.constraints)).length;
+  assert.equal(tally((c) => 'min' in c), counts.fieldsWithNumericMin);
+  assert.equal(tally((c) => 'max' in c), counts.fieldsWithNumericMax);
+  assert.equal(tally((c) => 'minSymbolic' in c), counts.fieldsWithSymbolicMin);
+  assert.equal(tally((c) => 'maxSymbolic' in c), counts.fieldsWithSymbolicMax);
+  assert.equal(tally((c) => !!c.acceptedNodeTypes), counts.fieldsWithAcceptedNodeTypes);
+  assert.equal(tally((c) => !!c.acceptedNodeClasses), counts.fieldsWithAcceptedNodeClasses);
+  assert.equal(tally((c) => !!c.note), counts.fieldsWithConstraintNote);
+});
+
+test('extraction has not silently collapsed', () => {
+  // Floors, not equalities: these exist so that an ISO source-format change that
+  // halves a facet is a failure and not a quietly smaller schema.
+  assert.ok(counts.fieldsWithConstraints > 150, 'constraint extraction collapsed');
+  assert.ok(counts.nodeClassMemberships > 100, 'node-class extraction collapsed');
+  assert.ok(counts.fieldsWithAcceptedNodeTypes + counts.fieldsWithAcceptedNodeClasses > 20,
+    'accepted-node extraction collapsed');
+});
+
+// --- provenance -------------------------------------------------------------
+
+test('every constraint cites the rule that produced it', () => {
+  for (const { node, field, rec } of withConstraints()) {
+    const { rules } = rec.constraints;
+    assert.ok(Array.isArray(rules) && rules.length > 0, `${node}.${field} has no rules`);
+    for (const rule of rules) {
+      assert.ok(constraintRules[rule], `${node}.${field} cites unknown rule ${rule}`);
+      assert.equal(constraintRules[rule].standard, 'ISO/IEC 14772-1');
+    }
+  }
+  assert.deepEqual(Object.keys(constraintRules).sort(),
+    ['clause-6-sentence', 'declaration-range', 'table-4.3']);
+});
+
+test('the generated file records the clause 4 source alongside clause 6', () => {
+  assert.equal(provenance.isoConceptsSource.standard, 'ISO/IEC 14772-1 (VRML97)');
+  assert.equal(provenance.isoConceptsSource.file, 'raw/part1/concepts.html');
+  assert.match(provenance.isoConceptsSource.sha256, /^[0-9a-f]{64}$/);
+  assert.notEqual(provenance.isoConceptsSource.sha256, provenance.isoSource.sha256);
+  assert.equal(provenance.whiteDuneUsed, false);
+});
+
+// Both files carry a deliberate NEGATIVE attestation ("no White Dune material
+// was used"), so a bare substring scan would fail on the very sentence that
+// records the fact. What must hold is that no White Dune reference reaches any
+// DATA value, and that the mentions in the source are confined to comments.
+const codeLines = (text) => text.split('\n')
+  .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line));
+
+test('no White Dune material reaches any generated value', () => {
+  // `provenance.whiteDuneUsed: false` is itself the attestation, so it is
+  // asserted rather than scanned.
+  const data = JSON.stringify({ nodes, counts, nodeClasses, constraintRules, constraintNotes });
+  for (const marker of ['dune', 'matchNodeClass', 'RE-ARTIFACTS']) {
+    assert.ok(!data.toLowerCase().includes(marker.toLowerCase()),
+      `the schema data must not mention ${marker}`);
+  }
+  assert.equal(provenance.whiteDuneUsed, false);
+  // Whatever the file says about White Dune, it says in comments only.
+  for (const line of codeLines(fs.readFileSync(SCHEMA_FILE, 'utf8'))) {
+    assert.ok(!/dune/i.test(line.replace('whiteDuneUsed', '')),
+      `White Dune reached generated code: ${line.trim()}`);
+  }
+});
+
+test('no local filesystem path is baked into the generated schema', () => {
+  const text = fs.readFileSync(SCHEMA_FILE, 'utf8');
+  assert.ok(!/\/home\/[a-z]/i.test(text), 'no local filesystem path may be baked into the output');
+  assert.ok(!text.includes('Projects/cybertown'));
+  assert.equal(provenance.isoSource.file, 'raw/part1/nodesRef.html', 'a mirror-relative identity, not a path');
+});
+
+test('the generator reads no White Dune input', () => {
+  for (const line of codeLines(fs.readFileSync(GENERATOR, 'utf8'))) {
+    assert.ok(!/dune/i.test(line.replace('whiteDuneUsed', '')),
+      `the generator must not reference White Dune in code: ${line.trim()}`);
+    assert.ok(!/RE-ARTIFACTS/.test(line));
+  }
+});
+
+// --- immutability -----------------------------------------------------------
+
+test('the new metadata is frozen as deeply as the rest of the schema', () => {
+  assert.ok(Object.isFrozen(nodeClasses));
+  assert.ok(Object.isFrozen(constraintRules));
+  assert.ok(Object.isFrozen(constraintNotes));
+  for (const id of nodeClassNames) {
+    assert.ok(Object.isFrozen(nodeClasses[id]), `${id} record`);
+    assert.ok(Object.isFrozen(nodeClasses[id].members), `${id} members`);
+  }
+  for (const { node, field, rec } of withConstraints()) {
+    assert.ok(Object.isFrozen(rec.constraints), `${node}.${field} constraints`);
+    for (const key of ['acceptedNodeTypes', 'acceptedNodeClasses', 'rules']) {
+      if (rec.constraints[key]) assert.ok(Object.isFrozen(rec.constraints[key]), `${node}.${field}.${key}`);
+    }
+    if (rec.constraints.note) assert.ok(Object.isFrozen(rec.constraints.note), `${node}.${field}.note`);
+  }
+  assert.throws(() => { getFieldConstraints('Material', 'transparency').min = 99; }, TypeError);
+  assert.throws(() => { getNodeClasses('Anchor').push('nonsense'); }, TypeError);
+  assert.equal(getFieldConstraints('Material', 'transparency').min, 0);
+});
+
+test('two callers asking for the same class list get the same frozen array', () => {
+  assert.equal(listNodesInClass('geometry'), listNodesInClass('geometry'));
+  assert.equal(getNodeClasses('Anchor'), getNodeClasses('Anchor'));
+});
+
+// --- generator-level parsing (mirror-independent) ---------------------------
+
+test('parseRange refuses an annotation form it does not recognise', () => {
+  const { parseRange } = generator;
+  assert.throws(() => parseRange('Test.field', 'roughly positive'), /unrecognised range annotation/);
+  assert.throws(() => parseRange('Test.field', '[0,'), /unrecognised range annotation/);
+  assert.throws(() => parseRange('Test.field', '[a,b]'), /unparsable range endpoint/);
+});
+
+test('parseRange reads inclusivity from the bracket, both ends independently', () => {
+  const { parseRange } = generator;
+  assert.deepEqual(parseRange('T.f', '[0,1]'), { min: 0, minInclusive: true, max: 1, maxInclusive: true });
+  assert.deepEqual(parseRange('T.f', '(0,1)'), { min: 0, minInclusive: false, max: 1, maxInclusive: false });
+  assert.deepEqual(parseRange('T.f', '[0,1)'), { min: 0, minInclusive: true, max: 1, maxInclusive: false });
+  assert.deepEqual(parseRange('T.f', '(-1,1]'), { min: -1, minInclusive: false, max: 1, maxInclusive: true });
+});
+
+test('the ten node-class ids are declared, not discovered ad hoc', () => {
+  // Every label the generator knows must correspond to a class in the committed
+  // schema, so a renamed or dropped enumeration cannot pass silently.
+  const declared = Object.values(generator.NODE_CLASS_IDS);
+  assert.equal(declared.length, 10);
+  assert.deepEqual([...declared].sort(), [...nodeClassNames].sort());
+});
+
+test('an unrecognised declaration image fails the build instead of being dropped',
+  { skip: needsMirror }, () => {
+  // The failure class this guards is the one WD1.6-A exists to prevent: the 1997
+  // pages render pi and infinity as GIFs, so an image that is silently discarded
+  // turns "[-2pi,2pi]" into "[-2,2]" -- a range that looks perfectly
+  // machine-readable and is wrong by a factor of pi. Behavioural, not a scan of
+  // the generator's source: the real extraction path is run over a scratch copy
+  // of the mirror in which exactly one image has been renamed.
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'wrl-forge-glyph-'));
+  try {
+    const nodesRefPath = path.join(scratch, generator.NODE_REF);
+    const conceptsPath = path.join(scratch, generator.CONCEPTS_REF);
+    fs.mkdirSync(path.dirname(nodesRefPath), { recursive: true });
+    fs.copyFileSync(path.join(isoDir, generator.NODE_REF), nodesRefPath);
+    fs.copyFileSync(path.join(isoDir, generator.CONCEPTS_REF), conceptsPath);
+
+    // Control: the copy is faithful, and both KNOWN glyphs are still recognised
+    // and still land as symbols rather than as bare numbers.
+    const control = generator.generate(scratch).text;
+    assert.equal(control, fs.readFileSync(SCHEMA_FILE, 'utf8'),
+      'the scratch mirror must reproduce the committed schema exactly');
+    assert.ok(control.includes('minSymbolic: "-2pi"'), 'pi.gif is recognised and stays symbolic');
+    assert.ok(control.includes('maxSymbolic: "infinity"'), 'infinity.gif is recognised and stays symbolic');
+
+    // Rename ONLY the image. Every byte of the surrounding range text -- the
+    // brackets, the sign, the coefficient 2 -- is left exactly as it was, so a
+    // generator that dropped the tag would still find a well-formed "[-2,2]".
+    const original = fs.readFileSync(nodesRefPath, 'latin1');
+    const mutated = original.split('Images/pi.gif').join('Images/tau.gif');
+    assert.notEqual(mutated, original, 'the scratch fixture must actually have changed');
+    fs.writeFileSync(nodesRefPath, mutated, 'latin1');
+
+    // It must fail loudly, naming the image it did not recognise. Nothing is
+    // returned, so the unfamiliar glyph cannot have been stripped, read as a
+    // number, or quietly recorded as "no constraint".
+    assert.throws(() => generator.generate(scratch), (err) => {
+      assert.match(err.message, /unrecognised image/i);
+      assert.match(err.message, /tau\.gif/);
+      return true;
+    }, 'an unfamiliar declaration image must be a hard failure');
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
+});
+
+test('the generator names both ISO clause files it reads', () => {
+  assert.equal(generator.NODE_REF, path.join('raw', 'part1', 'nodesRef.html'));
+  assert.equal(generator.CONCEPTS_REF, path.join('raw', 'part1', 'concepts.html'));
 });
