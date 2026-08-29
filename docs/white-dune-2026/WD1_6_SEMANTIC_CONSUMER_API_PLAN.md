@@ -479,6 +479,21 @@ warns about.
 
 ## 8. WD1.6-D — structured semantic findings model
 
+> **AMENDED 2026-08-29, as built.** The subsections below were written before
+> A/B/C existed. Four of their proposals did not survive contact with the shipped
+> APIs and are corrected in place; the surrounding text is the original plan and
+> is left as written. What the module actually is now lives in
+> `src/vrml/semantic-findings.js`'s own header, and the evidence in
+> `spikes/wd1-6-findings-coverage/README.md`.
+>
+> | plan proposal | disposition | why |
+> |---|---|---|
+> | one combined `policyClass` | **amended** — split into `iso` + a reserved `compatibility` slot | §21.4 requires ISO legality, profile acceptance and confidence as *separate* fields, and the enum merged the first two into one indivisible value |
+> | `profile: 'cybertown-compat'` | **removed** — no profile name is in the API; `compatibility` is always `null` | §22.4 deferred the naming to this lane on evidence, and the evidence does not exist yet. `null` means NOT EVALUATED, not "strict VRML97" |
+> | `presentationHint` | **removed** | it is presentation policy under a semantic name; nothing in the record needs it, and its absence is asserted by test |
+> | "D derives from scope-graph verdicts only" | **amended** — D also projects WD1.6-C containment verdicts | C shipped after this sentence was written, and `ILLEGAL` is a provable document fact nothing else reports |
+> | a shipped `toDiagnostic` adapter | **deferred to P4** — the demonstration is a reference consumer in the test file | §8.1's own reasoning taken to its conclusion: a policy-free adapter is a re-spelling of `makeDiagnostic` plus a place for a default severity to grow |
+
 ### 8.1 Why a parallel shape, not an extension
 
 `diagnostics.js` takes `severity` **as its first constructor argument** and a
@@ -486,76 +501,81 @@ human `message` as its third. Both are presentation decisions. WD1.6 is
 explicitly forbidden from making them (§3), so extending that record would force
 this lane to decide P4's policy at construction time.
 
-**Decision: a parallel `SemanticFinding` shape plus a one-way adapter.**
+**Decision: a parallel `SemanticFinding` shape.** *(As built: and no adapter at
+all — see the amendment table. The arrow still runs one way; there is simply
+nothing on this side of it that could produce a severity.)*
 
-> `semanticFinding → diagnostic` is a P4-owned mapping. WD1.6 ships the shape and
-> a *reference* adapter; P4 owns the policy the adapter encodes.
-
-There is exactly one diagnostic universe at the consumer boundary, because
-findings only ever reach the UI **through** the adapter. The two shapes are not
-competing models: one is semantics, one is presentation, and the arrow between
-them runs one way.
-
-### 8.2 Shape
+### 8.2 Shape *(as built)*
 
 ```
 SemanticFinding (frozen)
-  code          FINDING_CODE.*     stable, never renumbered
-  rule          normative citation — 'ISO 4.10.2', 'ISO Table 4.4'
-  subject       { kind, node, symbol, reference }  what the finding is ABOUT
-  range         { start, end }     exact source range
-  policyClass   POLICY_CLASS.*     see 8.3
-  confidence    STATUS.*           the substrate's own status, unchanged
-  profile       'vrml97' | 'cybertown-compat' | 'vendor-extension' | null
-  detail        REASON.* | null
-  evidence      frozen array
-  presentationHint PRESENTATION_HINT.* | null   advisory ONLY
+  code           FINDING_CODE.*   which semantic QUESTION failed; never renumbered
+  subject        { node, parent, reference, symbol, name }   what it is ABOUT
+  range          { start, end }   the parser's own span, shared and unfrozen
+  iso            ISO_RESULT.*     PROHIBITED | UNDEFINED | NOT_STATED
+  rule           { standard, clause, description } | null   non-null iff iso is terminal
+  compatibility  null             RESERVED; see the amendment table
+  confidence     STATUS.*         the substrate's own status, VERBATIM
+  reason         REASON.*         the substrate's own reason, VERBATIM
+  detail         REASON.* | null  the substrate's own detail, VERBATIM
+  evidence       frozen array     the substrate's own evidence ranges
 ```
 
-Deliberately **absent**: `severity`, `message`, `visible`. Those are P4's.
+Deliberately **absent**: `severity`, `message`, `visible`, `presentationHint`.
+Those are P4's, and their absence is asserted by shape, by source scan, by the
+absence of any adapter, and by a mutation control.
 
-### 8.3 `policyClass` — the compatibility question, answered structurally
+### 8.3 The ISO axis *(replaces the `policyClass` proposal)*
 
-This is the field that carries P2B's 1,481 Table 4.4 violations without
-prejudging them.
+`iso` records **what the standard says**, and nothing else:
 
-| value | meaning |
-|---|---|
-| `STRICT_VIOLATION` | ISO says non-conforming, no profile accepts it |
-| `STRICT_INCOMPATIBLE_PROFILE_ACCEPTED` | ISO says non-conforming; a WRL Forge compatibility profile accepts it |
-| `VENDOR_EXTENSION` | outside ISO; observed and classified |
-| `NOT_PROVABLE` | the substrate could not decide |
-| `CONFORMING` | ISO-legal; carried when a consumer asked |
+| value | meaning | `rule` |
+|---|---|---|
+| `PROHIBITED` | a normative sentence states a requirement this construct violates | cited |
+| `UNDEFINED` | a normative sentence states the results are undefined | cited |
+| `NOT_STATED` | this finding asserts nothing about the standard | `null` |
 
-`policyClass` and `confidence` are **orthogonal and both required**. "ISO says
-this is illegal" and "we are sure" are different claims: a `STRICT_VIOLATION`
-with `confidence: 'recovered'` is a finding P4 should probably suppress, and
-that is only expressible if both fields exist.
+`iso` is a pure function of `reason`, computed by one committed table
+(`ISO_BY_REASON`) that is **total** over `REASON` and asserted so by test. A
+producer cannot supply it. That is what keeps a compatibility acceptance from
+ever rewriting an ISO fact: the acceptance would live in `compatibility`, and
+`iso` does not read it.
 
-**Worked example — P2B's 1,481.** WD1.6 emits:
+`iso` and `confidence` are **orthogonal and both required**. "ISO forbids this"
+and "we are sure we read it right" are different claims: a `PROHIBITED` finding
+with `confidence: recovered` is one P4 should probably suppress, and that is only
+expressible because both fields exist. Every recovery reason is classified
+`NOT_STATED`, so parser recovery can never manufacture an accusation.
+
+**Worked example — P2B's Table 4.4 violations.** WD1.6-D emits:
 
 ```
-code: IS_ACCESS_INCOMPATIBLE
-rule: 'ISO Table 4.4'
-policyClass: STRICT_INCOMPATIBLE_PROFILE_ACCEPTED
-confidence: STATUS.RESOLVED
-profile: 'cybertown-compat'
+code: IS_CONNECTION_REJECTED
+reason: 'is-access-incompatible'
+iso: PROHIBITED
+rule: { standard: 'ISO/IEC 14772-1', clause: '4.8.3', ... }
+compatibility: null           <- NOT EVALUATED. No profile name is guessed.
+confidence: 'invalid'
 ```
 
-WD1.6 does **not** decide whether that renders as an error, a warning, a
+WD1.6-D does **not** decide whether that renders as an error, a warning, a
 compatibility notice, or nothing. P4 does. Both facts — *"ISO forbids it"* and
-*"this corpus does it 1,481 times and the compatibility profile accepts it"* —
-survive to the point of decision, which is the entire requirement.
+*"the substrate is certain of what it read"* — survive to the point of decision,
+which is the entire requirement.
 
-### 8.4 Producers
+### 8.4 Producers *(as built)*
 
-A finding is **derived on request** from existing verdicts —
-`isConnectionVerdict`, `routeVerdict`, `resolve`, `resolveIs`,
-`nodeIsBindingIssues` — never stored, never a fourth source of truth. If the
-substrate and a finding disagree, the substrate is right and the derivation has a
-bug.
+A finding is **derived on request** from existing verdicts — `resolve`,
+`resolveIs`, `isConnectionVerdict`, `nodeIsBindingIssues`, `interfaceMembers`,
+`resolveRouteNode`, `resolveRouteEndpoint`, `routeVerdict` and
+`childLegality` — never stored, never a fourth source of truth. If the substrate
+and a finding disagree, the substrate is right and the derivation has a bug.
 
----
+Eleven codes, one per question the substrate answers. Three structural
+de-duplication rules stop one underlying fact producing two findings. Containment
+contributes `ILLEGAL` **only**: its uncertain answers are facts about what WRL
+Forge represents, or restatements of a P1/P2A failure already reported at the
+same source position. The module header records each exclusion and its reason.
 
 ## 9. Fail-closed and recovery semantics
 
@@ -659,23 +679,30 @@ as amended at A1 closeout:
 
 Three separable facts, kept separate at every layer:
 
+*(Amended as built — the field names changed, the separation did not.)*
+
 | fact | where it lives |
 |---|---|
-| what ISO says | `policyClass` (§8.3) + `rule` citation |
-| what a WRL Forge profile accepts | `profile` + `STRICT_INCOMPATIBLE_PROFILE_ACCEPTED` |
+| what ISO says | `iso` (§8.3) + the `rule` citation |
+| what a WRL Forge profile accepts | `compatibility` — **reserved, always `null`**; no profile name entered the API |
 | how sure we are | `confidence` (§8.2) |
 
 Binding rules:
 
 - Profiles are **additive**: a compatibility profile may accept more; it may
   never reject what ISO permits (§7.6).
-- A compatibility acceptance **never** rewrites the ISO fact. `policyClass`
-  still says the standard forbids it. WD.md §9: never silently normalize vendor
-  behaviour into standard behaviour.
+- A compatibility acceptance **never** rewrites the ISO fact. `iso` still says
+  the standard forbids it, because `iso` is computed from the reason by one
+  committed table and reads nothing else. WD.md §9: never silently normalize
+  vendor behaviour into standard behaviour.
 - Mall Item rules **never** enter this layer. WD1.6 is standards core; the Mall
   profile is `validator.js`, structurally separate, and the three profile layers'
   rules do not leak downward or sideways.
 - The default profile is `'vrml97'`. Cybertown compatibility is **opt-in**.
+- **As built:** no compatibility profile is named anywhere in WD1.6. Whether a
+  historical construct is strict VRML97, Blaxxun-, GLView- or Cybertown-specific
+  is an evidence question WD1.6-D declined to guess; `compatibility: null` means
+  NOT EVALUATED, and a test asserts no such identifier is in the code.
 
 ---
 
@@ -687,7 +714,7 @@ Three modules, not one `consumer-api.js`.
 |---|---|---|---|
 | `src/vrml/interface-query.js` | `scope-graph`, `node-schema`, `symbols` (constants) | `effectiveInterfaceOf`, `INTERFACE_STATUS` helpers | enumeration internals |
 | `src/vrml/containment.js` | `interface-query`, `node-schema`, `scope-graph` | `childLegality`, `NODE_CLASS`, `CONTAINMENT_REASON` | class-table lookup, PROTO first-node walk |
-| `src/vrml/semantic-findings.js` | `scope-graph`, `symbols` (constants) | `FINDING_CODE`, `POLICY_CLASS`, `findingsFor*`, `toDiagnostic` adapter | derivation helpers |
+| `src/vrml/semantic-findings.js` | `scope-graph`, `containment`, `ast` *(amended: C shipped after this row was written)* | `FINDING_CODE`, `ISO_RESULT`, `findingsForDocument` | the ISO table, the producers, the placement traversal |
 
 **Dependency direction is strictly one-way:**
 
@@ -699,9 +726,9 @@ scope-graph ──┤
 ```
 
 - `containment` depends on `interface-query`; **never the reverse.**
-- `semantic-findings` depends on neither of the other two — it derives from
-  scope-graph verdicts, so a consumer wanting only findings pulls no schema
-  machinery.
+- `semantic-findings` depends on `containment` *(amended — the original text said
+  it depended on neither, which predated C)*, and on nothing that depends on it.
+  The arrow still runs one way and a test asserts no upstream module names it.
 - **No cycle is possible**, and a test asserts the module graph is acyclic.
 - `scope-graph.js` gains an **internal** enumeration entry point for §5.4. It
   gains no new public export.
@@ -768,11 +795,13 @@ remove one · unresolved candidate type → `UNRESOLVED`.
 
 ### 14.4 Findings
 
-strict violation · compatibility acceptance (a real Table 4.4 case) ·
-`STRICT_VIOLATION` + `confidence: recovered` · unresolved · unsupported ·
-ambiguous · exact source range · frozen shape · adapter produces a valid
-`diagnostics.js` record · **adapter is the only path to a severity** ·
-finding never contradicts its source verdict.
+*(As built — the stale API names below were replaced; the obligations were
+not.)* ISO violation representable · ISO result independent of the reserved
+compatibility slot · every recovery reason classified `NOT_STATED` · unresolved ·
+unsupported · ambiguous · invalid · recovered · exact source range · frozen shape
+· **no adapter exists, so there is no path to a severity at all** · finding never
+contradicts its source verdict · no second resolver · no compatibility profile
+name in the API · four mutation controls, each naming the defect it catches.
 
 ### 14.5 Structural
 
@@ -820,7 +849,9 @@ Corpus guards stay unchanged.
 
 ```js
 const { buildScopeGraph } = require('./scope-graph');
-const { findingsForDocument, POLICY_CLASS } = require('./semantic-findings');
+// AS BUILT: `POLICY_CLASS` became `ISO_RESULT`; there is no adapter, so this
+// consumer builds the diagnostic itself -- which is the point.
+const { findingsForDocument, ISO_RESULT } = require('./semantic-findings');
 const { effectiveInterfaceOf } = require('./interface-query');
 
 const graph = buildScopeGraph(parseResult);
@@ -831,10 +862,8 @@ for (const f of findingsForDocument(graph)) {
 
   // 2. P4's policy — WD1.6 supplied the facts, not this decision.
   const severity =
-    f.policyClass === POLICY_CLASS.STRICT_VIOLATION            ? 'error'
-  : f.policyClass === POLICY_CLASS.STRICT_INCOMPATIBLE_PROFILE_ACCEPTED
-      ? (settings.cybertownCompat ? 'info' : 'warning')
-  : f.policyClass === POLICY_CLASS.VENDOR_EXTENSION            ? 'hint'
+    f.iso === ISO_RESULT.PROHIBITED ? 'error'
+  : f.iso === ISO_RESULT.UNDEFINED  ? 'warning'
   : null;
   if (!severity) continue;
 
@@ -975,9 +1004,10 @@ Add `src/vrml/containment.js` over A's tables and B's query.
 degrades to `LEGAL`.
 
 ### WD1.6-D — semantic findings model
-Add `src/vrml/semantic-findings.js` + reference adapter.
-**Exit:** §14.4 matrix; both §16/§17 consumer proofs compile against the real
-API; no `severity` reachable except through the adapter.
+Add `src/vrml/semantic-findings.js`; reference consumer in the test file, no
+production adapter (§8 amendment).
+**Exit:** §14.4 matrix; both §16/§17 consumer proofs run against the real API;
+no `severity` reachable at all.
 
 **D is independent of A/B/C** — it derives from scope-graph verdicts only — so it
 may run in parallel with C, or first if P4 is prioritized over WD2. **A → B → C
@@ -1065,6 +1095,14 @@ supersede the recommendations recorded with each question.
    placeholder in this document and must **not** be established as a production
    semantic API identifier in A, B or C — no placeholder constant that later
    becomes accidental API.
+
+   > **Resolved in WD1.6-D (2026-08-29): no name was established, deliberately.**
+   > D found it could be implemented correctly without one, so it was. The
+   > `SemanticFinding.compatibility` slot exists, is always `null`, and means
+   > NOT EVALUATED — not "strict VRML97" and not "no profile accepts this". The
+   > attribution question stays open for the lane that can settle it from
+   > evidence; until then a test asserts no such identifier is in the code.
+   > See §8's amendment table.
 5. **Node-creation templates are out of scope for WD1.6.** WD1.3 already records
    default values; A adds semantic metadata only. Node creation belongs to WD2.
 6. **The real-corpus containment-coverage measurement is approved, but it belongs

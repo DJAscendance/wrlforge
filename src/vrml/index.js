@@ -51,6 +51,11 @@ const interfaceQuery = require('./interface-query');
 // it is a CONSUMER layer, not a new authority: every fact it judges came from
 // P1/P2A, WD1.6-B or the WD1.6-A schema.
 const containment = require('./containment');
+// WD1.6-D, the structured semantic findings model over the same graph. Like the
+// two above it is a CONSUMER layer: every fact it reports was decided by
+// P1/P2A/P2B/P2C, WD1.6-B or WD1.6-C, and it re-expresses them in one record
+// shape without deciding anything itself.
+const semanticFindings = require('./semantic-findings');
 
 const publicDocumentTransaction = Object.freeze({
   // Prove that an edit set is exactly what turned one exact text into another.
@@ -138,6 +143,28 @@ const publicContainment = Object.freeze({
   CANDIDATE_KIND: containment.CANDIDATE_KIND,
 });
 
+/**
+ * WD1.6-D -- what is semantically wrong with this document, and how sure are we?
+ *
+ * Narrow ON PURPOSE, and narrower than the two above: ONE query plus the two
+ * tables a consumer must branch on. The ISO classification table, the producers
+ * and the placement traversal are the module's reasoning, not its contract.
+ *
+ * `STATUS` and `REASON` are deliberately NOT re-exported here -- a finding's
+ * `confidence` and `reason` ARE the scope graph's own values, and publishing a
+ * second copy of those tables under this name would invite a consumer to
+ * believe they are a different vocabulary. Read them from `interfaceQuery`.
+ *
+ * NO PRESENTATION. There is no severity, no message, no visibility and no
+ * adapter that would produce one -- deciding those is P4's job, and a finding
+ * exists so P4 can decide them from facts rather than from a pre-judged label.
+ */
+const publicSemanticFindings = Object.freeze({
+  findingsForDocument: semanticFindings.findingsForDocument,
+  FINDING_CODE: semanticFindings.FINDING_CODE,
+  ISO_RESULT: semanticFindings.ISO_RESULT,
+});
+
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
 function parse(text, opts = {}) {
   const syntax = parseSyntax(text, opts);
@@ -174,6 +201,7 @@ module.exports = {
   nodeIdentity: publicNodeIdentity,
   interfaceQuery: publicInterfaceQuery,
   containment: publicContainment,
+  semanticFindings: publicSemanticFindings,
   ast,
   diagnostics,
   assetRefs,
