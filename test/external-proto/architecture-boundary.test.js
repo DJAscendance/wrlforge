@@ -59,12 +59,20 @@ test('requiring the vrml facade pulls in no Node capability module', () => {
   assert.deepEqual(JSON.parse(out), [], 'the browser-safe semantic layer must stay capability-free');
 });
 
-// The consumer allow-list. WD1.7-B2 added the FIRST and so far only consumer of
-// the retrieval substrate. Keeping it a list rather than deleting this audit is
-// the point: a second module acquiring the dependency is a design decision that
-// must be made deliberately, not discovered later in a diff.
+// The consumer allow-list. Keeping it a list rather than deleting this audit is
+// the point: a module acquiring the dependency is a design decision that must be
+// made deliberately, not discovered later in a diff.
+//
+//   WD1.7-B2  `src/world-project/externproto-deps.js` -- the World Project
+//             artifact-accounting consumer. Retrieval only; it never asks what
+//             the retrieved bytes MEAN.
+//   WD1.7-C   `src/proto-resolution/external-resolver.js` -- the ISO 4.5.2
+//             candidate walk. The ONE module in C that touches retrieval; the
+//             traversal layer above it reaches B only through this file, and the
+//             pure selection layer never reaches it at all.
 const ALLOWED_CONSUMERS = new Set([
   path.join('src', 'world-project', 'externproto-deps.js'),
+  path.join('src', 'proto-resolution', 'external-resolver.js'),
 ]);
 
 test('only the allow-listed consumers require the retrieval substrate', () => {

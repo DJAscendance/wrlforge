@@ -56,6 +56,15 @@ const containment = require('./containment');
 // P1/P2A/P2B/P2C, WD1.6-B or WD1.6-C, and it re-expresses them in one record
 // shape without deciding anything itself.
 const semanticFindings = require('./semantic-findings');
+// WD1.7-C's PURE half: ISO 4.9.3 prototype target selection over one parsed
+// target document, plus the reachable prototype-dependency enumeration a
+// traversal needs. It lives HERE, beside the other semantic authorities, because
+// 4.9.3 is a statement about a document and not about a filesystem -- it takes a
+// parse result and a written fragment, and it has never heard of a URL, a base
+// document, an archive root or a retrieval. The Node-side orchestration that
+// walks a candidate list and recurses across documents is `src/proto-resolution/`
+// and is deliberately NOT reachable from this facade.
+const protoTarget = require('./proto-target');
 
 const publicDocumentTransaction = Object.freeze({
   // Prove that an edit set is exactly what turned one exact text into another.
@@ -165,6 +174,30 @@ const publicSemanticFindings = Object.freeze({
   ISO_RESULT: semanticFindings.ISO_RESULT,
 });
 
+/**
+ * WD1.7-C (pure) -- which PROTO does this target document supply, and what does
+ * a realized implementation depend on?
+ *
+ * Narrow, in the same spirit as the three above: two queries, one declaration
+ * reader, and the constant tables a consumer must branch on. There is no
+ * candidate walker and no resolver here -- those need retrieval, retrieval needs
+ * `fs`, and this facade must stay loadable in the renderer.
+ *
+ * `selectPrototypeTarget` returns AST handles that are PARSE-LIFETIME ONLY:
+ * derived, disposable projections of the caller's own parse, never a persistent
+ * identity and never written anywhere (WD.md §2).
+ */
+const publicProtoTarget = Object.freeze({
+  selectPrototypeTarget: protoTarget.selectPrototypeTarget,
+  externProtoCandidates: protoTarget.externProtoCandidates,
+  prototypeDependencies: protoTarget.prototypeDependencies,
+  SELECTION_RULE: protoTarget.SELECTION_RULE,
+  SELECTION_STATUS: protoTarget.SELECTION_STATUS,
+  SELECTION_REASON: protoTarget.SELECTION_REASON,
+  DEPENDENCY_KIND: protoTarget.DEPENDENCY_KIND,
+  COVERAGE_GAP: protoTarget.COVERAGE_GAP,
+});
+
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
 function parse(text, opts = {}) {
   const syntax = parseSyntax(text, opts);
@@ -202,6 +235,7 @@ module.exports = {
   interfaceQuery: publicInterfaceQuery,
   containment: publicContainment,
   semanticFindings: publicSemanticFindings,
+  protoTarget: publicProtoTarget,
   ast,
   diagnostics,
   assetRefs,

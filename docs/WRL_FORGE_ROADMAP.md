@@ -192,7 +192,28 @@ closed it by discovering declarations from the AST and retrieving candidates
 through the WD1.7-B substrate; see
 `docs/white-dune-2026/WD1_7_B2_WORLD_PROJECT_INTEGRATION.md`. What that lane
 deliberately does **not** prove — that a retrieved artifact contains the named
-PROTO (ISO 4.9.3), and what the artifact's own dependencies are — is WD1.7-C's.
+PROTO (ISO 4.9.3), and what the artifact's own dependencies are — is **WD1.7-C**,
+now built (`docs/white-dune-2026/WD1_7_C_TARGET_SELECTION.md`): ISO 4.9.3
+fragment / first-PROTO-excluding-EXTERNPROTO selection, the ISO 4.5.2 ordered
+candidate walk that stops on `RESOLVED` rather than on `RETRIEVED`, ISO 4.5.3
+base propagation through prototype instantiation, and a dependency graph with
+cycle detection on `(decodedContentHash, selectedProtoName)`.
+
+The graph **says when it is not exhaustive**. WD1.5-P2A does not index node
+occurrences inside PROTO interface *default* values, and C creates no second
+resolver to cover them — so when the traversal reaches such a region it reports
+the region and returns `complete: false` rather than a silently partial graph.
+The same applies to a type binding P2A withheld without proving the name
+undeclared. Every reason is enumerated in `INCOMPLETENESS_REASON` with its own
+evidence.
+
+C is a **general resolver, not a World Project feature**, and nothing in the
+World Project lane consumes it yet. B2's rule is unchanged — a bundle still
+packages *every locally retrievable fallback artifact*, because a viewer may
+reach for one C did not select. Recursive discovery of assets referenced only
+inside a **selected** external library remains deferred
+(`DEFERRED_TO_POST_C_WORLD_PROJECT_CONSUMER`): it changes what *blocks* a bundle,
+which is a packaging-policy decision and needs its own approved lane.
 
 ### Phase 4B — World Preview ✅
 
