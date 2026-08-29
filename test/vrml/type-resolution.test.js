@@ -1455,10 +1455,23 @@ test('boundary: P2A wires no consumer and holds no second built-in list', () => 
 
   // Still no consumer, and still no facade exposure: those are WD1.5-P4.
   for (const file of ['analyze.js', 'node-identity.js', 'document-transaction.js',
-    'parser.js', 'tokenizer.js', 'ast.js', 'source-map.js', 'edit.js', 'index.js']) {
+    'parser.js', 'tokenizer.js', 'ast.js', 'source-map.js', 'edit.js']) {
     const other = fs.readFileSync(path.join(SRC, file), 'utf8');
     assert.equal(/require\(['"]\.\/scope-graph['"]\)/.test(other), false,
       `${file} must not require scope-graph`);
+  }
+  // `index.js` IS the one exception, and only since WD1.6-B: it requires the
+  // scope graph solely to assemble the narrowed `interfaceQuery` sub-object.
+  // The boundary this test defends is unchanged and is asserted positively
+  // below -- the substrate is still not published, and still has no consumer
+  // inside the application.
+  const indexSrc = fs.readFileSync(path.join(SRC, 'index.js'), 'utf8');
+  assert.equal(/interfaceQuery/.test(indexSrc), true,
+    'index.js may require scope-graph only for the WD1.6-B consumer facade');
+  for (const name of ['resolveIs', 'isConnectionVerdict', 'resolveRouteEndpoint',
+    'interfaceMembers', 'symbols', 'scopes', 'references', 'resolutions']) {
+    assert.equal(name in require('../../src/vrml').interfaceQuery, false,
+      `${name} must not reach the facade through interfaceQuery`);
   }
   const facade = require('../../src/vrml');
   for (const name of ['scopeGraph', 'buildScopeGraph', 'typeDeclarations', 'typeResolutions']) {

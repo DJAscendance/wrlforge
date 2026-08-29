@@ -41,6 +41,12 @@ const nodeSchema = require('./node-schema');
 // `reason`. Adding to it is a decision, not a convenience.
 const documentTransaction = require('./document-transaction');
 const nodeIdentity = require('./node-identity');
+// The WD1.5 scope graph and the WD1.6-B consumer query over it. `scope-graph.js`
+// stays UNPUBLISHED as a module -- its ~60 exports are the internal semantic
+// surface, and publishing them would make consumers depend on the substrate
+// instead of the consumer layer. `symbols.js` stays unpublished entirely.
+const scopeGraph = require('./scope-graph');
+const interfaceQuery = require('./interface-query');
 
 const publicDocumentTransaction = Object.freeze({
   // Prove that an edit set is exactly what turned one exact text into another.
@@ -71,6 +77,37 @@ const publicNodeIdentity = Object.freeze({
   ANCHOR_STATUS: nodeIdentity.ANCHOR_STATUS,
   IDENTITY_REASON: nodeIdentity.IDENTITY_REASON,
   ANCHOR_KIND: nodeIdentity.ANCHOR_KIND,
+});
+
+/**
+ * WD1.6-B -- what interface can be proven for one node occurrence?
+ *
+ * `buildScopeGraph` is published HERE and only here. A facade-public query that
+ * takes a graph must offer a facade-supported way to build one; without it a
+ * consumer would be forced to bypass the facade and require `scope-graph.js`
+ * directly, which is exactly what this narrowing exists to prevent. The graph
+ * itself stays OPAQUE -- it is a frozen handle with no reachable state, and none
+ * of the queries over it are published.
+ *
+ * The constants are the tables a consumer must branch on to read a projection.
+ * There is deliberately no `isUnsupported` predicate: `symbols.js` never defined
+ * one, and inventing it here would put a semantic predicate in a facade. Compare
+ * against `STATUS.UNSUPPORTED`.
+ */
+const publicInterfaceQuery = Object.freeze({
+  buildScopeGraph: scopeGraph.buildScopeGraph,
+  effectiveInterfaceOf: interfaceQuery.effectiveInterfaceOf,
+  BINDING_FORM: scopeGraph.BINDING_FORM,
+  ACCESS: scopeGraph.ACCESS,
+  ENDPOINT_ORIGIN: scopeGraph.ENDPOINT_ORIGIN,
+  STATUS: scopeGraph.STATUS,
+  REASON: scopeGraph.REASON,
+  SCOPE_ERROR: scopeGraph.SCOPE_ERROR,
+  isResolved: scopeGraph.isResolved,
+  isUnresolved: scopeGraph.isUnresolved,
+  isAmbiguous: scopeGraph.isAmbiguous,
+  isInvalid: scopeGraph.isInvalid,
+  isRecovered: scopeGraph.isRecovered,
 });
 
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
@@ -107,6 +144,7 @@ module.exports = {
   nodeSchema,
   documentTransaction: publicDocumentTransaction,
   nodeIdentity: publicNodeIdentity,
+  interfaceQuery: publicInterfaceQuery,
   ast,
   diagnostics,
   assetRefs,

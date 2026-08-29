@@ -1069,7 +1069,13 @@ test('36 mutation: every one of G1-G5 is load-bearing', () => {
     // manufacture a confident `is-endpoint-unknown-field`.
     {
       gate: 'G3',
-      mutate: (s) => mutateInFunction(s, 'interfaceEndpoint',
+      // WD1.6-B1 moved this condition out of `interfaceEndpoint` into the shared
+      // `interfaceScopeWithholds`, so that the SOURCE half of acquisition
+      // (`resolveInterfaceSource`) consults one copy of the gate instead of
+      // growing its own. The mutant follows the condition; what it proves is
+      // unchanged, and it is still observed through `interfaceEndpoint`'s
+      // behaviour below.
+      mutate: (s) => mutateInFunction(s, 'interfaceScopeWithholds',
         'ifaceScope.recovered)', 'false)'),
       source: `${H}PROTO Bad [ field SFBool ] { Group { } }\n`
         + 'PROTO P [ field SFBool q TRUE ] { Bad { someField IS q } }\n',
@@ -1323,10 +1329,23 @@ test('42 profile: an IS inside a PROTO interface LIST is classified, not bound',
 
 test('boundary: P2B still wires no consumer, and P2C did not change that', () => {
   for (const file of ['analyze.js', 'node-identity.js', 'document-transaction.js',
-    'parser.js', 'tokenizer.js', 'ast.js', 'source-map.js', 'edit.js', 'index.js']) {
+    'parser.js', 'tokenizer.js', 'ast.js', 'source-map.js', 'edit.js']) {
     const other = fs.readFileSync(path.join(SRC, file), 'utf8');
     assert.equal(/require\(['"]\.\/scope-graph['"]\)/.test(other), false,
       `${file} must not require scope-graph`);
+  }
+  // `index.js` IS the one exception, and only since WD1.6-B: it requires the
+  // scope graph solely to assemble the narrowed `interfaceQuery` sub-object.
+  // The boundary this test defends is unchanged and is asserted positively
+  // below -- the substrate is still not published, and still has no consumer
+  // inside the application.
+  const indexSrc = fs.readFileSync(path.join(SRC, 'index.js'), 'utf8');
+  assert.equal(/interfaceQuery/.test(indexSrc), true,
+    'index.js may require scope-graph only for the WD1.6-B consumer facade');
+  for (const name of ['resolveIs', 'isConnectionVerdict', 'resolveRouteEndpoint',
+    'interfaceMembers', 'symbols', 'scopes', 'references', 'resolutions']) {
+    assert.equal(name in require('../../src/vrml').interfaceQuery, false,
+      `${name} must not reach the facade through interfaceQuery`);
   }
   const facade = require('../../src/vrml');
   for (const name of ['scopeGraph', 'buildScopeGraph', 'interfaceMembers', 'resolveIs',

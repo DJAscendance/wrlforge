@@ -169,6 +169,31 @@ const ENDPOINT_ORIGIN = Object.freeze({
 });
 
 /**
+ * How a WRITTEN name reaches the declaration it denotes -- 4.7 / 4.8.2 (WD1.6-B).
+ *
+ * Minted by the ALIAS AUTHORITY ITSELF (`effectiveEntriesOf` for interface
+ * declarations, `aliasBaseOf`/`builtinEndpoint` for clause-6 fields) and carried
+ * outward on the entry. It is deliberately NOT something a consumer -- or
+ * `interface-query.js` -- may re-derive by testing a string for a `set_` prefix
+ * or a `_changed` suffix: that would be a SECOND interpretation of the alias
+ * rule, which is the same defect as a second traversal wearing a smaller hat.
+ *
+ * NOT A ROUTE CONCEPT. 4.10.2's ROUTE shorthand -- a written bare `zzz` falling
+ * back to `set_zzz`/`zzz_changed` -- runs in the OPPOSITE direction from 4.7
+ * expansion and is a different rule entirely. There is deliberately no
+ * `ROUTE_SHORTHAND` member here; a ROUTE reports that fact through its own
+ * `route-endpoint-via-shorthand` detail instead.
+ */
+const BINDING_FORM = Object.freeze({
+  /** The name exactly as the declaration writes it. */
+  DECLARED: 'declared',
+  /** `set_zzz` -- the eventIn half of an `exposedField zzz`. */
+  SET_ALIAS: 'set-alias',
+  /** `zzz_changed` -- the eventOut half of an `exposedField zzz`. */
+  CHANGED_ALIAS: 'changed-alias',
+});
+
+/**
  * The two syntactic hosts an `IS` has (Annex A.3). Syntactically identical
  * (`Id IS Id`, S16); the distinction is which side supplies the endpoint.
  */
@@ -880,6 +905,41 @@ function createEndpoint(fields) {
 }
 
 /**
+ * One ACQUISITION result -- the frozen, facade-private form of what
+ * `acquireEndpointOn` computes internally (WD1.6-B).
+ *
+ * Distinct from `createEndpoint` on purpose. `createEndpoint` is the PUBLISHED
+ * `IS`/ROUTE endpoint record and deliberately carries only what a verdict
+ * consumer needs. This one additionally carries the three facts an ENUMERATING
+ * consumer needs and a verdict consumer does not: `viaAlias`, the `form` the
+ * alias authority minted, and the DECLARING member itself, whose object identity
+ * is how enumeration proves a candidate bound back to itself rather than being
+ * shadowed by another declaration.
+ *
+ * `member` is null for a clause-6 built-in: it is declared nowhere in the file.
+ */
+function createAcquiredEndpoint(fields) {
+  const ep = fields.endpoint;
+  return Object.freeze({
+    status: fields.status,
+    reason: fields.reason,
+    origin: fields.origin == null ? null : fields.origin,
+    endpoint: ep ? Object.freeze({
+      origin: fields.origin == null ? null : fields.origin,
+      name: fields.name == null ? null : fields.name,
+      effectiveName: ep.effectiveName == null ? null : ep.effectiveName,
+      access: ep.access == null ? null : ep.access,
+      type: ep.type == null ? null : ep.type,
+      range: ep.range || null,
+      viaAlias: !!ep.viaAlias,
+      form: ep.form == null ? null : ep.form,
+      member: ep.member || null,
+    }) : null,
+    evidence: Object.freeze(fields.evidence ? fields.evidence.slice() : []),
+  });
+}
+
+/**
  * The S7/S8 answer for one node (WD1.5-P2B).
  *
  * A property of a NODE, not of a single `IS`, so it is its own query rather than
@@ -1002,6 +1062,7 @@ module.exports = {
   REFERENCE_KIND,
   ACCESS,
   ENDPOINT_ORIGIN,
+  BINDING_FORM,
   IS_FORM,
   ROUTE_SIDE,
   STATUS,
@@ -1022,6 +1083,7 @@ module.exports = {
   createRouteEventReference,
   createRouteVerdict,
   createEndpoint,
+  createAcquiredEndpoint,
   createNodeIsIssues,
   createResolution,
   createUniqueness,

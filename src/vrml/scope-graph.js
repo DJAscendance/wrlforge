@@ -1165,7 +1165,11 @@ const IS_ACCESS_MATRIX = Object.freeze({
 function effectiveEntriesOf(member) {
   if (member.name == null) return [];
   const entries = [{
-    member, effectiveName: member.name, effectiveAccess: member.access, viaAlias: false,
+    member,
+    effectiveName: member.name,
+    effectiveAccess: member.access,
+    viaAlias: false,
+    form: sym.BINDING_FORM.DECLARED,
   }];
   if (member.access === sym.ACCESS.EXPOSED_FIELD) {
     entries.push({
@@ -1173,12 +1177,14 @@ function effectiveEntriesOf(member) {
       effectiveName: `set_${member.name}`,
       effectiveAccess: sym.ACCESS.EVENT_IN,
       viaAlias: true,
+      form: sym.BINDING_FORM.SET_ALIAS,
     });
     entries.push({
       member,
       effectiveName: `${member.name}_changed`,
       effectiveAccess: sym.ACCESS.EVENT_OUT,
       viaAlias: true,
+      form: sym.BINDING_FORM.CHANGED_ALIAS,
     });
   }
   return entries;
@@ -1188,10 +1194,14 @@ function effectiveEntriesOf(member) {
 function aliasBaseOf(name) {
   if (typeof name !== 'string') return null;
   if (name.startsWith('set_') && name.length > 4) {
-    return { base: name.slice(4), access: sym.ACCESS.EVENT_IN };
+    return {
+      base: name.slice(4), access: sym.ACCESS.EVENT_IN, form: sym.BINDING_FORM.SET_ALIAS,
+    };
   }
   if (name.endsWith('_changed') && name.length > 8) {
-    return { base: name.slice(0, -8), access: sym.ACCESS.EVENT_OUT };
+    return {
+      base: name.slice(0, -8), access: sym.ACCESS.EVENT_OUT, form: sym.BINDING_FORM.CHANGED_ALIAS,
+    };
   }
   return null;
 }
@@ -1372,7 +1382,11 @@ function builtinEndpoint(nodeType, name) {
   const direct = nodeSchema.getFieldSchema(nodeType, name);
   if (direct && direct.vrml97Declaration) {
     return {
-      effectiveName: name, access: direct.vrml97Declaration, type: direct.type, viaAlias: false,
+      effectiveName: name,
+      access: direct.vrml97Declaration,
+      type: direct.type,
+      viaAlias: false,
+      form: sym.BINDING_FORM.DECLARED,
     };
   }
   const alias = aliasBaseOf(name);
@@ -1380,7 +1394,11 @@ function builtinEndpoint(nodeType, name) {
     const base = nodeSchema.getFieldSchema(nodeType, alias.base);
     if (base && base.vrml97Declaration === sym.ACCESS.EXPOSED_FIELD) {
       return {
-        effectiveName: alias.base, access: alias.access, type: base.type, viaAlias: true,
+        effectiveName: alias.base,
+        access: alias.access,
+        type: base.type,
+        viaAlias: true,
+        form: alias.form,
       };
     }
   }
@@ -1404,14 +1422,22 @@ function builtinEndpoint(nodeType, name) {
  * Under no circumstance is the EXTERNPROTO's URL fetched, loaded or followed to
  * decide either branch. This module performs no I/O of any kind.
  */
-function interfaceEndpoint(state, ifaceScope, name, isExtern) {
+function interfaceScopeWithholds(ifaceScope) {
   if (!ifaceScope) {
-    return endpointOutcome(null, STATUS.RECOVERED, REASON.INTERFACE_SCOPE_NOT_PROVABLE);
+    return { status: STATUS.RECOVERED, reason: REASON.INTERFACE_SCOPE_NOT_PROVABLE };
   }
   if (ifaceScope.recovered) {
-    return endpointOutcome(null, STATUS.RECOVERED,
-      ifaceScope.recoveredReason || REASON.INTERFACE_SCOPE_NOT_PROVABLE);
+    return {
+      status: STATUS.RECOVERED,
+      reason: ifaceScope.recoveredReason || REASON.INTERFACE_SCOPE_NOT_PROVABLE,
+    };
   }
+  return null;
+}
+
+function interfaceEndpoint(state, ifaceScope, name, isExtern) {
+  const withheld = interfaceScopeWithholds(ifaceScope);
+  if (withheld) return endpointOutcome(null, withheld.status, withheld.reason);
   const entries = membersIn(state, ifaceScope, name);
   if (entries.length > 1) {
     return endpointOutcome(null, STATUS.AMBIGUOUS, REASON.DUPLICATE_INTERFACE_MEMBER,
@@ -1434,6 +1460,8 @@ function interfaceEndpoint(state, ifaceScope, name, isExtern) {
     type: entry.member.fieldType,
     range: entry.member.declRange,
     viaAlias: entry.viaAlias,
+    // Minted by `effectiveEntriesOf`, never re-derived from the spelling.
+    form: entry.form,
     // The declaring interface member. Carried so a ROUTE endpoint resolution can
     // name WHICH declaration it bound (P2C); `computeIsVerdict` picks the
     // endpoint's fields explicitly and is unaffected by its presence.
@@ -1441,51 +1469,152 @@ function interfaceEndpoint(state, ifaceScope, name, isExtern) {
   }, STATUS.RESOLVED, REASON.OK);
 }
 
+function interfaceSource(fields) {
+  return Object.freeze({
+    node: fields.node || null,
+    nodeType: fields.nodeType == null ? null : fields.nodeType,
+    origin: fields.origin == null ? null : fields.origin,
+    status: fields.status,
+    reason: fields.reason,
+    complete: !!fields.complete,
+    // The interface scope a PROTO/EXTERNPROTO instance's members are declared
+    // in, and the one a `Script` OCCURRENCE declares for itself. Kept separate
+    // because a Script has BOTH its own declarations and clause 6, and only the
+    // NAME half may decide which of the two answers.
+    ifaceScope: fields.ifaceScope || null,
+    scriptScope: fields.scriptScope || null,
+    // The TYPE-NAME answer, carried separately and read ONLY by enumeration.
+    //
+    // `status`/`reason` above are what endpoint acquisition returns, and P2B/P2C
+    // depend on their exact values: every non-resolved P2A outcome collapses to
+    // `unresolved` / `is-endpoint-node-type-unresolved` there, because a lookup
+    // in an unknown namespace is simply unanswerable. Widening that would change
+    // shipped answers. But an ENUMERATING consumer can honestly distinguish "no
+    // such type" from "two declarations of that type", so P2A's own verdict is
+    // preserved here instead of being thrown away.
+    typeStatus: fields.typeStatus || fields.status,
+    typeReason: fields.typeReason || fields.reason,
+    isExtern: !!fields.isExtern,
+    decl: fields.decl || null,
+  });
+}
+
 /**
- * Acquire ONE endpoint on ONE target node, by written name (WD1.5-P2C-0).
+ * WHICH NAMESPACE answers for this node -- the ORIGIN half of endpoint
+ * acquisition (WD1.6-B1).
  *
- * Extracted verbatim from `acquireEndpoint`'s body below the Script-`IS` branch
- * so that `IS` (P2B) and ROUTE (P2C) share ONE endpoint authority rather than
- * two. Nothing about the rule changed: 4.3.6 says the name is one from THE
- * NODE'S OWN public interface, and which namespace answers is decided by the
- * target node, never by how the reference reached it.
+ * Split out of `acquireEndpointOn` so that one-name lookup and whole-interface
+ * enumeration ask the SAME question of the SAME code. The split is along the one
+ * seam that is genuinely name-independent: which interface a node HAS does not
+ * depend on which member is being asked for.
  *
- * The one generalization: P2B read the target's own Script interface scope from
- * `reference.hostInterfaceScope`, which only an `IS` has. It is derived here from
- * `state.interfaceScopeByAstNode` instead. The two are the same object for every
- * `IS` host -- both originate from the interface scope's `ownerNode` -- and that
- * equivalence is PINNED BY TEST rather than assumed (`route-semantics.test.js`,
- * "P2C-0: hostInterfaceScope is exactly interfaceScopeByAstNode.get(hostNode)").
+ * IT DECIDES NOTHING ABOUT A NAME. In particular it does not resolve the
+ * `Script`-declaration-versus-clause-6 question -- that fallthrough is
+ * name-dependent (a Script declaration shadows `url` only for the name `url`),
+ * so the descriptor carries BOTH the script scope and the node type and lets
+ * `lookupInSource` apply the rule. Moving that decision up here would silently
+ * change P2B.
  *
- * MODULE-PRIVATE. Not exported from this module, not re-exported by
- * `symbols.js`, and not in the `src/vrml/index.js` facade -- the reuse is
- * internal and adds no public surface.
- *
- * NO ROUTE SHORTHAND LIVES HERE. 4.10.2's `set_`/`_changed` fallback is a rule
- * about ROUTE, not about endpoint acquisition, and `IS` has no such shorthand
- * (4.8.3). Pushing it down into this function would silently change P2B.
+ * `complete` is the enumeration half of §5.5 and is answered HERE because it is
+ * a property of the source, never of a member: an EXTERNPROTO's declaration may
+ * be a strict subset of the implementation's (4.9.2), so a soundly enumerated
+ * EXTERNPROTO interface is `resolved` and NOT exhaustive.
  */
-function acquireEndpointOn(state, targetNode, name, nameRange) {
-  if (name == null) {
-    return endpointOutcome(null, STATUS.INVALID, REASON.MISSING_NAME);
-  }
+function resolveInterfaceSource(state, targetNode) {
   // G5/G3 -- the target node's TYPE must be resolved by P2A, or the endpoint
-  // namespace is a guess. Every non-`resolved` P2A outcome lands here, and no
-  // access or type verdict is returned; the caller's own binding still stands.
+  // namespace is a guess. Every non-`resolved` P2A outcome lands here.
   const typeRef = targetNode ? state.typeReferenceByAstNode.get(targetNode) : null;
   const typeRes = typeRef ? state.resolutionByReference.get(typeRef) : null;
   if (!typeRes || typeRes.status !== STATUS.RESOLVED) {
-    return endpointOutcome(null, STATUS.UNRESOLVED, REASON.IS_ENDPOINT_NODE_TYPE_UNRESOLVED);
+    return interfaceSource({
+      node: targetNode,
+      nodeType: targetNode ? targetNode.nodeType : null,
+      status: STATUS.UNRESOLVED,
+      reason: REASON.IS_ENDPOINT_NODE_TYPE_UNRESOLVED,
+      typeStatus: typeRes ? typeRes.status : STATUS.UNRESOLVED,
+      typeReason: typeRes ? typeRes.reason : REASON.IS_ENDPOINT_NODE_TYPE_UNRESOLVED,
+    });
   }
 
   if (typeRes.reason === REASON.NODE_TYPE_IS_BUILTIN) {
-    // A Script's USER declarations are part of that instance's public interface
-    // and are consulted before clause 6. This is the P2A precedent -- a lexical
-    // declaration outranks the schema -- not candidate ranking: the two are
-    // different namespaces, not two candidates in one.
-    const ownInterface = state.interfaceScopeByAstNode.get(targetNode) || null;
-    if (targetNode.nodeType === 'Script' && ownInterface) {
-      const own = interfaceEndpoint(state, ownInterface, name, false);
+    // A Script's USER declarations are part of that instance's public interface.
+    // Its own interface scope exists only when it declared something.
+    const scriptScope = targetNode.nodeType === 'Script'
+      ? (state.interfaceScopeByAstNode.get(targetNode) || null)
+      : null;
+    const withheld = scriptScope ? interfaceScopeWithholds(scriptScope) : null;
+    return interfaceSource({
+      node: targetNode,
+      nodeType: targetNode.nodeType,
+      // The PRIMARY source. A Script also yields clause-6 members, which carry
+      // their own per-member origin; this one names what decides the interface.
+      origin: scriptScope
+        ? sym.ENDPOINT_ORIGIN.SCRIPT_INTERFACE
+        : sym.ENDPOINT_ORIGIN.BUILTIN_SCHEMA,
+      status: withheld ? withheld.status : STATUS.RESOLVED,
+      reason: withheld ? withheld.reason : REASON.OK,
+      scriptScope,
+      complete: !withheld,
+    });
+  }
+
+  // Resolved to a local PROTO or EXTERNPROTO declaration.
+  const decl = typeRes.symbol;
+  if (!decl) {
+    return interfaceSource({
+      node: targetNode,
+      nodeType: targetNode.nodeType,
+      status: STATUS.UNRESOLVED,
+      reason: REASON.IS_ENDPOINT_NODE_TYPE_UNRESOLVED,
+    });
+  }
+  const isExtern = decl.kind === sym.SYMBOL_KIND.EXTERNPROTO_DECL;
+  const ifaceScope = state.interfaceScopeByAstNode.get(decl.node) || null;
+  const withheld = interfaceScopeWithholds(ifaceScope);
+  return interfaceSource({
+    node: targetNode,
+    nodeType: targetNode.nodeType,
+    origin: isExtern
+      ? sym.ENDPOINT_ORIGIN.EXTERNPROTO_INTERFACE
+      : sym.ENDPOINT_ORIGIN.PROTO_INTERFACE,
+    status: withheld ? withheld.status : STATUS.RESOLVED,
+    reason: withheld ? withheld.reason : REASON.OK,
+    ifaceScope,
+    isExtern,
+    decl,
+    // 4.9.2: what an EXTERNPROTO declares is authoritative, what it omits is
+    // unknowable. Sound, and never exhaustive.
+    complete: !withheld && !isExtern,
+  });
+}
+
+/**
+ * ONE name, in an already-decided source -- the NAME half (WD1.6-B1).
+ *
+ * The branch bodies below are `acquireEndpointOn`'s previous ones verbatim,
+ * including the two asymmetries that look like oversights and are not:
+ *
+ *   * the Script branch stamps `origin` only `if (own.endpoint)`, so a
+ *     recovered/ambiguous script interface reports no origin;
+ *   * the PROTO/EXTERNPROTO branch stamps it unconditionally.
+ *
+ * The returned outcome is deliberately UNFROZEN: `routeEndpointLookup` remaps
+ * its `reason` and `acquireRouteEndpoint` sets `viaShorthand` on it in place.
+ */
+function lookupInSource(state, source, name, nameRange) {
+  // No namespace was proven, so no name can be looked up in it.
+  if (source.origin == null) {
+    return endpointOutcome(null, source.status, source.reason);
+  }
+
+  if (source.origin === sym.ENDPOINT_ORIGIN.BUILTIN_SCHEMA
+    || source.origin === sym.ENDPOINT_ORIGIN.SCRIPT_INTERFACE) {
+    // A Script's user declarations are consulted before clause 6. This is the
+    // P2A precedent -- a lexical declaration outranks the schema -- not
+    // candidate ranking: the two are different namespaces, not two candidates
+    // in one.
+    if (source.scriptScope) {
+      const own = interfaceEndpoint(state, source.scriptScope, name, false);
       if (own.status !== STATUS.UNRESOLVED) {
         if (own.endpoint) own.origin = sym.ENDPOINT_ORIGIN.SCRIPT_INTERFACE;
         return own;
@@ -1493,7 +1622,7 @@ function acquireEndpointOn(state, targetNode, name, nameRange) {
       // A miss falls through to Script's own clause-6 fields (`url`,
       // `directOutput`, `mustEvaluate`), which are schema facts.
     }
-    const found = builtinEndpoint(targetNode.nodeType, name);
+    const found = builtinEndpoint(source.nodeType, name);
     if (!found) {
       return endpointOutcome(null, STATUS.UNRESOLVED, REASON.IS_ENDPOINT_UNKNOWN_FIELD);
     }
@@ -1503,23 +1632,46 @@ function acquireEndpointOn(state, targetNode, name, nameRange) {
       type: found.type,
       range: nameRange,
       viaAlias: found.viaAlias,
+      form: found.form,
     }, STATUS.RESOLVED, REASON.OK);
     out.origin = sym.ENDPOINT_ORIGIN.BUILTIN_SCHEMA;
     return out;
   }
 
-  // Resolved to a local PROTO or EXTERNPROTO declaration.
-  const decl = typeRes.symbol;
-  if (!decl) {
-    return endpointOutcome(null, STATUS.UNRESOLVED, REASON.IS_ENDPOINT_NODE_TYPE_UNRESOLVED);
-  }
-  const isExtern = decl.kind === sym.SYMBOL_KIND.EXTERNPROTO_DECL;
-  const iface = state.interfaceScopeByAstNode.get(decl.node) || null;
-  const out = interfaceEndpoint(state, iface, name, isExtern);
-  out.origin = isExtern
+  const out = interfaceEndpoint(state, source.ifaceScope, name, source.isExtern);
+  out.origin = source.isExtern
     ? sym.ENDPOINT_ORIGIN.EXTERNPROTO_INTERFACE
     : sym.ENDPOINT_ORIGIN.PROTO_INTERFACE;
   return out;
+}
+
+/**
+ * Acquire ONE endpoint on ONE target node, by written name (WD1.5-P2C-0).
+ *
+ * Extracted from `acquireEndpoint`'s body below the Script-`IS` branch so that
+ * `IS` (P2B) and ROUTE (P2C) share ONE endpoint authority rather than two.
+ * 4.3.6 says the name is one from THE NODE'S OWN public interface, and which
+ * namespace answers is decided by the target node, never by how the reference
+ * reached it.
+ *
+ * WD1.6-B1 split the body into `resolveInterfaceSource` (which namespace?) and
+ * `lookupInSource` (which member?) WITHOUT changing either answer, so that
+ * whole-interface enumeration reaches the interface through this same code
+ * rather than through a second traversal. This function is now the composition
+ * of the two halves and nothing else.
+ *
+ * MODULE-PRIVATE, and it stays that way: `interfaceSourceOf` and
+ * `acquireEndpointFor` are the graph-checked exports built on the same halves.
+ *
+ * NO ROUTE SHORTHAND LIVES HERE. 4.10.2's `set_`/`_changed` fallback is a rule
+ * about ROUTE, not about endpoint acquisition, and `IS` has no such shorthand
+ * (4.8.3). Pushing it down into this function would silently change P2B.
+ */
+function acquireEndpointOn(state, targetNode, name, nameRange) {
+  if (name == null) {
+    return endpointOutcome(null, STATUS.INVALID, REASON.MISSING_NAME);
+  }
+  return lookupInSource(state, resolveInterfaceSource(state, targetNode), name, nameRange);
 }
 
 function acquireEndpoint(state, reference) {
@@ -2751,6 +2903,108 @@ function isConnectionVerdict(graph, referenceOrNode) {
   return state.isVerdictByReference.get(reference);
 }
 
+// --- shared interface authority, graph-checked (WD1.6-B1) -------------------
+//
+// The two entry points `interface-query.js` builds enumeration on. They are the
+// SAME halves `IS` and ROUTE reach through `acquireEndpointOn`, wrapped in the
+// ordinary graph/parse checks -- not a parallel implementation of anything.
+//
+// `interface-query.js` cannot reach `state`: `INTERNALS` is module-private here.
+// It is therefore STRUCTURALLY incapable of walking scopes itself, which is what
+// makes "one authority" a property of the code rather than a promise in a
+// comment.
+
+/**
+ * THE alias authority, exposed (WD1.6-B1).
+ *
+ * Every written name one declaration occupies, with the access each name
+ * denotes and the `BINDING_FORM` that produced it -- 4.7 and 4.8.2. This is
+ * `effectiveEntriesOf` itself, so an enumerating consumer gets the same three
+ * names for an `exposedField` that the endpoint lookup index was built from.
+ *
+ * IT EXISTS SO NOBODY ELSE BUILDS ONE. `interface-query.js` must never
+ * concatenate a `set_` prefix, append a `_changed` suffix, or infer a form by
+ * inspecting a spelling; that would be a second interpretation of the alias rule
+ * even though there is only one traversal. Takes a plain `{name, access}` so a
+ * clause-6 schema field and a declared interface member go through one function.
+ *
+ * NOT ROUTE SHORTHAND -- see `BINDING_FORM`.
+ *
+ * @returns {ReadonlyArray<object>} Frozen; empty for a nameless declaration.
+ */
+function writtenNamesFor(declaration) {
+  if (!declaration || typeof declaration !== 'object') return Object.freeze([]);
+  return Object.freeze(effectiveEntriesOf(declaration).map((e) => Object.freeze({
+    writtenName: e.effectiveName,
+    effectiveAccess: e.effectiveAccess,
+    viaAlias: e.viaAlias,
+    form: e.form,
+  })));
+}
+
+/**
+ * The node occurrence an interface query is about.
+ *
+ * Three outcomes, and the split between the last two is the WD1.4 rule: a thing
+ * that is not a node occurrence AT ALL is an ordinary `null` answer, while a
+ * node occurrence FROM ANOTHER PARSE is a programming error that must fail
+ * loudly rather than degrade into `unresolved`.
+ */
+function coerceInterfaceTarget(state, astNode, label) {
+  if (!astNode || typeof astNode !== 'object' || astNode.type !== NODE.NODE) return null;
+  if (!state.typeReferenceByAstNode.has(astNode)) {
+    throw scopeError(SCOPE_ERROR.PARSE,
+      `${label}: this node is not part of this graph's parse`);
+  }
+  return astNode;
+}
+
+/**
+ * WHICH namespace supplies this node occurrence's interface -- frozen.
+ *
+ * Answers the source-level question only (`status`, `reason`, `complete`,
+ * `origin`) plus the scopes an enumerating consumer needs in order to ask
+ * `membersOf`. It answers NOTHING about any individual name; every name-level
+ * answer must come from `acquireEndpointFor`.
+ *
+ * @returns {object|null} `null` when `astNode` is not a node occurrence.
+ * @throws {Error} codes ESCOPEGRAPH, ESCOPEPARSE.
+ */
+function interfaceSourceOf(graph, astNode) {
+  const state = internalsOf(graph, 'interfaceSourceOf');
+  const node = coerceInterfaceTarget(state, astNode, 'interfaceSourceOf');
+  if (!node) return null;
+  return resolveInterfaceSource(state, node);
+}
+
+/**
+ * ONE written name on one node occurrence, through the shared authority -- frozen.
+ *
+ * This is `acquireEndpointOn` itself, so an enumerating consumer and a shipped
+ * `IS`/ROUTE resolution cannot diverge: there is one function and it is this one.
+ *
+ * NO ROUTE SHORTHAND. 4.10.2's fallback belongs to ROUTE and stays in
+ * `acquireRouteEndpoint`; a consumer asking for `zzz` here gets the answer for
+ * `zzz`, never for `set_zzz`.
+ *
+ * @returns {object|null} A frozen acquisition, or `null` for a non-occurrence.
+ * @throws {Error} codes ESCOPEGRAPH, ESCOPEPARSE.
+ */
+function acquireEndpointFor(graph, astNode, name) {
+  const state = internalsOf(graph, 'acquireEndpointFor');
+  const node = coerceInterfaceTarget(state, astNode, 'acquireEndpointFor');
+  if (!node) return null;
+  const out = acquireEndpointOn(state, node, name, null);
+  return sym.createAcquiredEndpoint({
+    status: out.status,
+    reason: out.reason,
+    origin: out.origin == null ? null : out.origin,
+    name,
+    endpoint: out.endpoint,
+    evidence: out.evidence,
+  });
+}
+
 /**
  * Is this member's name unique within its OWN interface scope?
  *
@@ -3134,6 +3388,7 @@ module.exports = {
   REFERENCE_KIND: sym.REFERENCE_KIND,
   ACCESS: sym.ACCESS,
   ENDPOINT_ORIGIN: sym.ENDPOINT_ORIGIN,
+  BINDING_FORM: sym.BINDING_FORM,
   IS_FORM: sym.IS_FORM,
   ROUTE_SIDE: sym.ROUTE_SIDE,
   STATUS: sym.STATUS,
@@ -3175,6 +3430,11 @@ module.exports = {
   isReferenceFor,
   membersOf,
   resolveIs,
+  // shared interface authority (WD1.6-B1) -- facade-private, consumed by
+  // `interface-query.js`; NOT part of the published `src/vrml/index.js` surface.
+  interfaceSourceOf,
+  acquireEndpointFor,
+  writtenNamesFor,
   isConnectionVerdict,
   interfaceMemberIsUniqueInScope,
   nodeIsBindingIssues,
