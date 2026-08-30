@@ -24,7 +24,93 @@ All releases are published on GitHub:
 
 ---
 
-## 1.3.0-beta.3 — Desktop Open With Update
+
+
+## 1.3.0-beta.4 — Crash Recovery
+
+**Status: Beta · Prerelease · Unsigned — not a stable release.**
+
+This refresh ships **Phase Beta 2 — Crash Recovery** so unsaved native-editor
+work survives an abnormal exit. A Restore / Start Fresh prompt at next
+launch offers the user a deliberate decision before any recovered text
+is restored or discarded. Source files on disk are NEVER mutated by
+recovery — the recovered buffer opens as unsaved work, and the user
+decides whether to keep it.
+
+The exact release commit is shown on the GitHub release page:
+**https://github.com/DJAscendance/wrlforge/releases/tag/v1.3.0-beta.4**
+
+### What changed since beta.3
+
+- **Phase Beta 2 crash recovery**. Debounced recovery snapshot under
+  `userData/editor-recovery.json` (schemaVersion 2; carries
+  `sourceStat { mtimeMs, size, sha1 }` of the real source bytes as the
+  conflict anchor — gzip-aware). The three renderer pages (Mall, Editor,
+  World) all invoke the same shared `WRLForgeRecoveryPrompt.maybePrompt`
+  on init, idempotent per session via `sessionStorage`.
+- **Recovery lifecycle rule**: the recovery file is cleared ONLY by
+  successful Save / explicit Discard / explicit Start Fresh. Restore,
+  Save failure, missing source, renderer reload, app restart — all keep
+  it on disk so the next launch can offer it again. Independent final
+  re-QA: `PHASE_BETA_2_FINAL_REQA_PASS`.
+- **B1 plain + gzip external-change protection**. Save after Restore
+  detects a post-snapshot external source change through the existing
+  `EEXTERNAL` conflict path (no second conflict system). For gzip
+  sources, the conflict anchor is the sha1 of the gzip bytes, NOT the
+  decompressed text — the recovery snapshot carries the real disk
+  identity at snapshot time.
+- **B2 missing-source viewer**. When the original source is missing
+  (or the recovery lacks a `sourceStat` anchor), the renderer shows a
+  dedicated viewer with the recovered text in a selectable `<pre>` and
+  a Copy-to-clipboard action. Recovery stays on disk; the viewer is
+  non-destructive.
+- **B4 / M1 prompt pages**. `recovery-prompt.js` script tag now loads
+  BEFORE `editor.js` and `world.js` so the page init can call
+  `WRLForgeRecoveryPrompt.maybePrompt` immediately. Deferred scripts
+  run in document order.
+- **Third-party bundle unchanged**: x_ite 15.1.10 (the only runtime
+  dependency) and CodeMirror 6 (dev-time editor bundle).
+
+### Downloads
+
+Start at **https://wrlforge.com**, or download directly from the
+[GitHub release](https://github.com/DJAscendance/wrlforge/releases/tag/v1.3.0-beta.4).
+
+**Linux x64** — built locally on this machine
+- `WRL-Forge-1.3.0-beta.4-linux-x64.AppImage` — recommended
+- `WRL-Forge-1.3.0-beta.4-linux-x64.tar.gz` — portable app directory
+
+**Windows x64** — owner-routed (rebuild on the Win11 guest and update
+the release page when the next lane lands)
+- `WRL-Forge-Setup-1.3.0-beta.4-x64.exe` — recommended
+- `WRL-Forge-1.3.0-beta.4-x64.msi`
+- `WRL-Forge-Portable-1.3.0-beta.4-x64.exe`
+- `WRL-Forge-1.3.0-beta.4-windows-x64.zip`
+
+**Checksums**
+
+- `SHA256SUMS-1.3.0-beta.4.txt`
+
+This release is still **beta, prerelease, unsigned, and x64-only**. There is
+no auto-update, telemetry, direct Cybertown upload, or automatic
+submission.
+
+### Known limitations
+
+- **Beta limits inherited from beta.3**: unsigned (SmartScreen prompt on
+  Windows); x64 only (no ARM64); no auto-update; not server-certified
+  for direct Cybertown upload.
+- **Phase Beta 2 accepted limit**: the renderer throttles dirty-buffer
+  recovery pings at 1.5 s and main debounces at 5 s. In the 0–1.5 s
+  window after a keystroke, the latest text can exist only in renderer
+  memory. A renderer crash in that window may lose those characters.
+  Crash survives — the user is still offered Restore on the next
+  launch (possibly without the last typing burst).
+- **Phase 7D0 deferred**: no automatic last-Mall-item restore, no
+  automatic last-World-Project restore. Mall and World pages open
+  empty after a fresh launch.
+
+# 1.3.0-beta.3 — Desktop Open With Update
 
 **Status: Beta · Prerelease · Unsigned — not a stable release.**
 

@@ -1,6 +1,6 @@
 {
   "name": "wrl-forge",
-  "version": "1.3.0-beta.3",
+  "version": "1.3.0-beta.4",
   "description": "A modern VRML97 creation, inspection, validation, and packaging workbench for Cybertown items and worlds.",
   "main": "main.js",
   "homepage": "https://wrlforge.com",
