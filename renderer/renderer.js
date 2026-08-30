@@ -152,3 +152,12 @@ els.revealEdit.addEventListener('click', (e) => {
 // path headlessly. It wraps applyState over data from already-exposed IPC and
 // adds no new capability or privilege.
 window.__wrlForgeApplyOpen = applyState;
+
+// Phase Beta 2 -- at app start, the Mall page is the default landing. If a
+// recovery snapshot exists, raise the Restore / Start Fresh prompt here; it
+// navigates to the editor on Restore. A failed probe never blocks page load.
+if (window.WRLForgeRecoveryPrompt && typeof window.WRLForgeRecoveryPrompt.maybePrompt === 'function') {
+  // The Mall page does not need to refresh after Restore -- the prompt module
+  // navigates to /editor and the editor page's init handles the rest.
+  window.WRLForgeRecoveryPrompt.maybePrompt();
+}

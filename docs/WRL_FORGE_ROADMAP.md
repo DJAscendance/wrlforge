@@ -791,6 +791,69 @@ Keyboard accessibility, performance on large worlds, crash recovery, session
 restoration, Windows + Linux verification (through the sanctioned VisualQaRunner —
 no multi-process screenshot loops), and beta packaging.
 
+The owner-approved lanes that finish Phase 7D are **Phase Beta 2** (crash
+recovery, awaiting independent QA), **Phase: Accessibility + Performance**
+(D1 + D2, keyboard + perf), and **Phase: Cross Platform Beta** (D3 + D5 +
+D6, Windows + packaging). The 7D0 baseline (`docs/PHASE_7D_BASELINE.md`)
+kept the old labels (7D1 / 7D2 / 7D3) which are preserved for evidence
+back-compat; new documentation uses the names above.
+
+### Phase Beta 2 — Crash Recovery ✅
+
+**Status:** **Phase Beta 2 CLOSED.** Independent final re-QA returned
+`PHASE_BETA_2_FINAL_REQA_PASS`. All nine verification items passed
+(B1 source identity / external-change protection; B2 missing-source
+recovery viewer; B3 second crash after Restore; B4 Editor recovery
+prompt; M1 World recovery prompt; recovery lifecycle; graceful close;
+session precedence; security boundary). Final runtime: 58 / 58
+Electron runtime assertions, 0 console errors, 0 console warnings.
+Final repo tests: **1983 / 1983**, 0 failed, 0 skipped. See
+`docs/PHASE_BETA_2_CRASH_RECOVERY.md` for the as-built record.
+
+Crash recovery: preserve unsaved native-editor work across abnormal exits
+and surface a Restore / Start Fresh prompt on next launch. Source files on
+disk are NEVER mutated by recovery.
+
+The recovery file is cleared only by **successful Save / Discard /
+explicit Start Fresh** — that rule is enforced in code and pinned by
+tests in `test/editor/phase-beta-2-corrections.test.js` and
+`phase-beta-2-integration.test.js`.
+
+- [x] Debounced recovery snapshot of the dirty editor buffer under `userData`
+      (`src/editor/recovery-store.js` + `src/editor/recovery-controller.js`).
+- [x] Restore / Start Fresh prompt at startup (`renderer/recovery-prompt.js`).
+- [x] Restore re-installs the recovered buffer as dirty, source untouched.
+- [x] Lifecycle hooks at Save success (clears), Save failure (keeps),
+      Close (clears), explicit Discard (clears), Back (force-flushes),
+      `render-process-gone` (single-shot reload, burst-guarded).
+- [x] **QA pass 1 corrections** — B1/B2/B3 lifecycle, B4/M1 prompt pages.
+- [x] **QA pass 2 corrections** — real `sourceStat` conflict anchor, script
+      order on every page, missing-source viewer.
+- [x] **Independent final re-QA**: `PHASE_BETA_2_FINAL_REQA_PASS`.
+- [ ] No `mall-session.json` / `world-session.json` (deferred per
+      owner decisions §4.4 / §4.5 — see also the Phase 7D0 record).
+- [ ] No merge-editor for the case where the on-disk source changed
+      since the snapshot.
+
+### Phase: Accessibility + Performance ⏳
+
+D1 (keyboard accessibility: ARIA + `aria-keyshortcuts` on the Mall/World
+toolbars; `role=list` + roving-tabindex parity in the inspector; recorded
+`Ctrl+L` / `Ctrl+O` do-not-add because of the GTK dialog gotcha) plus D2
+(large-project perf re-measure: re-baseline under the post-WD2-A main; a
+renderer-side memory sanity check on a large world). The proposed
+`Ctrl+R` (Repack) and `Ctrl+E` (Open in Native Editor) shortcuts are
+**approved in principle** and recorded here for the lane — but **not
+implemented in this lane**.
+
+### Phase: Cross Platform Beta ⏳
+
+D5 + D6: re-run `dist:linux` on `main` and record SHA-256; re-run the
+Tier-1 / Tier-2 visual suites on both platforms; resolve the per-release
+`LICENSE` text question; optionally publish `v1.3.0-beta.3`. **No
+signing**, **no public Microsoft Store**, **no ARM64** — these are
+explicit, documented out-of-scope items.
+
 ### Phase WD2-A — Read-Only Scene Tree and Inspector Foundation
 
 **Closed.** Independent final re-QA passed (`WD2_A_FINAL_REQA_PASS`):

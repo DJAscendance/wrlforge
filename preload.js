@@ -73,5 +73,14 @@ contextBridge.exposeInMainWorld('vrmlpad', {
     previewRescan: (sessionId) => ipcRenderer.invoke('editor:previewRescan', { sessionId }),
     previewClose: (sessionId) => ipcRenderer.invoke('editor:previewClose', { sessionId }),
     previewLeak: () => ipcRenderer.invoke('editor:previewLeak'),
+    // Phase Beta 2 -- crash recovery. The renderer pings recordDirty (throttled
+    // on its end) on every keystroke; main debounces the writes to userData.
+    // readAdopt performs a Restore; clear is the Start Fresh / Discard path.
+    // No path is renderer-supplied.
+    recoveryRead: () => ipcRenderer.invoke('editor:recoveryRead'),
+    recoveryRecordDirty: (payload) => ipcRenderer.invoke('editor:recoveryRecordDirty', payload),
+    recoveryAdopt: () => ipcRenderer.invoke('editor:recoveryAdopt'),
+    recoveryClear: () => ipcRenderer.invoke('editor:recoveryClear'),
+    recoveryActiveWorkspace: () => ipcRenderer.invoke('editor:recoveryActiveWorkspace'),
   },
 });

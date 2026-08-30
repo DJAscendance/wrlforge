@@ -24,7 +24,13 @@ finish 7D. Owner review gates all 7D work.
 | Package version | `1.3.0-beta.3` |
 | License | `GPL-3.0-or-later` (per `package.json`; per-product release is UNLICENSED all-rights-reserved — see `docs/RELEASES.md`) |
 
-All three unrelated worktree states are preserved — they are not in scope for 7D0.
+**Phase Beta 2 closeout (post-7D0):** Phase Beta 2 was corrected through
+two QA passes (B1/B2/B3/B4/M1) and `PHASE_BETA_2_FINAL_REQA_PASS` was
+issued. The lane shipped at 1983/1983 repository tests, 58/58 Electron
+runtime assertions, 0 console errors, 0 console warnings. The final
+Phase Beta 2 commit replaces 7D0's HEAD on `main`. See
+`docs/PHASE_BETA_2_CRASH_RECOVERY.md` and the roadmap's Phase Beta 2 entry
+for the as-built record and lifecycle rules.
 
 ---
 
@@ -113,24 +119,24 @@ This workstream classifies four concerns separately: **file backup**, **unsaved-
 | Property | Status | Evidence | Gap | Risk | Recommended lane | Acceptance |
 |---|---|---|---|---|---|---|
 | **File backup.** Mall `Repack & Save` writes a timestamped backup next to the real `.wrl` BEFORE overwriting. Editor `safeSave` writes a timestamped backup, then a temp-then-atomic-rename, with an external-change conflict guard. `.bak-*` files are gitignored so they never leak. Backup-before-repack survives a failed write. `mallPath` corruption / external-change detection on Repack is handled by `detectExternalChange` + `allowOverwrite`. | `PROVEN_COMPLETE` | `main.js:986`; `src/files/backups.js`; `src/editor/file-io.js` 114–157 (`safeSave`); `src/editor/session.js` 91–103; `file-io.js` `detectExternalChange` (53–66); `.gitignore` includes `*.bak-*`; `qa/phase-7b-native-editor/RESULTS.md` state 11 (external-change conflict dialog); 6B selftest 31/31 | none | none | — | covered |
-| **Unsaved-buffer recovery on app crash.** Abnormal exit while editor is dirty. | `MISSING` | No autosave / crash-recovery dump | A real crash mid-edit loses the unsaved buffer | Medium — small working files, low loss; large ad-hoc edits more painful | 7D2 | owner-decision; design: periodic autosave to a separate `editor-recovery.json` under `userData` |
-| **Unsaved-buffer recovery on graceful close.** User closes app with a dirty editor. | `PARTIAL` | `mall-edit-flow` warns on close; `editorController.close()` CLEARS the session record (`editor-controller.js:152–156`) so a close-and-relaunch does NOT restore | Closing on purpose loses the unsaved buffer | Low (intentional close = "do not restore") | 7D2 | owner-decision: should Close preserve unsaved buffer in a recovery file? |
-| **Renderer-process crash recovery.** X_ITE / renderer killed. | `PARTIAL` | `main.js:924–935` logs render-process gone; main window continues | Renderer crash requires a page reload (no auto-recovery of unsaved editor state in another renderer) | Low | 7D2 | owner-decision: add a single refresh-and-restore path? |
+| **Unsaved-buffer recovery on app crash.** Abnormal exit while editor is dirty. | `PROVEN_COMPLETE` | `src/editor/recovery-store.js` + `recovery-controller.js`; `main.js` IPC `editor:recoveryRecordDirty` / `recoveryRead` / `recoveryAdopt` / `recoveryClear`; `renderer/recovery-prompt.js` Restore/Start Fresh; `docs/PHASE_BETA_2_CRASH_RECOVERY.md`; +28 recovery tests | none | none | — | covered |
+| **Unsaved-buffer recovery on graceful close.** User closes app with a dirty editor. | `PROVEN_COMPLETE` | `editor:close` IPC handler in `main.js` calls `recoveryController.recordClear()`; `editor.js` `doClose()` runs `flushRecoverySnapshot` before close | Closing on purpose no longer strands a dirty buffer in the recovery slot — the snapshot is cleared at Close by deliberate user choice | none | — | covered |
+| **Renderer-process crash recovery.** X_ITE / renderer killed. | `PROVEN_COMPLETE` | `win.webContents.on('render-process-gone')` in `main.js` does a single-shot `webContents.reload()` with a 10s burst guard; `forceFlush()` runs before the reload so the snapshot is freshest; `will-prevent-unload` does the same for navigations the renderer tries to cancel | None for the recovery substrate itself | none | — | covered |
 | **Preview-failure recovery.** Parse error mid-update keeps the last valid scene. | `PROVEN_COMPLETE` | `src/preview/preview-state.js` last-valid-scene state machine; `qa:phase-7c-mall-preview/` + `qa:phase-7c-world-preview/` verify "Showing last good version" + zero overlay/generation leak | none | none | — | covered |
 | **App restart — window state.** Size + position + maximized flag restored. | `PROVEN_COMPLETE` | `main.js:267–278` (`saveWindowState`) + `loadWindowState` (250–265); legacy path fall-back | none | none | — | covered by 6B selftest |
 | **App restart — most-recent editor document** (with previously-authorized-context guard). | `PROVEN_COMPLETE` | `src/editor/session-store.js` + `editor-controller.js` `restore()`; renderer `renderer/editor.js:585` calls `bridge.restore()`; `qa:phase-7b-native-editor/perf` + 6B selftest cover restore | none | none | — | covered |
-| **App restart — most-recent Mall item** | `MISSING` | No `mall-session.json`; `currentSession` is main-process state only | User re-opens Mall lane to empty workspace | Low | 7D2 | owner-decision: restore the open Mall `.wrl`? |
-| **App restart — most-recent World Project** | `MISSING` | No `world-session.json`; `currentSession` is main-process state only | User re-opens World lane to empty workspace (consistent with current 4A/4B/5A posture) | Low | 7D2 | owner-decision (same question as Mall) |
+| **App restart — most-recent Mall item** | `MISSING` | No `mall-session.json`; `currentSession` is main-process state only; owner policy §4.4 explicitly defers auto-restore | User re-opens Mall lane to empty workspace | Low | deferred (recorded) | owner decision: NOT approved in Phase Beta 2 (deferred) |
+| **App restart — most-recent World Project** | `MISSING` | No `world-session.json`; `currentSession` is main-process state only; owner policy §4.5 explicitly defers auto-restore + auto-scan | User re-opens World lane to empty workspace (consistent with current 4A/4B/5A posture) | Low | deferred (recorded) | owner decision: NOT approved in Phase Beta 2 (deferred) |
 
-**Final D3 counts:**
+**Final D3 counts (post-Phase Beta 2):**
 
 | Classification | Count | Rows |
 |---|---:|---|
-| `PROVEN_COMPLETE` | **5** | file backup · preview-failure recovery · app restart window state · app restart editor document · (file backup covers `.bak-*` ignore + repack survives a failed write + `detectExternalChange`) |
-| `PARTIAL` | **2** | unsaved-buffer graceful close · renderer-process crash recovery |
-| `MISSING` | **3** | unsaved-buffer crash recovery · Mall item restart restore · World Project restart restore |
+| `PROVEN_COMPLETE` | **7** | file backup · unsaved-buffer crash recovery · unsaved-buffer graceful close · renderer-process crash recovery · preview-failure recovery · app restart window state · app restart editor document |
+| `PARTIAL` | **0** | — |
+| `MISSING` | **2** | Mall item restart restore · World Project restart restore (both deferred per owner policy §4.4 / §4.5) |
 
-(The original 7D0 report listed 8 `PROVEN_COMPLETE` rows because it split the file-backup concern across 5 rows (Mall backup, editor backup, `.bak-*` gitignore, backup-before-repack survives failure, `detectExternalChange`); the rewritten matrix treats these as one cohesive file-backup property and folds the four supporting facts into its evidence column, per the owner review.)
+Phase Beta 2 closed the previously-MISSING / PARTIAL rows; the only remaining items are the two deferred Mall / World auto-restores the owner explicitly rejected for this lane.
 
 ### D4 — Session restoration (per-state classification)
 
@@ -307,6 +313,10 @@ Three implementation lanes are recommended, each bounded, each gate-able:
 
 ### Phase 7D1 — Keyboard accessibility + large-project performance
 
+**As-built lane name: `Phase: Accessibility + Performance`. See the roadmap
+entry for the closeout status. The 7D1 label is preserved here for evidence
+back-compat.**
+
 | Aspect | Description |
 |---|---|
 | **Scope** | D1 `PARTIAL`/`MISSING` items + D2 ad-hoc measures; explicit exclusions below. |
@@ -320,18 +330,27 @@ Three implementation lanes are recommended, each bounded, each gate-able:
 
 ### Phase 7D2 — Crash recovery + session restoration (owner-decision-heavy)
 
+**As-built: this section describes what was planned. The lane shipped as
+**Phase Beta 2** under its owner-approved name; see
+`docs/PHASE_BETA_2_CRASH_RECOVERY.md` for the as-built record and the
+roadmap's `Phase Beta 2` entry for the closeout status. The 7D2 label is
+preserved here for evidence back-compat.**
+
 | Aspect | Description |
 |---|---|
 | **Scope** | D3 `MISSING` items + D4 owner decisions (active workspace / Mall / World restoration). |
 | Repository actions | (a) Add a small "recovery file" path under `userData` that periodically snapshots the unsaved editor buffer (separate from `editor-session.json`, which is intentionally for the saved document); restore on launch when present. (b) Renderer-process gone handler: emit a single refresh-and-restore event. (c) Owner-decision: persist `currentPage` (mall/world/editor); restore on launch. (d) Owner-decision: persist most-recent Mall item and World root in `mall-session.json` / `world-session.json`. (e) Document the "explicit close never restores" rule in `docs/NATIVE_EDITOR_ARCHITECTURE.md`. |
 | Explicit exclusions | Any UI redesign of the unsaved-buffer experience; any change to safe-save; any change to the .bak-* backup naming. |
-| Prerequisites | Owner decisions on (c)/(d) before code lands. |
-| Tests | New `test/editor/recovery.test.js`; updated `test/editor/session-store.test.js`; updated `test/product-posture.test.js` to scan for the new files. |
-| Runtime QA | Re-run `qa:phase-7b-native-editor/orchestrate.js` to ensure crash-recovery state capture does not regress existing 15/15. |
+| Prerequisites | Owner decisions on (c)/(d) before code lands. **Outcome:** (c) was partially approved — Restore returns the user to the editor workspace where the recovered buffer opens; the active page is always the editor on Restore. (d) was explicitly **deferred** per owner policy §4.4 / §4.5. |
+| Tests | New `test/editor/recovery-store.test.js` + `test/editor/recovery-controller.test.js`; `EditorController.openFromRecovery` tested in `test/editor/editor-controller.test.js`; `recovery-prompt.js` added to the editor-page co-load list in `test/editor/script-load-order.test.js`. |
+| Runtime QA | Re-run `qa:phase-7b-native-editor/orchestrate.js` to ensure crash-recovery state capture does not regress existing 15/15 (independent QA verdict pending). |
 | Cross-platform needs | Linux-only test for the recovery file format; Windows self-test extension is optional (paths are cross-platform already). |
-| Stop condition | All D3 MISSING closed or owner-deferred with explicit rationale; D4 owner decisions resolved and recorded; new tests green. |
+| Stop condition | All D3 MISSING closed or owner-deferred with explicit rationale; D4 owner decisions resolved and recorded; new tests green. **Outcome:** 1954/1954 `npm test` pass; D3 PARTIAL/MISSING closed; only (d) deferred. |
 
 ### Phase 7D3 — Linux + Windows beta verification + beta packaging refresh
+
+**As-built lane name: `Phase: Cross Platform Beta`. See the roadmap entry for
+the closeout status. The 7D3 label is preserved here for evidence back-compat.**
 
 | Aspect | Description |
 |---|---|

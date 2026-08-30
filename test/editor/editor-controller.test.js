@@ -232,3 +232,70 @@ test('world restore refuses a document that no longer sits inside its recorded r
   store.saveSession(ud, { ...rec, root: '/gone-root-xyz' });
   assert.strictEqual(new EditorController({ userDataPath: ud }).restore().reason, 'moved-root');
 });
+
+// Phase Beta 2 -- openFromRecovery restores a dirty buffer WITHOUT writing the
+// source file. The source byte on disk is identical before and after.
+test('openFromRecovery installs a dirty buffer; the source file is untouched', () => {
+  const dir = tmpDir('ctl-recovery');
+  const p = writeWrl(dir, 'item.wrl', WRL);
+  const onDisk = fs.readFileSync(p);
+  const c = mallController(p);
+  // Pre-condition: source file has known bytes.
+  assert.strictEqual(onDisk.toString('utf8'), WRL);
+  // Adopt the recovery snapshot -- simulate that the user had typed buffer
+  // 'WRL + NEW LINE' on top of the original WRL when the editor "crashed".
+  const RECOVERED_BUFFER = '#VRML V2.0 utf8\nGroup { children [ NEW LINE ] }\n';
+  const d = c.openFromRecovery({
+    sourcePath: p,
+    profile: 'mall-item',
+    context: 'mall',
+    root: null,
+    buffer: RECOVERED_BUFFER,
+    baseline: WRL,
+  });
+  assert.strictEqual(d.open, true);
+  assert.strictEqual(d.text, RECOVERED_BUFFER);
+  assert.strictEqual(d.dirty, true, 'recovered buffer is dirty vs the disk source');
+  // The source file on disk MUST be untouched. That is the load-bearing rule.
+  const after = fs.readFileSync(p);
+  assert.deepStrictEqual(after, onDisk, 'source file is byte-identical after recovery');
+});
+
+// Phase Beta 2 -- an external change to the source between snapshot and
+// restore is still safe; the recovered buffer is offered for inspection but
+// the source keeps its newer bytes (we DON'T auto-merge).
+test('openFromRecovery does not auto-merge when the source changed since the snapshot', () => {
+  const dir = tmpDir('ctl-recovery-conflict');
+  const p = writeWrl(dir, 'item.wrl', WRL);
+  const c = mallController(p);
+  const externallyChanged = '#VRML V2.0 utf8\nGroup { children [ EXTERNAL ] }\n';
+  fs.writeFileSync(p, externallyChanged);
+  const RECOVERED_BUFFER = '#VRML V2.0 utf8\nGroup { children [ USER ] }\n';
+  const d = c.openFromRecovery({
+    sourcePath: p,
+    profile: 'mall-item',
+    context: 'mall',
+    root: null,
+    buffer: RECOVERED_BUFFER,
+    baseline: WRL,
+  });
+  assert.strictEqual(d.dirty, true, 'the recovered buffer is still flagged dirty');
+  assert.strictEqual(d.text, RECOVERED_BUFFER);
+  // No merge: disk kept its external bytes.
+  assert.strictEqual(fs.readFileSync(p, 'utf8'), externallyChanged);
+});
+
+// Phase Beta 2 -- gzip source round-trips through openFromRecovery transparently.
+test('openFromRecovery keeps gzip format intact (no silent conversion to plain)', () => {
+  const dir = tmpDir('ctl-recovery-gzip');
+  const p = writeWrl(dir, 'item.wrl', WRL, true /* gzip */);
+  const onDisk = fs.readFileSync(p);
+  const c = mallController(p);
+  const RECOVERED_BUFFER = '#VRML V2.0 utf8\nGroup { children [ GZ ] }\n';
+  const d = c.openFromRecovery({
+    sourcePath: p, profile: 'mall-item', context: 'mall', root: null,
+    buffer: RECOVERED_BUFFER, baseline: WRL,
+  });
+  assert.strictEqual(d.format, 'gzip', 'format is gzip, NEVER silently plain');
+  assert.deepStrictEqual(fs.readFileSync(p), onDisk, 'source untouched');
+});

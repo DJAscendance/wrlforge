@@ -42,6 +42,10 @@ class EditorController {
     this.userDataPath = deps.userDataPath || null;
     this.storeDeps = deps.storeDeps;   // injectable fs for session-store
     this.authDeps = deps.authDeps;     // injectable fs for the authorizer (realpath)
+    // Optional Phase Beta 2 hook: a successful Save clears the recovery
+    // snapshot via the injected recovery controller. Decoupled this way so
+    // an EditorController standalone (or test) keeps its old behaviour.
+    this.recoveryController = deps.recoveryController || null;
     this.sessionId = 0;                // bumped on each fresh open -> stale-session guard
     this._record = null;               // last persisted { sourcePath, context, profile, root, format }
   }
@@ -76,6 +80,96 @@ class EditorController {
     return this.describe({ includeText: true });
   }
 
+  // Phase Beta 2 -- restore from a recovery snapshot. Opens the held source
+// the same way _open does, then installs the recovered buffer as the live
+// text (without writing to disk). The resulting session is dirty.
+//
+// Phase Beta 2 corrections:
+//   QA pass 1:
+//   * B2: a missing source no longer throws. Instead, we return
+//     `{ recoveredAsUnsaved: true, ... }` so the caller can keep the
+//     recovery record on disk and offer the user a source-less viewer.
+//   QA pass 2 (this revision):
+//   * B1 real source stat: openFromRecovery accepts the persistent
+//     `sourceStat` from the recovery record (v2+) and uses it as the
+//     session's authoritative on-disk stat. The earlier synthesized-
+//     from-decompressed-text helper is unsafe for gzip and is no longer
+//     used; the conflict path runs against the real source's byte-level
+//     hash (sha1 over the on-disk bytes, gzip or plain).
+//   * Property contract: the adopter passes `baseline` (one name; the
+//     earlier `baselineOverride` alias is gone -- it is checked neither
+//     here nor in the recovery store).
+  openFromRecovery({ sourcePath, profile, context, root, buffer, baseline, sourceStat }) {
+    if (typeof sourcePath !== 'string' || !sourcePath) {
+      throw tagged('EARG', 'openFromRecovery requires a sourcePath.');
+    }
+    if (typeof buffer !== 'string') {
+      throw tagged('EARG', 'openFromRecovery requires a buffer string.');
+    }
+    const abs = nodePath.resolve(sourcePath);
+    const fs = (this.ioDeps && this.ioDeps.fs) || require('fs');
+    // Source-missing fast-path (B2). We do NOT throw. The recovery file can
+    // outlive its source (the user deleted or moved the source after the
+    // crash); the buffer is still recoverable. The caller offers a source-
+    // less viewer instead.
+    if (!fs.existsSync(abs)) {
+      return {
+        recoveredAsUnsaved: true,
+        sourceMissingRecovered: true,
+        sourcePath: abs,
+        profile: profile || 'generic',
+        context: context || 'generic',
+        format: 'plain',
+        buffer,
+        baseline: typeof baseline === 'string' ? baseline : '',
+        dirty: !!buffer && buffer !== (typeof baseline === 'string' ? baseline : ''),
+        // A missing source means we have no conflict anchor -- the recovery
+        // record's `sourceStat` may still describe the bytes of the original
+        // file. We surface it so the renderer can offer a viewer/copy UI
+        // without ever writing the source.
+        sourceStat: sourceStat || null,
+      };
+    }
+    // Reuse the regular open path (filesystem read, format sniff, stat).
+    const info = this.session.open(abs, { profile, context });
+    this.sessionId += 1;
+    this._record = { sourcePath: abs, context, profile, root: root || null, format: info.format };
+    this._persist();
+    // Install the recovered buffer on top of the freshly-loaded text. Patch
+    // the doc baseline to the RECOVERED baseline so dirty tracking matches
+    // what the user had on screen. When `baseline` is missing or empty we
+    // fall back to the just-read disk text (the snapshot may have been made
+    // on a clean buffer that exactly matched disk).
+    const { withText } = require('./wrl-document');
+    const resolvedBaseline = (typeof baseline === 'string' && baseline.length)
+      ? baseline
+      : info.text;
+    this.session.doc = withText(this.session.doc, buffer);
+    this.session.doc = { ...this.session.doc, baseline: resolvedBaseline };
+    // B1 fix: use the REAL on-disk stat from the snapshot, NOT a derivation
+    // from decompressed text. safeSave's detectExternalChange compares this
+    // stat against the live disk on the next Save -- any post-snapshot
+    // external change to the source file raises EEXTERNAL through the
+    // existing conflict path.
+    if (sourceStat && typeof sourceStat === 'object'
+        && typeof sourceStat.size === 'number'
+        && typeof sourceStat.hash === 'string'
+        && typeof sourceStat.mtimeMs === 'number') {
+      this.session.doc = { ...this.session.doc, stat: sourceStat };
+    }
+    // No fallback to a synthesized stat. Records that lack sourceStat (v1
+    // legacy) are accepted by the recover store but explicit: the renderer
+    // is signalled that the conflict path has no anchor, and the user must
+    // use Save As or accept the conflict on the next Save. We surface that
+    // through `recoveredFromLegacySnapshot: true`.
+    return {
+      ...this.describe({ includeText: true }),
+      dirty: this.session.describe().dirty,
+      recoveredAsUnsaved: false,
+      recoveredFromLegacySnapshot: !sourceStat,
+    };
+  }
+
   // ---- state / editing -----------------------------------------------------
 
   describe({ includeText = false } = {}) {
@@ -106,6 +200,15 @@ class EditorController {
     const res = this.session.save(text, { allowOverwrite }); // writes ONLY to the held path
     if (this._record) this._record.format = res.format;
     this._persist();
+    // Phase Beta 2 -- on a clean Save, drop the recovery snapshot. The Save
+    // path is the canonical "the user has safely kept their work" event.
+    // Failures (EEXTERNAL, EVERIFY) fall through without clearing (handled
+    // by the throw above). This is unit-test-friendly: only an injected
+    // recovery controller participates; the legacy single-module test path
+    // is unaffected.
+    if (res && res.ok && this.recoveryController) {
+      this.recoveryController.recordClear();
+    }
     return { ...res, sessionId: this.sessionId };
   }
 

@@ -25,6 +25,9 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..', '..');
 
 // The first-party scripts exactly as ordered in renderer/editor.html.
+// Phase Beta 2 (QA pass 2 fix B4): the recovery-prompt module is loaded
+// BEFORE editor.js so editor.js's init() can call WRLForgeRecoveryPrompt.
+// maybePrompt immediately. Deferred scripts run in document order.
 const EDITOR_PAGE_SCRIPTS = [
   'src/preview/extrusion-bounds.js',
   'src/preview/bbox-traversal.js',
@@ -39,6 +42,7 @@ const EDITOR_PAGE_SCRIPTS = [
   'renderer/scene-inspector.js',
   'renderer/preview.js',
   'renderer/world-preview.js',
+  'renderer/recovery-prompt.js',
   'renderer/editor.js',
   'renderer/editor-preview.js',
 ];
@@ -51,6 +55,37 @@ test('editor.html script list matches this test\'s co-load order', () => {
     .map((s) => path.normalize(path.join('renderer', s)).split(path.sep).join('/'));
   assert.deepEqual(firstParty, EDITOR_PAGE_SCRIPTS,
     'update EDITOR_PAGE_SCRIPTS when editor.html adds/removes/reorders scripts');
+});
+
+// Phase Beta 2 (B4 correction) -- the editor.js init() depends on
+// WRLForgeRecoveryPrompt being loaded first. The recoveryprompt module
+// exposes maybePrompt on window; that property must exist by the time
+// editor.js's init() runs. Deferred scripts run in source order.
+test('B4 correction: recovery-prompt module is loaded BEFORE editor.js on editor.html', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'renderer', 'editor.html'), 'utf8');
+  const srcs = [...html.matchAll(/<script defer src="([^"]+)"><\/script>/g)].map((m) => m[1]);
+  const editorIdx = srcs.findIndex((s) => s.endsWith('editor.js'));
+  const promptIdx = srcs.findIndex((s) => s.endsWith('recovery-prompt.js'));
+  assert.ok(editorIdx > -1 && promptIdx > -1, 'both editor.js and recovery-prompt.js must be present');
+  assert.ok(promptIdx < editorIdx, 'recovery-prompt.js precedes editor.js (B4 fix)');
+});
+
+test('M1 correction: recovery-prompt module is loaded BEFORE world.js on world.html', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'renderer', 'world.html'), 'utf8');
+  const srcs = [...html.matchAll(/<script defer src="([^"]+)"><\/script>/g)].map((m) => m[1]);
+  const worldIdx = srcs.findIndex((s) => s.endsWith('world.js'));
+  const promptIdx = srcs.findIndex((s) => s.endsWith('recovery-prompt.js'));
+  assert.ok(worldIdx > -1 && promptIdx > -1, 'both world.js and recovery-prompt.js must be present');
+  assert.ok(promptIdx < worldIdx, 'recovery-prompt.js precedes world.js (M1 fix)');
+});
+
+test('Mall script order: recovery-prompt is loaded BEFORE renderer.js', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'renderer', 'index.html'), 'utf8');
+  const srcs = [...html.matchAll(/<script defer src="([^"]+)"><\/script>/g)].map((m) => m[1]);
+  const rendererIdx = srcs.findIndex((s) => s.endsWith('renderer.js'));
+  const promptIdx = srcs.findIndex((s) => s.endsWith('recovery-prompt.js'));
+  assert.ok(rendererIdx > -1 && promptIdx > -1, 'both renderer.js and recovery-prompt.js must be present');
+  assert.ok(promptIdx < rendererIdx, 'recovery-prompt.js precedes renderer.js (Mall)');
 });
 
 function makeBrowserContext() {

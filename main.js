@@ -24,6 +24,7 @@ const { writeReviewBundle } = require('./src/world-project/bundle-builder');
 const { resolveEditor, buildLaunch } = require('./src/editor/editor-locator');
 const { loadSettings } = require('./src/settings/app-settings');
 const { EditorController } = require('./src/editor/editor-controller');
+const { RecoveryController } = require('./src/editor/recovery-controller');
 const { openMallItem, openExternalEditor } = require('./src/editor/mall-edit-flow');
 const { createMallPreviewBridge } = require('./src/preview/mall-preview-bridge');
 const { createWorldPreviewBridge } = require('./src/preview/world-preview-bridge');
@@ -75,6 +76,14 @@ if (!hasSingleInstanceLock) app.quit();
 // document and every path decision; the renderer supplies only text + intent (and
 // a World reference to OPEN, which is authorized against the scan graph below).
 let editorController = null;
+
+// The Phase Beta 2 recovery controller. Owns the recovery lifecycle for the
+// one open editor document: debounced dirty-state snapshots to userData, a
+// startup-time read for the Restore / Start Fresh prompt, and a one-shot
+// adopt-from-snapshot helper. The renderer pings it after every keystroke
+// (throttled) and at Save / Close points; main remains the only writer to
+// userData. Instantiated alongside editorController.
+let recoveryController = null;
 
 // The Mall live-preview bridge (Phase 7C2). Turns the native editor's UNSAVED
 // buffer into an authorized X_ITE preview payload without writing any temp file.
@@ -298,6 +307,18 @@ function createWindow() {
   if (state.isMaximized) win.maximize();
   mainWindow = win;
 
+  // Phase Beta 2 -- render-process-gone handler. Single-shot reload, with a
+  // burst guard so a crash loop never tears the GPU down further.
+  win.webContents.on('render-process-gone', (_event, details) => {
+    handleRenderProcessGone(details);
+  });
+  // Best-effort recovery flush when the renderer navigates away. The editor
+  // page already forces a final flush on Close and Back; this catches Mall /
+  // World page navigations too.
+  win.webContents.on('will-prevent-unload', (event) => {
+    flushRecoveryBeforeUnload();
+  });
+
   let saveTimer = null;
   const scheduleSave = () => {
     clearTimeout(saveTimer);
@@ -308,6 +329,7 @@ function createWindow() {
   win.on('close', () => {
     clearTimeout(saveTimer);
     saveWindowState(win);
+    flushRecoveryBeforeUnload();
   });
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
@@ -824,10 +846,45 @@ function createEditorController() {
   });
 }
 
+// Phase Beta 2 -- the recovery controller. Receives the editor controller
+// through `openSession` so adopting a snapshot reuses the regular open path
+// (which already handles gzip/format/stat). It only handles the recovery
+// file; session persistence lives in session-store, which is unchanged.
+//
+// editorController is created FIRST; then we patch its recoveryController
+// reference back in so EditorController.save() can call recordClear() on
+// success through the standard controller surface (no extra IPC-aware
+// wrapper code).
+//
+// Phase Beta 2 QA pass 2 (B1): `getSourceStat` is the live on-disk stat of
+// the held session. Capturing this at snapshot time lets the recovery
+// record carry the actual hash/size of the file (gzip or plain), which is
+// what the existing safe-save conflict path compares against. Synthesizing
+// a stat from decompressed text is unsafe for gzip sources.
+function createRecoveryController() {
+  const rc = new RecoveryController({
+    userDataPath: app.getPath('userData'),
+    openSession: (recovered) => editorController.openFromRecovery(recovered),
+    getSourceStat: () => {
+      const ecSession = editorController && editorController.session;
+      if (!ecSession || !ecSession.doc) return null;
+      const stat = ecSession.doc.stat;
+      if (!stat || typeof stat !== 'object') return null;
+      return stat;
+    },
+    log: (entry) => {
+      try { console.warn('[wrl-forge][recovery]', JSON.stringify(entry)); } catch { /* noop */ }
+    },
+  });
+  if (editorController) editorController.recoveryController = rc;
+  return rc;
+}
+
 if (hasSingleInstanceLock) app.whenReady().then(() => {
   installPreviewNetworkGuard();
   installWorldPreviewProtocol();
   editorController = createEditorController();
+  recoveryController = createRecoveryController();
   mallPreviewBridge = createMallPreviewBridge({
     // The renderer never supplies a path: the bridge resolves the editor session
     // itself and confirms the held source equals the authorized Mall item.
@@ -857,6 +914,52 @@ if (hasSingleInstanceLock) app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
+
+// Phase Beta 2 -- render-process-gone. The renderer killed itself (a segfault,
+// an OOM, a debugger hard-quit). Phase 7D0 evidence notes main logged the event
+// but did nothing; Phase Beta 2 makes it actionable without creating a crash
+// loop:
+//   * Single-shot reload -- the renderer's page is reloaded once via
+//     webContents.reload. A second within a short window is treated as
+//     repeated failure and we DO NOT keep restarting the renderer.
+//   * Recovery state survives -- main did not lose anything; the renderer
+//     re-mounts and re-reads its state from the same session. Any pending
+//     debounced recovery flush is force-flushed BEFORE the reload so the
+//     new renderer can find the freshest snapshot on boot.
+//   * The session is NEVER silently restored -- recovery remains a
+//     user-decided action; we only make sure the new renderer can ask.
+//
+// A second event in the same "burst window" (default 10s) is logged and the
+// reload is suppressed -- a hard crash loop is NEVER papered over; the user
+// gets the rest of the app and can quit.
+let lastRpgReload = 0;
+function handleRenderProcessGone(details) {
+  console.warn('[wrl-forge] renderer gone:', details.reason, details.exitCode);
+  if (!mainWindow || !mainWindow.webContents) return;
+  // Always force-flush any pending recovery so the new renderer can read the
+  // freshest possible snapshot on its next init.
+  if (recoveryController) {
+    try { recoveryController.forceFlush(); } catch (e) { /* noop */ }
+  }
+  const now = Date.now();
+  if (now - lastRpgReload < 10000) {
+    console.error('[wrl-forge] renderer crashed again within 10s; not reloading to avoid a loop. Quit and restart the app.');
+    return;
+  }
+  lastRpgReload = now;
+  try { mainWindow.webContents.reload(); } catch (e) { /* webContents may already be torn down */ }
+}
+
+// Phase Beta 2 -- beforeunload safety net. The renderer's `beforeunload` is
+// what currently fires a "discard / keep" modal for unsaved work; we add a
+// synchronous best-effort flush of any pending recovery snapshot so a fast
+// navigation away doesn't lose the last keystrokes. The renderer has its own
+// debounce, so the typical case is "nothing to flush" -- this is the tail
+// guard.
+async function flushRecoveryBeforeUnload() {
+  if (!recoveryController) return;
+  try { recoveryController.forceFlush(); } catch (e) { /* noop */ }
+}
 
 // I/O + launch dependency bag for the Mall edit flow (src/editor/mall-edit-flow.js).
 // Kept here so the flow itself stays pure and unit-testable without Electron.
@@ -1200,6 +1303,10 @@ ipcMain.handle('editor:setText', async (_evt, { sessionId, text } = {}) => edito
 
 ipcMain.handle('editor:save', async (_evt, { sessionId, text, allowOverwrite } = {}) => {
   try {
+    // EditorController.save() now invokes the recovery controller's
+    // recordClear on a successful Save (injected in createRecoveryController).
+    // Failures leave the recovery untouched so the next launch can offer it
+    // again.
     return editorController.save(sessionId, text, { allowOverwrite });
   } catch (err) {
     // A conflict or failed verification is an expected, user-actionable outcome:
@@ -1225,9 +1332,48 @@ ipcMain.handle('editor:close', async (_evt, { sessionId } = {}) => {
     if (mallPreviewBridge) mallPreviewBridge.invalidateSession(sessionId);
     if (worldPreviewBridge) worldPreviewBridge.invalidateSession(sessionId);
   }
-  return editorController.close(sessionId);
+  const res = editorController.close(sessionId);
+  // Phase Beta 2 -- an explicit Close forgets the recovery snapshot. The
+  // user chose "Close" deliberately; the next launch must NOT prompt them
+  // to restore work they already decided to throw away. Any Save action
+  // before this would have already cleared the snapshot (a Save before
+  // Close is the canonical happy path).
+  if (recoveryController) recoveryController.recordClear();
+  return res;
 });
 ipcMain.handle('editor:restore', async () => editorController.restore());
+
+// ---------------------------------------------------------------------------
+// Phase Beta 2 -- Crash recovery IPC.
+// The renderer pings `recoveryRecordDirty` on every keystroke (throttled on
+// its end); main debounces the writes through the recovery controller's timer.
+// `recoveryRead` is called once at startup by whichever page mounts first --
+// the renderer converts a `found: true` reply into the Restore / Start Fresh
+// prompt. `recoveryAdopt` performs the Restore action; `recoveryClear` is the
+// Start Fresh action (or the manual forget path). No path is renderer-supplied
+// -- the recovery file lives at userData exclusively.
+// ---------------------------------------------------------------------------
+function activeWorkspaceName() {
+  // The renderer mirrors this in its workspace state, but main is the
+  // authority here: when the page is `editor`, we report 'editor'; otherwise
+  // we report the lane. Used only for the recovery snapshot's
+  // activeWorkspace field -- telling the restore prompt where to drop the
+  // user on Restore.
+  return currentPage || 'mall';
+}
+ipcMain.handle('editor:recoveryRead', async () => recoveryController ? recoveryController.readRecovery() : { found: false, reason: 'no-controller' });
+ipcMain.handle('editor:recoveryRecordDirty', async (_evt, payload) => recoveryController ? recoveryController.recordDirtyState(payload || {}) : { ok: false, reason: 'no-controller' });
+ipcMain.handle('editor:recoveryClear', async () => recoveryController ? recoveryController.recordClear() : { ok: false, reason: 'no-controller' });
+ipcMain.handle('editor:recoveryAdopt', async () => {
+  if (!recoveryController) return { ok: false, reason: 'no-controller' };
+  const r = recoveryController.readRecovery();
+  if (!r.found) return { ok: false, reason: r.reason || 'no-recovery' };
+  const adopted = recoveryController.adoptRecovery(r.record);
+  // adopted.buffer is the recovered text for unsaved-no-source cases; the
+  // renderer needs it to seed a fresh unsaved session.
+  return adopted;
+});
+ipcMain.handle('editor:recoveryActiveWorkspace', async () => activeWorkspaceName());
 
 // ---------------------------------------------------------------------------
 // Live-preview IPC (Phase 7C2 Mall + Phase 7C3 World). The renderer sends ONLY

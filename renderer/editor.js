@@ -98,6 +98,53 @@ let inspectorView = null;
 function currentText() { return S.handle ? S.handle.getText() : S.baseline; }
 function isDirty() { return UI.isDirty(currentText(), S.baseline); }
 
+// Phase Beta 2 -- record the dirty buffer to the recovery store on every
+// change. We THROTTLE on the renderer side (1.5s trailing) so the IPC is
+// never per-keystroke; main still debounces (5s) before it actually writes
+// to disk. The data carried matches the recovery-store schema (see
+// src/editor/recovery-store.js).
+const RECOVERY_THROTTLE_MS = 1500;
+const RECOVERY_WORKSPACE_KEY = 'wrlforge.recovery.lastWorkspace';
+let _recoveryPending = null;
+let _recoveryTimer = null;
+function scheduleRecoverySnapshot() {
+  if (!S.handle || !S.sessionId) return;
+  const payload = {
+    sourcePath: S.sourcePath || null,
+    context: S.context || 'generic',
+    profile: S.context === 'mall' ? 'mall-item' : S.context === 'world' ? 'world' : 'generic',
+    root: null,
+    format: S.gzip ? 'gzip' : 'plain',
+    baseline: S.baseline || '',
+    buffer: currentText(),
+    dirty: true,
+    activeWorkspace: 'editor',
+  };
+  _recoveryPending = payload;
+  if (_recoveryTimer) return;
+  _recoveryTimer = setTimeout(async () => {
+    _recoveryTimer = null;
+    const p = _recoveryPending;
+    _recoveryPending = null;
+    if (!p) return;
+    try {
+      await bridge.recoveryRecordDirty(p);
+    } catch (e) { /* best-effort; the next edit reschedules */ }
+  }, RECOVERY_THROTTLE_MS);
+}
+// Force-flush any pending recovery snapshot (used on Close and Back so the
+// last keystrokes survive a navigate-away even if the timer hasn't fired).
+async function flushRecoverySnapshot() {
+  if (_recoveryTimer) {
+    clearTimeout(_recoveryTimer);
+    _recoveryTimer = null;
+  }
+  if (!_recoveryPending) return;
+  const p = _recoveryPending;
+  _recoveryPending = null;
+  try { await bridge.recoveryRecordDirty(p); } catch (e) { /* best-effort */ }
+}
+
 // The live-preview orchestrator (renderer/editor-preview.js), present only when
 // the preview lane is loaded. Guarded so the editor works without it.
 const EP = () => window.wrlEditorPreview;
@@ -381,6 +428,9 @@ async function doClose() {
   if (!(await confirmUnsaved('Close'))) return;
   const back = UI.originNav(S.context);
   if (EP()) EP().stop();  // tear down preview timers + drop the overlay in main
+  // Phase Beta 2 -- flush the last keystroke before close so the recovery
+  // snapshot (if any) reflects reality, then let main recordClear via close().
+  await flushRecoverySnapshot();
   try { await bridge.close(S.sessionId); } catch (e) { /* nothing open */ }
   await window.vrmlpad.goto(back.page);
 }
@@ -395,6 +445,9 @@ async function doBack() {
     try { await bridge.setText(S.sessionId, currentText()); } catch (e) { /* session may be gone */ }
   }
   if (EP()) EP().stop();
+  // Phase Beta 2 -- flush a final recovery snapshot before navigating away so
+  // the user does not lose the last keystrokes if a crash happens mid-nav.
+  await flushRecoverySnapshot();
   await window.vrmlpad.goto(back.page);
 }
 
@@ -458,6 +511,7 @@ function mountEditor(text, profile) {
       if (S.saveState !== UI.SAVE_STATE.CONFLICT) S.saveState = null;
       S.bufferVersion += 1;               // monotonic; promoted onto preview requests
       if (EP()) EP().onEdit();            // schedule a debounced live-preview refresh
+      scheduleRecoverySnapshot();         // Phase Beta 2 -- throttle a recovery write
       render();
     },
     onCursor: (c) => { S.cursor = c; els.stCursor.textContent = UI.cursorLabel(c); },
@@ -578,6 +632,51 @@ async function init() {
   // WD2-A: bind the scene-tree view + inspector to the shared selection
   // authority BEFORE the editor mounts, so the first analysis paints them.
   initSceneViews();
+
+  // Phase Beta 2 -- run the shared recovery prompt BEFORE we mount anything.
+  // The prompt is the single authority for "Restore / Start Fresh"; on the
+  // editor page, Restore means "re-mount with the recovered buffer". The
+  // prompt's default behaviour (navigate to /editor) is a no-op here because
+  // we are already on the editor page; we supply a custom onRestore so the
+  // recovered session is reflected in the editor view immediately.
+  // The recovery record stays on disk after adoption -- only Save success,
+  // Discard, or Start Fresh clear it.
+  if (window.WRLForgeRecoveryPrompt) {
+    await window.WRLForgeRecoveryPrompt.maybePrompt({
+      onRestore: async (adopted) => {
+        if (adopted && adopted.sourceMissingRecovered) {
+          // The source file is gone. The current editor model requires a
+          // real source path to host a session; without one we cannot
+          // mount safely without risking an accidental write. The recovery
+          // record stays on disk and the user can re-decide on next launch.
+          showMsg(
+            'The source file the recovery refers to is no longer on disk. ' +
+            'Your unsaved work is preserved in the recovery file and will ' +
+            'be offered again on next launch.',
+            true,
+          );
+          render();
+          return;
+        }
+        try {
+          const d = await bridge.describe({ includeText: true });
+          if (d && d.open) {
+            S.sessionId = d.sessionId;
+            S.context = d.context || 'generic';
+            S.sourcePath = d.sourcePath;
+            S.format = d.format;
+            S.gzip = !!d.gzip;
+            S.baseline = d.baseline != null ? d.baseline : d.text;
+            const profile = d.profile || (S.context === 'world' ? 'world' : S.context === 'mall' ? 'mall-item' : 'generic');
+            mountEditor(d.text, profile);
+            render();
+            S.handle.focus();
+          }
+        } catch (e) { /* fall through to the regular init flow */ }
+      },
+    });
+  }
+
   let d;
   try { d = await bridge.describe({ includeText: true }); } catch (e) { d = { open: false }; }
   // Cold start / direct navigation: try to restore the most-recent document.

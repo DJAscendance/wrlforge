@@ -391,6 +391,14 @@ document.getElementById('mallBtn').addEventListener('click', () => window.vrmlpa
 // On load, restore any already-open project (e.g. after returning from Mall).
 (async () => {
   if (!W) return;
+  // Phase Beta 2 -- invoke the shared recovery prompt on every page mount.
+  // The prompt is page-agnostic: it shows the same Restore/Start Fresh
+  // decision on Mall, World, and Editor pages. World uses the default
+  // behaviour (Restore navigates to /editor where the recovered buffer is
+  // mounted).
+  if (window.WRLForgeRecoveryPrompt && typeof window.WRLForgeRecoveryPrompt.maybePrompt === 'function') {
+    try { await window.WRLForgeRecoveryPrompt.maybePrompt(); } catch (e) { /* prompt is best-effort */ }
+  }
   try {
     const desc = await W.describe();
     if (desc && desc.primary) {
