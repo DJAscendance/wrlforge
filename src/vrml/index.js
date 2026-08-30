@@ -85,6 +85,14 @@ const protoAgreement = require('./proto-agreement');
 // second, divergent opinion growing inside the editor, the inspector and the
 // scene tree.
 const presentation = require('./presentation');
+// P4-B -- the user-facing diagnostic text over P4-A.
+//
+// P4-A decides severity, ordering and visibility. P4-B decides what words a
+// consumer renders. It reads ONLY the structured facts a presentation already
+// exposes, never the semantic substrate, and the message it returns is text
+// only -- no severity, group, saveBlocking, ranking or compatibility decision
+// is reachable from here, so a presentation cannot drift into a second policy.
+const messages = require('./messages');
 
 const publicDocumentTransaction = Object.freeze({
   // Prove that an edit set is exactly what turned one exact text into another.
@@ -279,6 +287,27 @@ const publicPresentation = Object.freeze({
   PRESENTATION_ERROR: presentation.PRESENTATION_ERROR,
 });
 
+/**
+ * P4-B -- the words a presentation result renders.
+ *
+ * One entry point per P4-A presentation entry point, plus one dispatcher that
+ * reads `presentation.origin`. Each returns a frozen `{ id, title, summary,
+ * detail }` -- nothing else -- so WD2 never has to decide how a finding reads.
+ *
+ * `MESSAGE_ID` and `MESSAGE_ERROR` are published because they are stable
+ * consumer-facing identifiers a UI keys off (the ID for filtering, the error
+ * code for fall-through). The catalog tables themselves are reasoning, not
+ * contract, and stay on the module -- the same split P4-A made.
+ */
+const publicMessages = Object.freeze({
+  messageForSemanticFinding: messages.messageForSemanticFinding,
+  messageForAgreementFinding: messages.messageForAgreementFinding,
+  messageForAgreementStatus: messages.messageForAgreementStatus,
+  messageForPresentation: messages.messageForPresentation,
+  MESSAGE_ID: messages.MESSAGE_ID,
+  MESSAGE_ERROR: messages.MESSAGE_ERROR,
+});
+
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
 function parse(text, opts = {}) {
   const syntax = parseSyntax(text, opts);
@@ -319,6 +348,7 @@ module.exports = {
   protoTarget: publicProtoTarget,
   protoAgreement: publicProtoAgreement,
   presentation: publicPresentation,
+  messages: publicMessages,
   ast,
   diagnostics,
   assetRefs,

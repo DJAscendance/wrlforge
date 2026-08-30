@@ -288,6 +288,27 @@ packages *every locally retrievable fallback artifact*, because a viewer may
 reach for one C did not select. Recursive discovery of assets referenced only
 inside a **selected** external library remains deferred
 (`DEFERRED_TO_POST_C_WORLD_PROJECT_CONSUMER`): it changes what *blocks* a bundle,
+
+**P4-B** is the message text P4-A deferred
+(`docs/white-dune-2026/P4_B_DIAGNOSTIC_MESSAGE_CATALOG.md`). It is a
+**text projection** over the P4-A presentation, not a second policy layer:
+`src/vrml/messages.js` is pure, browser-safe, returns plain structured
+strings and never carries severity, group, saveBlocking or ordering.
+Three catalog tables (`SEMANTIC_TEMPLATES`, `AGREEMENT_FINDING_TEMPLATES`,
+`ROLLUP_TEMPLATES`) cover every `FINDING_CODE`, every `AGREEMENT_FINDING`,
+every `AGREEMENT_STATUS`, and every currently producible
+`(code, reason)` combination. A complete matrix guard enumerates every
+cell of the `code × iso × confidence` and `agreement code × basis` cross
+products and fails when a new value arrives without an adjudication.
+Strict wording is direct (no "may be", "perhaps", "possibly"); uncertain
+wording uses "WRLForge could not determine"; recovered confidence keeps
+the proven twin's title and summary and may add a single detail sentence;
+compatibility (TOLERATED_VIOLATION) preserves both facts — "not VRML97-
+conforming" and "blaxxun-contact is documented to accept this behavior" —
+and never hides the strict violation; ACCESS_DIFFERS names ISO 4.9.2
+silence without claiming a violation; agreement rollups use rollup
+wording that does not look like a per-member error. WD2 renders the text;
+P4-B never decides.
 which is a packaging-policy decision and needs its own approved lane.
 
 ### Phase 4B — World Preview ✅
