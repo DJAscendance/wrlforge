@@ -382,25 +382,28 @@ path rewriting, renaming, asset deletion, source mutation, Apply/Bake transforms
 internal editing, Windows packaging. Packaging is **analysis + a review bundle
 only**; it never uploads and claims no current-server compatibility.
 
-## Phase 5 — Embedded X_ITE Preview ⏳
+## Phase 5 — Embedded X_ITE Preview ✅
 
-- Integrate X_ITE as WRL Forge's embedded rendering engine — do not build a custom VRML/X3D renderer
-- Isolate the preview from privileged Electron APIs (same `contextIsolation`/`nodeIntegration` discipline as the rest of the app; the preview surface should not gain filesystem/IPC access beyond what it needs to load local assets)
-- Preserve the external VSCodium workflow — "Open in Editor" remains available as an advanced action, it is not replaced
-- Support both Mall Item and World Project contexts
+Subsumed by **Phase 2B** (Mall embedded X_ITE preview, including 2A spike + 2B0
+remediation) and **Phase 4B** (World embedded X_ITE preview). No remaining
+unimplemented work in 7D scope.
 
-See Phase 2A for the earlier, narrowly-scoped X_ITE technical spike that precedes this phase's embedded production integration, and Phase 2B for the Mall Item-specific slice of embedded preview that phase already covers — this phase is the full production integration across both Mall Item and World Project contexts, not the first place X_ITE is evaluated.
+- X_ITE is the only embedded rendering engine — no custom VRML/X3D renderer exists
+  (`package.json` `dependencies` = `x_ite` only; per-product rule).
+- Preview surfaces use `contextIsolation: true` / `nodeIntegration: false`; every
+  renderer carries a strict CSP with no remote origin; remote URLs are blocked at
+  the network layer (`session.webRequest`); read-only IPC is confined to
+  `preview:load` / `world:previewLoad`; the `wrlworld:` scheme is asset-graph
+  allow-listed and project-root-confined.
+- VSCodium is preserved as an explicit optional action (`src/editor/mall-edit-flow.js`,
+  passive launch removed in Phase 7B1); the live launch closeout is **Phase 6B1**
+  (13/13 on real Win11).
+- Both contexts render real Cybertown content on Linux + Win11:
+  `qa/phase-7c-mall-preview/` 18/18 and `qa/phase-7c-world-preview/` 22/22
+  on both platforms.
 
-**Prerequisites:** Phases 2 and 4 (placement math and asset resolution) provide the data the preview needs to be useful, though the embedded viewer itself could technically start earlier if scoped narrowly — Phase 2A/2B already exercise that option for the Mall Item profile specifically.
-
-**Risks:**
-- This is the highest-blast-radius phase — it's the one place a dependency (X_ITE, however it's integrated: bundled lib, iframe, etc.) enters the Electron app directly instead of running inside VSCodium's own extension host.
-- Privilege isolation mistakes here are the most likely way this app could regress from "small companion tool" to "large surface area to secure."
-
-**Completion criteria:**
-- Preview renders a real mall item and a real world sample correctly
-- Security review confirms the preview surface has no more Electron privilege than it needs
-- VSCodium-based editing/preview workflow still works unchanged for users who prefer it
+Phase 7D0's audit (`docs/PHASE_7D_BASELINE.md` §3) classifies this as
+`ALREADY_SATISFIED_NEEDS_ROADMAP_RECONCILIATION`.
 
 ## Phase 6 — Packaging ⏳
 
