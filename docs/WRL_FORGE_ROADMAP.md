@@ -222,8 +222,35 @@ cannot drift.
 
 D **enriches; it never mutates.** No WD1.6 query gained an evidence, context or
 resolver parameter, `childLegality` is unchanged and independently observable,
-and the reserved `compatibility` slot stays `null` — profile classification is
-**WD1.7-E**, which remains blocked.
+and the reserved `compatibility` slot stays `null` for every WD1.7-D record —
+permanently, on current evidence, and by the owner-ratified decision below.
+
+**WD1.7-E** was chartered to classify D's output and, on the evidence, cannot:
+**WD1.7-E0** opened blaxxun interactive's own shipped authoring documentation
+(`docs/white-dune-2026/WD1_7_E_COMPATIBILITY_POLICY_DECISION.md`, ratified
+2026-08-29) and found that the one documented rule speaking directly to external
+prototype interfaces covers the **URN** reference form — which WRL Forge
+deliberately never retrieves, so C never selects one and D never reports on one.
+Nothing in the documentation addresses a `.wrl` file target, and corpus
+prevalence is not evidence. `ACCESS_DIFFERS`, `MEMBER_MISSING` and
+`TYPE_MISMATCH` therefore stay `null`, which is the **correct terminal answer**,
+not a deferral.
+
+**WD1.7-E1** is the rescoped lane that resulted
+(`docs/white-dune-2026/WD1_7_E1_BLAXXUN_CONTACT_PROFILE.md`): one earned public
+profile, **`blaxxun-contact`** (blaxxun Contact 3D 4.x–5.x), a closed five-entry
+behaviour registry with per-claim evidence tiers, and the `EXTRA_STANDARD` /
+`TOLERATED_VIOLATION` split that a remediation decision turns on. Compatibility
+is a **sibling projection**: `src/vrml/compatibility.js` supplies only the opaque
+slot value, `semantic-findings.js` re-emits every strict field verbatim through
+its one constructor, and no strict fact can change. **One** of the five documented
+behaviours has a structured observation that exactly represents it (`exposedField`
+in a `Script` interface); the other four stay **registry-only**, with their
+evidence recorded and no finding invented to display them. Every other candidate
+profile name — `Blaxxun/GLView`, `glview`, bare `blaxxun`, `cybertown-compat`,
+`legacy-vrml` — is **retired**; `blaxxun-3d` is deferred. There is no runtime
+detection, no presentation policy and no boolean. Like every predecessor, E1 is
+**consumer-free** and publishes nothing on `src/vrml/index.js`.
 
 C and D are a **general resolver and a general enrichment layer, not World
 Project features**, and nothing in the World Project lane consumes either yet. B2's rule is unchanged — a bundle still

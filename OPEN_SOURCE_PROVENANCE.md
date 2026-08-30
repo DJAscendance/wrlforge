@@ -87,6 +87,23 @@ Reverse-engineering research artifacts of proprietary tools (`RE-ARTIFACTS`,
 `blaxxun-cs-RE`, and similar) remain **implementation-prohibited**. They are not
 open-source material and a GPL project license does nothing to change that.
 
+**Reading is not incorporating, and the distinction is narrow.** Where the owner
+has explicitly authorized a research tree for a named lane, that tree may be
+**read and studied** in order to establish independent facts — what a historical
+runtime did, what a vendor documented, what a name meant. Those *facts*, and a
+**paraphrase** of them, may be recorded in WRL Forge. The **material itself** may
+not: no source, no manual prose, no decompilation output, no image, asset or
+binary is copied, adapted, translated, vendored or committed, and a verbatim
+sentence of proprietary documentation is not committed to this public repository
+either. §4.1 records each authorization, and every such record must state the
+boundary explicitly. This paragraph authorizes nothing on its own — it describes
+what an owner authorization may and may not permit, and it does not widen
+`blaxxun-cs-RE` or `RE-ARTIFACTS` beyond the specific lanes §4.1 names.
+
+The credential, member-data, licence-key and login/crypto exclusions are
+**unaffected by any such authorization** and are never opened, recorded, quoted
+or paraphrased.
+
 > **Provenance before convenience.** If you cannot establish where something came from
 > and under what license, do not copy it into WRL Forge. An unprovable origin is a
 > defect, not a detail.
@@ -177,6 +194,28 @@ WRL Forge's byte-preserving document invariant.
 **If geometry algorithms are ever wanted**, take Poly2Tri (BSD-3-Clause), catmull-clark
 (MIT) and FTGL (MIT) from **their own upstreams**, not through White Dune: better terms,
 cleaner provenance, active maintenance. Those would be `THIRD_PARTY_NOTICES.md` entries.
+
+**WD1.7-E0 — blaxxun compatibility-evidence study**
+
+| field | value |
+|---|---|
+| Vendor / product | **blaxxun interactive** — *blaxxun Contact 3D* (4.x–5.x) and the server products it shipped with |
+| Reference root | `blaxxun-cs-RE`, in the workspace and **outside this repository**. Not redistributed, not vendored, not a dependency. |
+| Artifacts studied | the vendor's own **shipped 3D authoring/administrator documentation**, in two product generations: *Virtual Worlds Platform 5.1* and *Community Server 7.0* |
+| Authorization | Ryan, **2026-08-29**, for the WD1.7-E lane specifically. Recorded here because WD1.7-A deliberately did **not** have it, and its conclusions were correct only within that narrower boundary. |
+| Purpose | to decide whether any **named** compatibility profile is defensible, and on what evidence — see [`docs/white-dune-2026/WD1_7_E_COMPATIBILITY_POLICY_DECISION.md`](docs/white-dune-2026/WD1_7_E_COMPATIBILITY_POLICY_DECISION.md) |
+| Resulting implementation | `src/vrml/compatibility.js` (WD1.7-E1), documented in [`docs/white-dune-2026/WD1_7_E1_BLAXXUN_CONTACT_PROFILE.md`](docs/white-dune-2026/WD1_7_E1_BLAXXUN_CONTACT_PROFILE.md) |
+| **Incorporated** | **None.** No vendor source, manual text, decompilation output, image, asset or binary was copied, adapted, translated, vendored or committed. |
+| **What WRL Forge does hold** | independently established **facts** — that a behaviour is documented, in which product generation, at which reference-root-relative path — plus WRL Forge's **own paraphrase** of the rule, an evidence tier, and a classification. No proprietary sentence is committed. |
+| Runtime access | **none.** `src/vrml/compatibility.js` is pure and browser-safe, requires no filesystem module, and reads nothing from the reference root at runtime. An end user is not expected to hold it. |
+| Excluded throughout | credentials, member data, licence keys, login and crypto material — never opened, recorded, quoted or paraphrased. |
+| Status | **research and reference only**; the §4 production register correctly still reads **None** for this vendor. |
+
+**Not authorized by that record, and deliberately not done:** decompilation,
+binary analysis, new reverse-engineering work, or execution of the preserved
+`blaxxun Contact` builds. A black-box execution lane against an already-installed
+copy is a **separate future authorization** (WD1.7-E0 §13), and nothing in
+WRL Forge claims an executed (`a3`) evidence tier until it has run.
 
 ## 5. Source headers
 

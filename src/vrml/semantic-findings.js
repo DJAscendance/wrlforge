@@ -439,6 +439,47 @@ function finding(code, subject, range, answer) {
   });
 }
 
+/**
+ * Re-emit an existing finding with its reserved third-axis slot filled, and
+ * NOTHING else changed.
+ *
+ * This exists so that the evidence-backed lane that fills that slot does not
+ * become a SECOND finding-construction path. It cannot: every strict field is
+ * copied VERBATIM from the finding it is handed, `createFinding` remains the
+ * only constructor, and there is no parameter through which `iso`, `rule`,
+ * `confidence`, `reason`, `detail`, `evidence`, `code`, `subject` or `range`
+ * could be supplied. A caller that wanted a different ISO result would still
+ * have to change `ISO_BY_REASON`, which is the property WD1.6-D bought.
+ *
+ * The input is NOT mutated -- findings are frozen, and the projection is a new
+ * frozen record. Handing back the input unchanged when there is nothing to
+ * attach keeps `null` meaning exactly what it meant before.
+ *
+ * NO PROFILE NAME, NO EVIDENCE TABLE AND NO CLASSIFICATION LIVES HERE. This
+ * module still does not know what a profile is; it only knows that the slot is
+ * opaque to it. Naming one is the evidence lane's job, in the evidence lane's
+ * own module.
+ *
+ * @param {object} source A finding produced by this module.
+ * @param {object|null} attachment The opaque record to place in the slot.
+ * @returns {object} A new frozen finding, or `source` when `attachment` is null.
+ */
+function attachCompatibility(source, attachment) {
+  if (attachment == null) return source;
+  return createFinding({
+    code: source.code,
+    subject: source.subject,
+    range: source.range,
+    iso: source.iso,
+    rule: source.rule,
+    compatibility: attachment,
+    confidence: source.confidence,
+    reason: source.reason,
+    detail: source.detail,
+    evidence: source.evidence,
+  });
+}
+
 /** A reference's own name span, falling back to the statement that carries it. */
 function rangeOf(reference) {
   if (!reference) return null;
@@ -797,6 +838,9 @@ module.exports = {
   ISO_RESULT,
   FINDING_CODE,
   findingsForDocument,
+  // The slot-filling projection. Internal: deliberately NOT on the facade, so
+  // the lane that uses it stays consumer-free exactly like P1/P2A/P2B/P2C.
+  attachCompatibility,
   // Internal, for this lane's own tests: the ISO classification table and the
   // producer-reachable reason set. NOT published on `src/vrml/index.js`.
   ISO_BY_REASON,
