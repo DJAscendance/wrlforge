@@ -582,6 +582,11 @@ test('39 the facade publishes the consumer surface and nothing more', () => {
   assert.equal(vrml.interfaceQuery.resolveIs, undefined);
   assert.equal(vrml.interfaceQuery.acquireEndpointFor, undefined);
   assert.equal(vrml.interfaceQuery.interfaceSourceOf, undefined);
+  // WD2-A's renderer reaches USE resolution through the bundled
+  // `scopeGraph.resolve` re-export on the scene bridge, not through this
+  // facade -- so `resolve` is NOT a published entry here. (The scope-graph
+  // module still owns the function; the facade deliberately omits it.)
+  assert.equal(vrml.interfaceQuery.resolve, undefined);
 });
 
 test('40 a consumer can do the whole job through the facade alone', () => {

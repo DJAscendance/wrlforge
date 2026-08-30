@@ -152,12 +152,16 @@ function buildOutline(tree, maxDepth = 6) {
   return out;
 }
 
-// analyze(text, opts) -> { highlights, diagnostics, advisories, outline, meta }.
+// analyze(text, opts) -> { highlights, diagnostics, advisories, outline, meta, parseResult }.
 //   highlights  : [{ from, to, cls }]  (tokens + comments + AST id roles)
 //   diagnostics : [{ from, to, severity, message, code, line, column }]  (SYNTAX)
 //   advisories  : same shape, SEMANTIC (flat-scope, non-authoritative)
 //   outline     : nested entries with source ranges
 //   meta        : { truncated, depthCapped }
+//   parseResult : the full vrml.parse() result, exposed so the editor binding
+//                 can build a scene tree and a structured findings list from
+//                 the SAME parse the diagnostics came from -- never a second
+//                 source-text re-parse. WD2-A reads from this field.
 function analyze(text, opts = {}) {
   const docLength = text.length;
   const res = vrml.parse(text, opts);
@@ -180,6 +184,7 @@ function analyze(text, opts = {}) {
     advisories: res.semanticDiagnostics.map((d) => mapDiagnostic(d, docLength)),
     outline: buildOutline(res.tree),
     meta: { truncated: !!res.truncated, depthCapped: !!res.depthCapped },
+    parseResult: res,
   };
 }
 

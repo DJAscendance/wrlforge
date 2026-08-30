@@ -246,6 +246,11 @@ function create(parent, opts = {}) {
         advisories: result.advisories,
         outline: result.outline,
         meta: result.meta,
+        // WD2-A: the parse result is exposed here so the editor binding can
+        // build a scene tree + structured findings from the SAME parse the
+        // diagnostics came from. The renderer is the only consumer; the
+        // editor surface itself does not consume this field.
+        parseResult: result.parseResult,
       });
     }
   }
@@ -300,3 +305,48 @@ function create(parent, opts = {}) {
 }
 
 window.WrlEditor = { create, THEMES, DEFAULT_THEME, DEFAULT_FONT_PX, MIN_FONT_PX, MAX_FONT_PX };
+
+// WD2-A: scene-tree + structured-diagnostic bridge. The renderer is the only
+// consumer of this surface; it never touches the parser or the semantic
+// authorities directly. The bridge is a thin module load over already-bundled
+// vrml/ modules -- esbuild pulled them in when editor-view.js imported
+// language.js, so this is a re-export, not a second load. Renderer-side: every
+// entry below is read-only and pure -- never accepts a write path or a path
+// argument, never crosses back into main.
+import * as vrmlSceneTree from '../../vrml/scene-tree.js';
+import * as vrmlPresentation from '../../vrml/presentation.js';
+import * as vrmlMessages from '../../vrml/messages.js';
+import * as vrmlSemanticFindings from '../../vrml/semantic-findings.js';
+import * as vrmlScopeGraph from '../../vrml/scope-graph.js';
+
+window.WRLForgeSceneBridge = Object.freeze({
+  sceneTree: Object.freeze({
+    buildSceneTree: vrmlSceneTree.buildSceneTree,
+    itemContainingOffset: vrmlSceneTree.itemContainingOffset,
+    itemById: vrmlSceneTree.itemById,
+    KIND: vrmlSceneTree.KIND,
+    USE_TARGET: vrmlSceneTree.USE_TARGET,
+  }),
+  // vrml/{presentation,messages,semantic-findings}.js export CommonJS
+  // module.exports objects; under esbuild's interop an `import * as` gives
+  // the namespace a `.default` slot, but the public surface IS the
+  // module.exports -- so the renderer reads straight off the namespace.
+  presentation: vrmlPresentation,
+  messages: vrmlMessages,
+  semanticFindings: Object.freeze({
+    findingsForDocument: vrmlSemanticFindings.findingsForDocument,
+    FINDING_CODE: vrmlSemanticFindings.FINDING_CODE,
+    ISO_RESULT: vrmlSemanticFindings.ISO_RESULT,
+  }),
+  // The scope-graph surface the renderer needs to (a) build the graph that
+  // `findingsForDocument` expects and (b) resolve USE names through 4.6.2
+  // instead of the flat defsByName. The renderer is the single authority on
+  // USE resolution; `resolve(graph, useNode)` is its answer, the scene tree
+  // consumes it.
+  scopeGraph: Object.freeze({
+    buildScopeGraph: vrmlScopeGraph.buildScopeGraph,
+    resolve: vrmlScopeGraph.resolve,
+    STATUS: vrmlScopeGraph.STATUS,
+    isResolved: vrmlScopeGraph.isResolved,
+  }),
+});

@@ -8,6 +8,10 @@
 
 const UI = window.WrlEditorUI;
 const bridge = window.vrmlpad.editor;
+const SceneSelection = window.WRLForgeSceneSelection;
+const SceneTreeView = window.WRLForgeSceneTree;
+const InspectorView = window.WRLForgeInspector;
+const sceneBridge = window.WRLForgeSceneBridge; // from the bundled editor view
 
 const el = (id) => document.getElementById(id);
 const els = {
@@ -17,6 +21,7 @@ const els = {
   editor: el('editor'), msg: el('editorMsg'),
   outlineList: el('outlineList'), diagList: el('diagList'), advList: el('advList'),
   diagCount: el('diagCount'), advCount: el('advCount'),
+  sceneTree: el('sceneTree'), sceneInspector: el('sceneInspector'),
   stFile: el('stFile'), stFormat: el('stFormat'), stDirty: el('stDirty'), stSave: el('stSave'),
   stCursor: el('stCursor'), stDiag: el('stDiag'), stAdv: el('stAdv'),
   themeSelect: el('themeSelect'),
@@ -75,7 +80,20 @@ const S = {
   saveState: null,        // overrides derived clean/dirty during the save lifecycle
   zoom: 0,                // current zoom level (persisted); scales code + chrome
   bufferVersion: 0,       // monotonic per-edit counter promoted onto preview requests
+  // WD2-A -- scene-tree read model + structured findings. Built once per
+  // analysis and consumed by both the scene-tree view and the inspector.
+  // findings holds the ORDERED (by P4-A) presentation results; the inspector
+  // filters them by the selected item's range.
+  sceneTree: null,
+  findings: [],
 };
+
+// WD2-A -- one selection authority shared by the scene-tree view and the
+// inspector. Constructed at module load so both views see the same state.
+const sceneSelection = SceneSelection.createSelectionController();
+
+let sceneTreeView = null;
+let inspectorView = null;
 
 function currentText() { return S.handle ? S.handle.getText() : S.baseline; }
 function isDirty() { return UI.isDirty(currentText(), S.baseline); }
@@ -121,6 +139,18 @@ function render() {
 
   renderOutline();
   renderDiagnostics();
+  renderSceneTree();
+}
+
+// WD2-A: scene-tree + inspector re-render. Both consume S.sceneTree and
+// S.findings. The inspector filters by the currently selected item's range.
+function renderSceneTree() {
+  if (!sceneTreeView || !inspectorView) return;
+  sceneTreeView.setSceneTree(S.sceneTree);
+  // Inspector needs the findings list; pass it as a closure-captured
+  // dependency so it picks up the latest findings on every render.
+  inspectorView.setFindings(S.findings);
+  inspectorView.setSceneTree(S.sceneTree);
 }
 
 function clearChildren(node) { while (node.firstChild) node.removeChild(node.firstChild); }
@@ -435,8 +465,109 @@ function mountEditor(text, profile) {
       if (!UI.isFreshAnalysis(a.version, S.appliedAnalysisVersion)) return;
       S.appliedAnalysisVersion = a.version;
       S.diagnostics = a.diagnostics; S.advisories = a.advisories; S.outline = a.outline;
+      // WD2-A -- build the scene tree + structured findings from the SAME
+      // parse the diagnostics come from (a.parseResult). The renderer never
+      // parses source text on its own.
+      if (a.parseResult && sceneBridge && sceneBridge.sceneTree) {
+        // 1. Build the scope graph FIRST. findingsForDocument requires one --
+        //    a raw parseResult is not a graph and throws ESCOPEGRAPH, which
+        //    we now surface visibly instead of silently turning into [].
+        let graph = null;
+        if (sceneBridge.scopeGraph && sceneBridge.scopeGraph.buildScopeGraph) {
+          try {
+            graph = sceneBridge.scopeGraph.buildScopeGraph(a.parseResult);
+          } catch (e) {
+            // Programming error: parseResult is rejected by buildScopeGraph.
+            // Surface loudly so tests/devtools see it; fall through with
+            // graph=null so the scene tree and inspector still render.
+            console.error('[WD2-A] buildScopeGraph failed:', e && (e.message || e));
+          }
+        }
+        // 2. Build a USE resolver that consults the graph. Without it, every
+        //    USE item falls back to UNRESOLVED -- we never report a USE as
+        //    resolved from a flat defsByName alone (F4).
+        const useResolver = graph && sceneBridge.scopeGraph.resolve
+          ? (useNode) => {
+              try {
+                const resolution = sceneBridge.scopeGraph.resolve(graph, useNode);
+                if (resolution && sceneBridge.scopeGraph.isResolved(resolution)
+                    && resolution.symbol && resolution.symbol.node) {
+                  return { status: 'resolved', targetAstNode: resolution.symbol.node };
+                }
+                return { status: 'unresolved' };
+              } catch (e) {
+                // A bad USE lookup is contained -- other USEs still resolve --
+                // but we surface it so the bug is visible.
+                console.error('[WD2-A] resolveUse failed:', e && (e.message || e));
+                return { status: 'unresolved' };
+              }
+            }
+          : null;
+        // 3. Build the scene tree.
+        try {
+          S.sceneTree = sceneBridge.sceneTree.buildSceneTree(a.parseResult, { useResolver });
+        } catch (e) {
+          console.error('[WD2-A] buildSceneTree failed:', e && (e.message || e));
+          S.sceneTree = null;
+        }
+        // 4. Findings: the graph is the input -- NEVER the parseResult.
+        let rawFindings = [];
+        if (graph && sceneBridge.semanticFindings && sceneBridge.semanticFindings.findingsForDocument) {
+          try {
+            rawFindings = sceneBridge.semanticFindings.findingsForDocument(graph);
+          } catch (e) {
+            // ESCOPEGRAPH here would be a programming error -- we built the
+            // graph from the parseResult ourselves, so it must be valid.
+            // Surface it visibly rather than swallowing to [].
+            console.error('[WD2-A] findingsForDocument failed:', e && (e.message || e));
+          }
+        }
+        // P4-A ordering -- never done by the renderer; it stores the array.
+        try {
+          S.findings = sceneBridge.presentation
+            ? sceneBridge.presentation.presentDocumentFindings(rawFindings)
+            : [];
+        } catch (e) {
+          console.error('[WD2-A] presentDocumentFindings failed:', e && (e.message || e));
+          S.findings = [];
+        }
+        // If the previously selected id no longer exists in the new tree,
+        // clear the selection so the inspector renders an empty state.
+        if (sceneSelection.getSelection() && S.sceneTree && !sceneBridge.sceneTree.itemById(S.sceneTree, sceneSelection.getSelection())) {
+          sceneSelection.clearSelection();
+        }
+      } else {
+        S.sceneTree = null;
+        S.findings = [];
+      }
       render();
     },
+  });
+}
+
+// One-time wiring of the scene-tree view + inspector to the shared selection
+// authority. Called from init() after the views exist on the page.
+function initSceneViews() {
+  if (sceneTreeView || inspectorView) return;
+  sceneTreeView = SceneTreeView.createSceneTreeView(els.sceneTree, sceneSelection, {
+    itemContainingOffset: sceneBridge.sceneTree.itemContainingOffset,
+  });
+  inspectorView = InspectorView.createInspector(els.sceneInspector, sceneSelection, {
+    presentation: sceneBridge.presentation,
+    messages: sceneBridge.messages,
+    // C1: the inspector looks up the selected item by id through the
+    // scene-tree facade. The renderer is the single wiring authority -- no
+    // private scene-tree code path lives in the inspector itself.
+    itemById: sceneBridge.sceneTree.itemById,
+    // F3 (diagnostic ownership): the inspector attaches each finding to
+    // the SMALLEST scene item containing its range.start.offset, never to
+    // every ancestor. Without this dep, ownership falls back to the looser
+    // "any containing item" rule the QA report flagged.
+    itemContainingOffset: sceneBridge.sceneTree.itemContainingOffset,
+    // C2: `S.findings` is already P4-A presented records (`{finding,
+    // presentation}`), ordered by P4-A. The inspector consumes them
+    // directly -- it must NOT call presentDocumentFindings a second time.
+    findingsForDocument: () => S.findings,
   });
 }
 
@@ -444,6 +575,9 @@ async function init() {
   wireButtons();
   populateThemes();
   applyZoom(savedZoom()); // set chrome scale + label on cold start (font seeded at mount)
+  // WD2-A: bind the scene-tree view + inspector to the shared selection
+  // authority BEFORE the editor mounts, so the first analysis paints them.
+  initSceneViews();
   let d;
   try { d = await bridge.describe({ includeText: true }); } catch (e) { d = { open: false }; }
   // Cold start / direct navigation: try to restore the most-recent document.

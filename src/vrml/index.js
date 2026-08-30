@@ -93,6 +93,13 @@ const presentation = require('./presentation');
 // only -- no severity, group, saveBlocking, ranking or compatibility decision
 // is reachable from here, so a presentation cannot drift into a second policy.
 const messages = require('./messages');
+// WD2-A -- the read-only scene-tree projection a scene-tree view and an
+// inspector both consume. Pure, browser-safe, identity-stable across one
+// session (the id is derived from the source range, so a re-render of the
+// same parse produces the same ids; after a reparse the caller decides how
+// to map selections forward). NO presentation, NO message text, NO semantic
+// verdict -- the scene tree is a structural projection over the AST only.
+const sceneTree = require('./scene-tree');
 
 const publicDocumentTransaction = Object.freeze({
   // Prove that an edit set is exactly what turned one exact text into another.
@@ -308,6 +315,30 @@ const publicMessages = Object.freeze({
   MESSAGE_ERROR: messages.MESSAGE_ERROR,
 });
 
+/**
+ * WD2-A -- a read-only scene-tree read model for the editor's scene-tree view
+ * and inspector. Built over the AST, never over source text. Identifiers are
+ * session-stable (derived from a kind and the source range), so a re-render
+ * of the same parse produces the same ids; after a reparse the caller decides
+ * how to map selections forward (the read model is not authoritative identity).
+ *
+ * Two helpers are published:
+ *   - `buildSceneTree(parseResult)` produces `{ root, items, byId, totals }`.
+ *   - `itemContainingOffset(treeResult, offset)` finds the most-specific item
+ *     a finding or click at `offset` should attach to.
+ *   - `itemById(treeResult, id)` looks one up by id.
+ *
+ * NOT published: the constructor helpers, `idFor`, `rangeCopy` -- they are
+ * reasoning, not contract, and the same facade split P4-A made.
+ */
+const publicSceneTree = Object.freeze({
+  buildSceneTree: sceneTree.buildSceneTree,
+  itemContainingOffset: sceneTree.itemContainingOffset,
+  itemById: sceneTree.itemById,
+  KIND: sceneTree.KIND,
+  USE_TARGET: sceneTree.USE_TARGET,
+});
+
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
 function parse(text, opts = {}) {
   const syntax = parseSyntax(text, opts);
@@ -349,6 +380,7 @@ module.exports = {
   protoAgreement: publicProtoAgreement,
   presentation: publicPresentation,
   messages: publicMessages,
+  sceneTree: publicSceneTree,
   ast,
   diagnostics,
   assetRefs,

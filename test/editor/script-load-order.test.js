@@ -34,6 +34,9 @@ const EDITOR_PAGE_SCRIPTS = [
   'src/preview/preview-state.js',
   'src/preview/preview-scheduler.js',
   'src/preview/viewpoint-preserve.js',
+  'src/editor/scene-selection.js',
+  'renderer/scene-tree.js',
+  'renderer/scene-inspector.js',
   'renderer/preview.js',
   'renderer/world-preview.js',
   'renderer/editor.js',
@@ -87,6 +90,7 @@ test('all editor-page scripts co-load in one shared global scope without collisi
   // Every expected page-scope controller/namespace landed.
   for (const name of [
     'WrlEditorUI', 'WrlPreviewState', 'WrlPreviewScheduler', 'WrlViewpointPreserve',
+    'WRLForgeSceneSelection', 'WRLForgeSceneTree', 'WRLForgeInspector',
     'wrlPreview', 'wrlWorldPreview', 'wrlEditorPreview', '__wrlEditor',
   ]) {
     assert.ok(ctx.window[name], `window.${name} missing after co-load`);

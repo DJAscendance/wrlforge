@@ -788,6 +788,59 @@ Keyboard accessibility, performance on large worlds, crash recovery, session
 restoration, Windows + Linux verification (through the sanctioned VisualQaRunner —
 no multi-process screenshot loops), and beta packaging.
 
+### Phase WD2-A — Read-Only Scene Tree and Inspector Foundation
+
+**Closed.** Independent final re-QA passed (`WD2_A_FINAL_REQA_PASS`):
+70 / 70 Electron runtime assertions, 0 console errors, 0 console warnings;
+1923 / 1923 repository tests, 0 failed, 0 skipped. WD2-A is the first
+user-interface consumer of the completed P4 chain — a read-only scene tree
+and a read-only inspector that consume the same parse the diagnostics come
+from. No editing yet, no auto-fix, no localisation.
+
+- Pure read model `src/vrml/scene-tree.js` (built on the AST; never re-
+  parses source text; frozen output; `byId` and `defsByName` Maps wrapped
+  in read-only Proxies with full Map-read parity: `size`, `keys`, `values`,
+  `entries`, `forEach`, `for...of`, `Symbol.iterator`) with a
+  `vrml.sceneTree` facade entry.
+- One selection authority `src/editor/scene-selection.js` shared by the
+  scene-tree view and the inspector.
+- Renderer bindings `renderer/scene-tree.js` + `renderer/scene-inspector.js`
+  with ARIA tree semantics, depth-first nested rendering, leaf rows with
+  no `aria-expanded`, and roving-tabindex keyboard navigation.
+- Diagnostics flow strictly through `vrml.presentation` (P4-A) for ordering
+  and severity, and `vrml.messages` (P4-B) for text — the view paints the
+  severity chip's color and stops there. Ownership is most-specific: a
+  finding is shown only on the smallest scene item containing its range.
+  The Inspector consumes the already-presented records directly; it does
+  NOT call `presentDocumentFindings` a second time.
+- USE resolution authority: the renderer builds the WD1.5 scope graph
+  first, hands `buildSceneTree` a `useResolver` that calls
+  `scopeGraph.resolve(graph, useNode)` (exposed through the bundled
+  `scopeGraph` facade), and `findingsForDocument` receives the graph
+  (never the raw parseResult, which throws `ESCOPEGRAPH`). The
+  `vrml.interfaceQuery` facade deliberately does NOT publish `resolve`
+  -- the bundled re-export is the only consumer-facing entry.
+- 67 new focused tests (Q1–Q15, M1–M8b, M9, M10, plus F1–F5 + C1–C5
+  correction tests, plus 5 runtime tests under DOM stubs); full
+  `npm test` + `npm run check` **1923 / 1923**, 0 failed, 0 skipped
+  (1852 baseline + 67 new).
+
+Two rounds of independent QA flagged ten findings in total:
+round one: F1 `ESCOPEGRAPH` swallowed to `[]`, F2 nested rows not rendered,
+F3 diagnostic ownership attached to all ancestors, F4 cross-PROTO
+false-resolved USE, F5 mutable Map in frozen return value;
+round two: C1 Inspector did not receive `itemById`, C2 Inspector
+double-presented findings (would throw `EPRESENTATIONSHAPE`),
+C3 read-only Map Proxy broke `size`, C4 leaf rows carried
+`aria-expanded="false"`, C5 `vrml.interfaceQuery.resolve` was an unused
+facade entry. All ten are reproduced against the prior implementation,
+fixed, and pinned with regression tests that fail under the old behaviour.
+
+See `docs/white-dune-2026/WD2_A_SCENE_TREE_INSPECTOR_FOUNDATION.md` for the
+as-built record. WD2 editing lanes (field editing, node creation / deletion,
+drag-and-drop, reparenting, rename, PROTO/ROUTE editing, auto-fix) and all
+WD2-deferred work remain in the deferred list below.
+
 ## Deferred ⛔
 
 Not scheduled into any phase above; requires explicit future direction before any design work begins:

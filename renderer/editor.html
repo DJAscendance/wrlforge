@@ -43,6 +43,14 @@
 <script defer src="../src/preview/preview-state.js"></script>
 <script defer src="../src/preview/preview-scheduler.js"></script>
 <script defer src="../src/preview/viewpoint-preserve.js"></script>
+<!-- WD2-A: scene-tree + inspector -- the selection authority (no DOM), the
+     DOM-binding views, and the read model the editor wires up. The pure
+     vrml/ modules (scene-tree, presentation, messages, semantic-findings)
+     are exposed through vrmlpad.editor.sceneBridge (main-process IPC) so the
+     renderer never imports CommonJS modules directly. -->
+<script defer src="../src/editor/scene-selection.js"></script>
+<script defer src="scene-tree.js"></script>
+<script defer src="scene-inspector.js"></script>
 <script defer src="preview.js"></script>
 <script defer src="world-preview.js"></script>
 <script defer src="editor.js"></script>
@@ -220,6 +228,75 @@
   .editor-msg { background: #3a2f10; color: #ffce6a; padding: 0.46rem 0.92rem; font-size: 0.92rem; }
   .editor-msg.err { background: #401414; color: #ff9b9b; }
 
+  /* WD2-A: scene tree + inspector. Read-only. The styling is intentionally
+     neutral; only severity chips carry color (severity itself is P4-A's
+     decision). Scrollbars stay inside the sidebar column at large heights. */
+  .scene-tree-section, .inspector-section { border-bottom: 1px solid #262626; }
+  .scene-tree { max-height: 16rem; overflow-y: auto; padding: 0 0 0.4rem; }
+  .scene-row {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.22rem 0.92rem 0.22rem 0.92rem;
+    font-size: 0.85rem; line-height: 1.4; cursor: pointer;
+    border-left: 3px solid transparent;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .scene-row:hover { background: #202430; }
+  .scene-row:focus-visible { outline: 2px solid #7db3ff; outline-offset: -2px; }
+  .scene-row[aria-selected="true"] { background: #2a3a5a; border-left-color: #7db3ff; }
+  .scene-row .scene-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .scene-tag {
+    flex: none; padding: 0 0.4rem; border-radius: 8px; font-size: 0.7rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .scene-tag-warn { background: #3a2f10; color: #ffce6a; }
+  .scene-row.kind-document { color: #9a9a9a; font-style: italic; }
+  .scene-row.kind-proto .scene-label::before { content: 'P '; color: #c08bff; font-weight: 700; }
+  .scene-row.kind-externproto .scene-label::before { content: 'X '; color: #c08bff; font-weight: 700; }
+  .scene-row.kind-route .scene-label::before { content: 'R '; color: #7dd3fc; font-weight: 700; }
+  .scene-row.kind-use .scene-label { color: #ffd49a; }
+
+  .inspector { padding: 0.4rem 0.92rem 0.6rem; max-height: 26rem; overflow-y: auto; }
+  .inspector-header {
+    display: flex; gap: 0.5rem; align-items: baseline; justify-content: space-between;
+    padding: 0.3rem 0; border-bottom: 1px solid #262626; margin-bottom: 0.4rem;
+  }
+  .inspector-title { font-size: 0.95rem; font-weight: 700; }
+  .inspector-kind {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #9a9a9a; padding: 0 0.4rem; border: 1px solid #3a3a3a; border-radius: 8px;
+  }
+  .inspector-facts { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-bottom: 0.6rem; }
+  .inspector-facts th { text-align: left; color: #888; font-weight: 500; padding: 0.18rem 0.4rem; vertical-align: top; }
+  .inspector-facts td { padding: 0.18rem 0.4rem; word-break: break-word; }
+  .inspector-facts td.mono { font-family: monospace; color: #cbd; }
+  .inspector-heading {
+    margin: 0.5rem 0 0.3rem; font-size: 0.78rem; color: #9a9a9a;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .inspector-findings { display: flex; flex-direction: column; gap: 0.3rem; }
+  .inspector-row {
+    display: flex; gap: 0.5rem; align-items: flex-start;
+    padding: 0.35rem 0.5rem; border-radius: 4px;
+    border-left: 3px solid #444; background: #1c1c1c;
+  }
+  .inspector-row.sev-error    { border-left-color: #ff6161; }
+  .inspector-row.sev-warning  { border-left-color: #ffb648; }
+  .inspector-row.sev-info     { border-left-color: #7db3ff; }
+  .inspector-row.sev-hint     { border-left-color: #888; }
+  .inspector-chip {
+    flex: none; min-width: 4.4rem; text-align: center;
+    padding: 0.1rem 0.4rem; border-radius: 8px;
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    background: #262626; color: #ddd;
+  }
+  .inspector-row.sev-error   .inspector-chip { background: #401414; color: #ff9b9b; }
+  .inspector-row.sev-warning .inspector-chip { background: #3a2f10; color: #ffce6a; }
+  .inspector-row.sev-info    .inspector-chip { background: #10314a; color: #7db3ff; }
+  .inspector-body { flex: 1 1 auto; min-width: 0; }
+  .inspector-row-title  { font-size: 0.85rem; font-weight: 600; color: #f0f0f0; }
+  .inspector-row-summary { font-size: 0.82rem; color: #d0d0d0; margin-top: 0.15rem; }
+  .inspector-row-detail  { font-size: 0.78rem; color: #b0b0b0; margin-top: 0.2rem; white-space: pre-wrap; }
+
   /* In-DOM modal (unsaved confirm / external-change conflict / go-to-line) -- no
      native alert()/confirm()/prompt(), which are discouraged in Electron. */
   .modal-backdrop {
@@ -375,6 +452,18 @@
       <section class="outline">
         <h2>Outline</h2>
         <div id="outlineList" class="list"><div class="empty-note">No document.</div></div>
+      </section>
+      <!-- WD2-A: read-only scene tree (Phase 7B outline shows top-level nodes
+           for navigation; the scene tree shows the document's authored
+           structure with PROTO/EXTERNPROTO/ROUTE/USE in their own kinds, and
+           drives selection for the inspector below it). -->
+      <section class="scene-tree-section">
+        <h2>Scene tree</h2>
+        <div id="sceneTree" class="scene-tree" role="tree" aria-label="Scene tree"><div class="empty-note">No document.</div></div>
+      </section>
+      <section class="inspector-section">
+        <h2>Inspector</h2>
+        <div id="sceneInspector" class="inspector" aria-label="Inspector"><div class="empty-note">No selection.</div></div>
       </section>
       <section>
         <h2>Diagnostics <span class="count" id="diagCount">0</span></h2>
