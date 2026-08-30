@@ -75,6 +75,17 @@ const protoTarget = require('./proto-target');
 // deliberately NOT reachable from this facade.
 const protoAgreement = require('./proto-agreement');
 
+// P4-A -- the presentation policy over everything above.
+//
+// HERE, and browser-safe, because it decides nothing about a document: it reads
+// verdicts the authorities above already froze and answers only "how should a
+// consumer show this". It is the one place severity, attention rank, ordering,
+// default visibility, filter tags and save policy are decided, so WD2 can
+// render a findings list without re-deriving any of them -- and without a
+// second, divergent opinion growing inside the editor, the inspector and the
+// scene tree.
+const presentation = require('./presentation');
+
 const publicDocumentTransaction = Object.freeze({
   // Prove that an edit set is exactly what turned one exact text into another.
   verifyTransaction: documentTransaction.verifyTransaction,
@@ -237,6 +248,37 @@ const publicProtoAgreement = Object.freeze({
   AGREEMENT_REASON: protoAgreement.AGREEMENT_REASON,
 });
 
+/**
+ * P4-A -- how should a consumer SHOW a semantic finding?
+ *
+ * The counterpart to every "NO PRESENTATION" note above. Those modules refuse
+ * severity, wording, visibility and ordering so that this one can decide them
+ * once, from facts, in a place a reviewer can read end to end.
+ *
+ * Published in full, unlike the reasoning tables of the modules it reads: the
+ * whole point of the lane is that a consumer branches on these values, so the
+ * vocabularies ARE the contract. What is NOT published is the policy tables --
+ * `CLAIM_BY_ISO` and its siblings are how the decision is made, not what it is.
+ *
+ * NO MESSAGE TEXT and NO COMPATIBILITY REGISTRY. Prose is P4-B, and which
+ * profile earns an attachment stays where WD1.7-E1 put it; this facade exposes
+ * how an attachment is PRESENTED, never how one is granted.
+ */
+const publicPresentation = Object.freeze({
+  presentSemanticFinding: presentation.presentSemanticFinding,
+  presentAgreementFinding: presentation.presentAgreementFinding,
+  presentAgreementStatus: presentation.presentAgreementStatus,
+  presentDocumentFindings: presentation.presentDocumentFindings,
+  orderPresentations: presentation.orderPresentations,
+  SEVERITY: presentation.SEVERITY,
+  FINDING_ORIGIN: presentation.FINDING_ORIGIN,
+  CLAIM: presentation.CLAIM,
+  CONFIDENCE_CLASS: presentation.CONFIDENCE_CLASS,
+  FINDING_GROUP: presentation.FINDING_GROUP,
+  FILTER_TAG: presentation.FILTER_TAG,
+  PRESENTATION_ERROR: presentation.PRESENTATION_ERROR,
+});
+
 // parse(text, opts) -> full result. opts: { profile, maxDepth, maxNodes }.
 function parse(text, opts = {}) {
   const syntax = parseSyntax(text, opts);
@@ -276,6 +318,7 @@ module.exports = {
   semanticFindings: publicSemanticFindings,
   protoTarget: publicProtoTarget,
   protoAgreement: publicProtoAgreement,
+  presentation: publicPresentation,
   ast,
   diagnostics,
   assetRefs,

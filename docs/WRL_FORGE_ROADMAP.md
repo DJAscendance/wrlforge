@@ -252,6 +252,36 @@ profile name — `Blaxxun/GLView`, `glview`, bare `blaxxun`, `cybertown-compat`,
 detection, no presentation policy and no boolean. Like every predecessor, E1 is
 **consumer-free** and publishes nothing on `src/vrml/index.js`.
 
+**P4-A** turns all of that into the one thing a UI actually needs
+(`docs/white-dune-2026/P4_A_PRESENTATION_POLICY.md`): a single deterministic
+**presentation projection** over the semantic evidence, so WD2 never invents its
+own severity, ordering, visibility or save policy. `src/vrml/presentation.js` is
+pure, browser-safe and published on the facade as `vrml.presentation`.
+
+Five decisions are load-bearing, each with a live mutation control:
+**compatibility never downgrades a strict severity** — an ISO-prohibited
+construct that blaxxun Contact tolerates is still an error with a `tolerated`,
+`portable: false` annotation beside it; **severity and confidence are
+orthogonal** — where the ISO axis asserts a normative claim, confidence is not
+consulted at all, so a `recovered` violation and its proven twin present
+identically; **recovered findings stay visible** — 86.96% of the corpus carries
+that confidence, and it earns its own filter tag and a lower attention rank, not
+suppression; **no semantic finding ever blocks an ordinary Save**
+(`saveBlocking` is a frozen `false` everywhere, with no parameter that changes
+it); and **"could not determine" is never presented as "known invalid"** —
+`unsupported`, `ambiguous` and a `withheld` agreement rollup are warnings, not
+proven errors.
+
+The presentation is a **sibling projection**: the finding is carried by identity
+and frozen, and P4 can neither construct nor re-emit one. A complete matrix guard
+enumerates every exported semantic vocabulary — finding codes, ISO results,
+statuses, agreement codes/bases/statuses and compatibility classifications — and
+fails when a new value arrives without an adjudication, because every table is
+total, tight and read through one throwing accessor with no `default:` anywhere.
+Message text is deferred to **P4-B**, and export/package gating is deliberately
+left with the profile authorities that already own it
+(`src/world-project/package-plan.js`, `validator.js`).
+
 C and D are a **general resolver and a general enrichment layer, not World
 Project features**, and nothing in the World Project lane consumes either yet. B2's rule is unchanged — a bundle still
 packages *every locally retrievable fallback artifact*, because a viewer may
