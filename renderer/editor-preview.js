@@ -32,10 +32,18 @@
     return encoder ? encoder.encode(text).length : unescape(encodeURIComponent(text)).length;
   }
 
-  // Persistence (cosmetic; losing it is harmless -- same posture as theme/zoom).
+  // Phase: Preferences & Settings -- the preview LAYOUT is now a shared
+  // preferences value (window.WrlPreferences). The split fraction remains a
+  // local cosmetic detail of the divider (not a global user preference), so
+  // it keeps its own localStorage key. Layout edits from the Preferences
+  // dialog reach this orchestrator through the shared model -- the
+  // orchestrator's own applyLayout() is the single live applier.
   const LAYOUT_KEY = 'wrlforge.editor.previewLayout';
   const SPLIT_KEY = 'wrlforge.editor.previewSplit';
   function savedLayout() {
+    if (window.WrlPreferences) {
+      return UI.resolvePreviewLayout(window.WrlPreferences.get('previewLayout'));
+    }
     try { return UI.resolvePreviewLayout(window.localStorage.getItem(LAYOUT_KEY)); }
     catch (e) { return UI.PREVIEW_LAYOUT_DEFAULT; }
   }
@@ -43,7 +51,10 @@
     try { return UI.clampSplit(window.localStorage.getItem(SPLIT_KEY)); }
     catch (e) { return UI.SPLIT_DEFAULT; }
   }
-  function persistLayout(l) { try { window.localStorage.setItem(LAYOUT_KEY, l); } catch (e) { /* best-effort */ } }
+  function persistLayout(l) {
+    if (window.WrlPreferences) window.WrlPreferences.set('previewLayout', l);
+    else try { window.localStorage.setItem(LAYOUT_KEY, l); } catch (e) { /* best-effort */ }
+  }
   function persistSplit(f) { try { window.localStorage.setItem(SPLIT_KEY, String(f)); } catch (e) { /* best-effort */ } }
 
   // --- orchestrator state ----------------------------------------------------

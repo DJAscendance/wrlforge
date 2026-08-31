@@ -54,6 +54,11 @@
 <script defer src="preview.js"></script>
 <script defer src="world-preview.js"></script>
 <script defer src="recovery-prompt.js"></script>
+<!-- Phase: Preferences & Settings -- the shared renderer-side state +
+     dialog. Loaded BEFORE editor.js so the existing theme/zoom/layout
+     handlers can subscribe to the shared model in the same module pass. -->
+<script defer src="../src/settings/preferences.js"></script>
+<script defer src="preferences.js"></script>
 <script defer src="editor.js"></script>
 <script defer src="editor-preview.js"></script>
 <style>
@@ -339,6 +344,7 @@
       <button id="zoomResetBtn" class="secondary" title="Reset size (Ctrl 0)" aria-label="Reset size">Reset</button>
     </span>
     <label class="theme">Theme <select id="themeSelect" aria-label="Editor color theme"></select></label>
+    <button id="prefsBtn" class="secondary" title="Preferences & Settings">Preferences</button>
     <button id="closeBtn" class="secondary" disabled>Close</button>
   </div>
 

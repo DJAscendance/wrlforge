@@ -148,6 +148,7 @@
     <button id="nativeEditorBtn" class="secondary" disabled>Open Primary WRL in Native Editor</button>
     <button id="editorBtn" class="secondary" disabled>Open Primary WRL in External Editor</button>
     <button id="mallBtn" class="secondary">← Mall Item workspace</button>
+    <button id="prefsBtn" class="secondary">Preferences</button>
   </div>
 
   <div class="status-line" id="status" role="status" aria-live="polite">No project open.</div>
@@ -261,6 +262,11 @@
 <script defer src="world-preview.js"></script>
 <script defer src="world-packaging.js"></script>
 <script defer src="recovery-prompt.js"></script>
+<!-- Phase: Preferences & Settings -- the shared renderer-side state +
+     dialog. Loaded BEFORE world.js so the toolbar button + listeners
+     can be wired in the same module pass. -->
+<script defer src="../src/settings/preferences.js"></script>
+<script defer src="preferences.js"></script>
 <script defer src="world.js"></script>
 </body>
 </html>

@@ -29,24 +29,13 @@ const els = {
   zoomLabel: el('zoomLabel'),
 };
 
-// Theme preference persists across sessions in the renderer (a cosmetic setting;
-// losing it is harmless). localStorage on the app's local page is stable.
-const THEME_KEY = 'wrlforge.editor.theme';
-function savedTheme() {
-  try { return UI.resolveTheme(window.localStorage.getItem(THEME_KEY)); } catch (e) { return UI.DEFAULT_THEME; }
-}
-function persistTheme(id) {
-  try { window.localStorage.setItem(THEME_KEY, id); } catch (e) { /* best-effort */ }
-}
-
-// Zoom preference (one level scales both the code area and the app chrome).
-const ZOOM_KEY = 'wrlforge.editor.zoom';
-function savedZoom() {
-  try { return UI.resolveZoom(window.localStorage.getItem(ZOOM_KEY)); } catch (e) { return UI.ZOOM_DEFAULT; }
-}
-function persistZoom(level) {
-  try { window.localStorage.setItem(ZOOM_KEY, String(level)); } catch (e) { /* best-effort */ }
-}
+// Phase: Preferences & Settings -- the theme, zoom, and preview layout
+// controls below all read and write through the shared preferences model
+// (window.WrlPreferences). The same module is used by the Mall, World, and
+// Editor toolbars, so the value the user picks here is the value the
+// Preferences & Settings dialog shows (and vice versa). There is no
+// shadow value. The dialog's "Open" / theme / zoom handlers subscribe
+// to the same model, so an edit from any surface updates the others live.
 
 // Apply a zoom level: scale the app chrome via the --wrl-ui-scale CSS variable,
 // resize the code font via the editor handle, update the label, and persist.
@@ -59,7 +48,24 @@ function applyZoom(level) {
     els.zoomLabel.textContent = z.label;
     els.zoomLabel.setAttribute('aria-label', 'Editor size ' + z.label);
   }
-  persistZoom(z.level);
+  // Persist + notify via the shared preferences model. set() is a no-op
+  // when the level is already current, so the loop never re-fires.
+  if (window.WrlPreferences) window.WrlPreferences.set('zoom', z.level);
+}
+
+function savedTheme() {
+  if (window.WrlPreferences) {
+    const t = window.WrlPreferences.get('theme');
+    return UI.resolveTheme(t);
+  }
+  return UI.DEFAULT_THEME;
+}
+function savedZoom() {
+  if (window.WrlPreferences) {
+    const z = window.WrlPreferences.get('zoom');
+    return UI.resolveZoom(z);
+  }
+  return UI.ZOOM_DEFAULT;
 }
 
 // --- renderer-local editor state --------------------------------------------
@@ -475,6 +481,17 @@ function wireButtons() {
   if (els.zoomOut) els.zoomOut.addEventListener('click', () => applyZoom(UI.zoomStep(S.zoom, -1)));
   if (els.zoomReset) els.zoomReset.addEventListener('click', () => applyZoom(UI.ZOOM_DEFAULT));
 
+  // Phase: Preferences & Settings -- the single Preferences button on the
+  // editor toolbar opens the shared dialog. The same dialog is reachable
+  // from the Mall + World toolbars.
+  const prefsBtn = document.getElementById('prefsBtn');
+  if (prefsBtn && window.WrlPreferences && typeof window.WrlPreferences.createButton === 'function') {
+    prefsBtn.addEventListener('click', () => {
+      if (typeof window.WrlPreferences.show === 'function') window.WrlPreferences.show(prefsBtn);
+      else window.WrlPreferences.createButton({ id: 'prefsBtn' }).click();
+    });
+  }
+
   // App-level accelerators (CodeMirror owns undo/redo/find/replace via its keymap).
   window.addEventListener('keydown', (e) => {
     const cmd = UI.resolveShortcut({ key: e.key, ctrlOrMeta: e.ctrlKey || e.metaKey, shift: e.shiftKey });
@@ -503,7 +520,9 @@ function populateThemes() {
   els.themeSelect.value = savedTheme();
   els.themeSelect.addEventListener('change', () => {
     const id = UI.resolveTheme(els.themeSelect.value);
-    persistTheme(id);
+    // Write to the shared preferences model; subscribers (the dialog, future
+    // surfaces) see the change immediately and the value is persisted.
+    if (window.WrlPreferences) window.WrlPreferences.set('theme', id);
     if (S.handle) S.handle.setTheme(id);
   });
 }
@@ -636,6 +655,33 @@ async function init() {
   wireButtons();
   populateThemes();
   applyZoom(savedZoom()); // set chrome scale + label on cold start (font seeded at mount)
+
+  // Phase: Preferences & Settings -- mirror the editor's visible controls to
+  // the shared preferences model so a change in the Preferences & Settings
+  // dialog updates this page live. The shared module fires its initial
+  // subscriber callback synchronously with the current state, so a fresh
+  // navigation refreshes the controls without an extra round-trip.
+  if (window.WrlPreferences) {
+    window.WrlPreferences.subscribe((prefs) => {
+      // Theme: only update the visible <select> if the user isn't the one
+      // who just changed it. The change handler above writes to the shared
+      // model first, which would otherwise re-fire and clobber focus.
+      if (els.themeSelect && els.themeSelect.value !== prefs.theme) {
+        els.themeSelect.value = UI.resolveTheme(prefs.theme);
+      }
+      if (S.handle) {
+        const current = S.handle.getTheme ? S.handle.getTheme() : null;
+        if (current !== prefs.theme) S.handle.setTheme(prefs.theme);
+      }
+      // Zoom: the existing applyZoom() does the live work AND writes back
+      // to the shared model. A no-op write is guarded by set() itself, so
+      // there's no infinite loop here -- the second call is a cheap compare
+      // and returns the same state object.
+      if (S.zoom !== UI.resolveZoom(prefs.zoom)) {
+        applyZoom(prefs.zoom);
+      }
+    });
+  }
   // WD2-A: bind the scene-tree view + inspector to the shared selection
   // authority BEFORE the editor mounts, so the first analysis paints them.
   initSceneViews();

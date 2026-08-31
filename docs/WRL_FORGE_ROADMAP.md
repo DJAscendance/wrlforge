@@ -881,6 +881,52 @@ design and acceptance checks from the start.
 top-menu area for user preferences, with accessibility as a
 first-class part.
 
+### Preferences & Settings ✅ CLOSED
+
+**Status:** **CLOSED.** Independent final QA returned
+`PREFERENCES_SETTINGS_QA_PASS_WITH_NOTES`. Final tests: **2065 / 2065**
+pass, 0 failed, 0 skipped. **0 runtime dependencies added. 0 dev
+dependencies added.** `contextIsolation: true` / `nodeIntegration: false`
+unchanged. No new IPC channel, no new preload bridge, no new network
+origin, no new dependency.
+
+A single, shared **Preferences & Settings** area reachable from the
+Mall, World, and Editor toolbars. One shared settings model in
+`src/settings/preferences.js` (pure, dependency-free), one dialog
+(`renderer/preferences.js`), four sections (Appearance, Accessibility,
+Keyboard, Editor), and live application of every change. The existing
+editor theme / zoom / preview-layout controls are now views of the
+same model — no shadow values. Persistence is in `localStorage`
+under the same keys the editor has used since Phase 7B; one tiny new
+auxiliary key (`wrlforge.editor.lastNonContrastTheme`) backs the High
+Contrast toggle's "off" action. The dialog implements the full
+a11y contract: `role="dialog"`, `aria-modal="true"`, labelled title,
+Escape to close, Tab focus containment, focus return to the opener.
+Migration: `NO_MIGRATION_REQUIRED`. Real-Electron smoke + capture-server
+runs on the published `1.3.0-beta.5` (Linux x64) confirm the page
+loads, the dialog opens, values reflect the persisted state, and
+`window.WrlPreferences.set('theme', 'tokyo')` writes through to
+`localStorage` immediately. See `docs/PREFERENCES_SETTINGS.md`
+for the as-built record.
+
+**Accepted notes from independent QA:**
+
+- **KNOWN_POLISH_NOTE** — UI size currently scales the **Native Editor**
+  UI and code area only. Mall / World / Preferences chrome does not
+  scale. Global chrome scaling is a future lane; no product-code
+  change in this closeout.
+- **High Contrast fallback** — if a user's first run under the new
+  model has `theme === 'contrast'` with no recorded
+  `lastNonContrastTheme`, the first toggle-off reverts to `dark`
+  (the default), not the user's original non-contrast theme. This is
+  a single-occurrence small loss and is acceptable; the behavior is
+  documented in `docs/PREFERENCES_SETTINGS.md` §7 and §11.
+
+**Explicitly not in this lane** (deferred / locked / out of scope):
+shortcut remapping, Reset-Everything, external-editor command editor,
+cross-window preference sync, application auto-update, direct upload.
+Each is its own possible future lane; none is silently absent.
+
 See `docs/ACCESSIBILITY_PERFORMANCE.md` for the full as-built record
 and `qa/phase-accessibility-perf/PERF.json` for the WD2-A pipeline
 measurements.

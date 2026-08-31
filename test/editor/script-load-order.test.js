@@ -43,6 +43,11 @@ const EDITOR_PAGE_SCRIPTS = [
   'renderer/preview.js',
   'renderer/world-preview.js',
   'renderer/recovery-prompt.js',
+  // Phase: Preferences & Settings -- the shared preferences core + the
+  // dialog module are loaded before editor.js so the toolbar button +
+  // change subscriptions wire up in the same module pass.
+  'src/settings/preferences.js',
+  'renderer/preferences.js',
   'renderer/editor.js',
   'renderer/editor-preview.js',
 ];
@@ -127,6 +132,8 @@ test('all editor-page scripts co-load in one shared global scope without collisi
     'WrlEditorUI', 'WrlPreviewState', 'WrlPreviewScheduler', 'WrlViewpointPreserve',
     'WRLForgeSceneSelection', 'WRLForgeSceneTree', 'WRLForgeInspector',
     'wrlPreview', 'wrlWorldPreview', 'wrlEditorPreview', '__wrlEditor',
+    // Phase: Preferences & Settings -- the shared state + dialog.
+    'WrlPreferencesCore', 'WrlPreferences',
   ]) {
     assert.ok(ctx.window[name], `window.${name} missing after co-load`);
   }

@@ -127,6 +127,7 @@
     <button id="checkBtn" class="secondary" disabled>Re-check</button>
     <label class="inline"><input type="checkbox" id="toggleGzip" checked> Save as gzip (mall format)</label>
     <button id="repackBtn" disabled aria-keyshortcuts="Control+R">Repack &amp; Save to mall .wrl</button>
+    <button id="prefsBtn" class="secondary">Preferences</button>
   </div>
 
   <div id="editorMsg" class="editor-msg" style="display:none" role="status" aria-live="polite"></div>
@@ -204,6 +205,11 @@
 
 <script defer src="preview.js"></script>
 <script defer src="recovery-prompt.js"></script>
+<!-- Phase: Preferences & Settings -- the shared renderer-side state +
+     dialog. Loaded BEFORE renderer.js so the toolbar button + listeners
+     can be wired in the same module pass. -->
+<script defer src="../src/settings/preferences.js"></script>
+<script defer src="preferences.js"></script>
 <script defer src="renderer.js"></script>
 </body>
 </html>

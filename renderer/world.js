@@ -388,6 +388,14 @@ els.nativeEditorBtn.addEventListener('click', async () => {
 
 document.getElementById('mallBtn').addEventListener('click', () => window.vrmlpad.goto('mall'));
 
+// Phase: Preferences & Settings -- the World toolbar carries the same
+// Preferences button as the Mall and Editor toolbars; the click opens the
+// shared dialog.
+const prefsBtn = document.getElementById('prefsBtn');
+if (prefsBtn && window.WrlPreferences) {
+  prefsBtn.addEventListener('click', () => window.WrlPreferences.show(prefsBtn));
+}
+
 // On load, restore any already-open project (e.g. after returning from Mall).
 (async () => {
   if (!W) return;

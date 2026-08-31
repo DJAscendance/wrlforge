@@ -181,6 +181,15 @@ els.vscodiumBtn.addEventListener('click', async () => {
   } catch (e) { /* no file open */ }
 });
 
+// Phase: Preferences & Settings -- one Preferences button on the Mall
+// toolbar opens the shared dialog (same one the World + Editor toolbars
+// open). The button itself is in renderer/index.html; the click wires to
+// the shared module loaded just before this script.
+const prefsBtn = document.getElementById('prefsBtn');
+if (prefsBtn && window.WrlPreferences) {
+  prefsBtn.addEventListener('click', () => window.WrlPreferences.show(prefsBtn));
+}
+
 els.revealMall.addEventListener('click', (e) => {
   e.preventDefault();
   if (state) window.vrmlpad.revealInFolder(state.mallPath);
