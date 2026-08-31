@@ -112,15 +112,21 @@
   <h1>WRL Forge <span style="color:#888; font-weight:400; font-size:12px;">— Mall Item lane</span></h1>
   <div class="sub">Build. Preview. Validate. Package. — gzip-transparent editing, embedded X_ITE fit preview, and Cybertown Mall validation. An external editor (VSCodium) is optional.</div>
 
-  <div class="row">
+  <!-- Phase: Accessibility + Performance. The row is a labelled toolbar; each
+       button carries an accessible name (the visible text is already
+       descriptive). Repack and Open in Native Editor are the two actions that
+       also have keyboard shortcuts (Ctrl+R / Ctrl+E); aria-keyshortcuts
+       advertises them in the right ARIA syntax (the per-key token "Control+R"
+       -- WAI-ARIA 1.2). -->
+  <div class="row" role="toolbar" aria-label="Mall item actions">
     <button id="openBtn">Open mall .wrl…</button>
     <button id="worldBtn" class="secondary">Open World Project…</button>
-    <button id="editorBtn" class="secondary" disabled>Open in Native Editor</button>
+    <button id="editorBtn" class="secondary" disabled aria-keyshortcuts="Control+E">Open in Native Editor</button>
     <button id="vscodiumBtn" class="secondary" disabled>Open in External Editor</button>
     <button id="refreshBtn" class="secondary" disabled>Refresh Preview</button>
     <button id="checkBtn" class="secondary" disabled>Re-check</button>
     <label class="inline"><input type="checkbox" id="toggleGzip" checked> Save as gzip (mall format)</label>
-    <button id="repackBtn" disabled>Repack &amp; Save to mall .wrl</button>
+    <button id="repackBtn" disabled aria-keyshortcuts="Control+R">Repack &amp; Save to mall .wrl</button>
   </div>
 
   <div id="editorMsg" class="editor-msg" style="display:none" role="status" aria-live="polite"></div>

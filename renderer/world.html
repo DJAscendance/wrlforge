@@ -136,7 +136,11 @@
   <h1>WRL Forge <span style="color:#888; font-weight:400; font-size:12px;">— World Project lane</span></h1>
   <div class="sub">Read-only asset resolver + embedded preview: open a world project, inspect every referenced texture, nested WRL, and URL asset, and view it in X_ITE — no arbitrary texture limit, no file mutation. Preview + analysis only; not an upload validator, packaging, or editor.</div>
 
-  <div class="row">
+  <!-- Phase: Accessibility + Performance. Mirrors the Mall toolbar shape: a
+       labelled toolbar; visible button text is already descriptive; no keyboard
+       shortcuts ship on this lane (Ctrl+L / Ctrl+O are intentionally absent --
+       the GTK file-open dialog gotcha recorded in AGENTS.md). -->
+  <div class="row" role="toolbar" aria-label="World project actions">
     <button id="openFolderBtn">Open Project Folder…</button>
     <button id="openFileBtn" class="secondary">Open Primary WRL…</button>
     <button id="refreshBtn" class="secondary" disabled>Refresh Scan</button>

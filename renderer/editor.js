@@ -448,6 +448,13 @@ async function doBack() {
   // Phase Beta 2 -- flush a final recovery snapshot before navigating away so
   // the user does not lose the last keystrokes if a crash happens mid-nav.
   await flushRecoverySnapshot();
+  // Phase: Accessibility + Performance -- record the originating workspace's
+  // primary action so the destination page can restore focus to it. The
+  // sessionStorage key is session-scoped (cleared when the window closes),
+  // not persistent cross-session state. The destination reads and clears it
+  // exactly once on load.
+  const focusId = back.page === 'world' ? 'nativeEditorBtn' : 'repackBtn';
+  try { window.sessionStorage.setItem('wrlforge.nav.returnFocusId', focusId); } catch (e) { /* best-effort */ }
   await window.vrmlpad.goto(back.page);
 }
 

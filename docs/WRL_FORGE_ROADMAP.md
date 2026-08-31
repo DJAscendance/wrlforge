@@ -835,16 +835,55 @@ tests in `test/editor/phase-beta-2-corrections.test.js` and
 - [ ] No merge-editor for the case where the on-disk source changed
       since the snapshot.
 
-### Phase: Accessibility + Performance ⏳
+### Phase: Accessibility + Performance ✅
 
 D1 (keyboard accessibility: ARIA + `aria-keyshortcuts` on the Mall/World
 toolbars; `role=list` + roving-tabindex parity in the inspector; recorded
 `Ctrl+L` / `Ctrl+O` do-not-add because of the GTK dialog gotcha) plus D2
 (large-project perf re-measure: re-baseline under the post-WD2-A main; a
-renderer-side memory sanity check on a large world). The proposed
-`Ctrl+R` (Repack) and `Ctrl+E` (Open in Native Editor) shortcuts are
-**approved in principle** and recorded here for the lane — but **not
-implemented in this lane**.
+renderer-side memory sanity check on a large world).
+
+**Status:** **CLOSED.** Independent QA verdict:
+`ACCESSIBILITY_PERFORMANCE_QA_PASS_WITH_NOTES`.
+
+- Mall + World toolbars carry `role="toolbar"` and a labelled accessible
+  name; the two shortcut-bearing Mall buttons advertise `Ctrl+R` /
+  `Ctrl+E` through `aria-keyshortcuts`.
+- `Ctrl+R` (Repack) and `Ctrl+E` (Open in Native Editor) call the same
+  named action path the buttons use; `shortcutSuppressed` blocks the
+  keystroke while a text input / select / content-editable region / a
+  modal-backdrop owns focus, while `Alt` is held, or while the matching
+  button is disabled.
+- Inspector findings list is `role="list"` with an `aria-label`;
+  rows keep `role="listitem"` (display-only, no fake interactive
+  controls).
+- Back-navigation focus returns to the originating workspace's primary
+  action through a single sessionStorage flag, consumed exactly once.
+- Phase 7B perf gate **PASS** on the current `main` (gate:
+  `MEDIAN_GATE` — profile median < 250 ms; all profile medians pass:
+  small Mall 0.2 ms · representative World 1.4 ms · ~327 KB
+  49.3 ms · ~1.3 MB corpus 216.2 ms · script-heavy 34.4 ms · many
+  errors 14.2 ms).
+- Real Electron renderer memory: **45.20 MB stable** over 30
+  edit-and-reparse cycles (no retention leak).
+- 72-texture World current render: **847 ms** (`qa/phase-accessibility-perf/`).
+- WD2-A pipeline TOTAL: 4.9 ms median / 9.0 ms max on a representative
+  World — no production performance code change required.
+- 13 focused behavioural tests added
+  (`test/renderer/accessibility-runtime.test.js`); 1996 / 1996 tests
+  pass, 0 fail, 0 skipped.
+
+**Product direction (durable):** Accessibility is a major WRL Forge
+product priority. New user-interface work must include accessibility
+design and acceptance checks from the start.
+
+**Future — Preferences & Settings (PLANNED, not started):** a future
+top-menu area for user preferences, with accessibility as a
+first-class part.
+
+See `docs/ACCESSIBILITY_PERFORMANCE.md` for the full as-built record
+and `qa/phase-accessibility-perf/PERF.json` for the WD2-A pipeline
+measurements.
 
 ### Phase: Cross Platform Beta ⏳
 

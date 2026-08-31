@@ -409,3 +409,25 @@ document.getElementById('mallBtn').addEventListener('click', () => window.vrmlpa
     }
   } catch { /* nothing open */ }
 })();
+
+// Phase: Accessibility + Performance -- when arriving back from the editor
+// via `← Back`, restore focus to the World workspace's primary action. The
+// sessionStorage key is set by editor.doBack() and consumed exactly once
+// here. A missing/disabled target silently does nothing.
+(function restoreReturnFocus() {
+  try {
+    const id = window.sessionStorage.getItem('wrlforge.nav.returnFocusId');
+    if (!id) return;
+    window.sessionStorage.removeItem('wrlforge.nav.returnFocusId');
+    const el = document.getElementById(id);
+    if (!el || el.disabled) return;
+    let tries = 0;
+    const tick = () => {
+      tries += 1;
+      const target = document.getElementById(id);
+      if (target && !target.disabled) { target.focus(); return; }
+      if (tries < 40) setTimeout(tick, 50);
+    };
+    setTimeout(tick, 0);
+  } catch (e) { /* sessionStorage unavailable -- nothing to restore */ }
+})();

@@ -110,24 +110,68 @@ els.checkBtn.addEventListener('click', async () => {
   renderResults({ ...data, rawBytes: data.rawBytes, gzipBytes: data.gzipBytes });
 });
 
-els.repackBtn.addEventListener('click', async () => {
+// Phase: Accessibility + Performance -- the click handler and the Ctrl+R /
+// Ctrl+E keyboard shortcuts share ONE action path so the shortcut is never
+// an alternative code route. Each handler is a small named function the
+// listener dispatches into.
+async function doRepack() {
   if (!state) return;
   const asGzip = els.toggleGzip.checked;
   const data = await window.vrmlpad.repack(state.mallPath, state.editFile, asGzip);
   renderResults(data);
   els.repackBtn.textContent = 'Saved ✓';
   setTimeout(() => { els.repackBtn.textContent = 'Repack & Save to mall .wrl'; }, 1500);
-});
+}
+
+els.repackBtn.addEventListener('click', doRepack);
 
 // Open the current mall .wrl in the native editor (gzip-transparent, edits the
 // real source directly -- no .edit.wrl sibling needed), then switch to the editor
 // page. Returning Back preserves the buffer.
-els.editorBtn.addEventListener('click', async () => {
+async function doOpenInNativeEditor() {
   if (!state) return;
   try {
     await window.vrmlpad.editor.openMall();
     await window.vrmlpad.goto('editor');
   } catch (e) { showEditorStatus({ launched: false }); }
+}
+
+els.editorBtn.addEventListener('click', doOpenInNativeEditor);
+
+// Phase: Accessibility + Performance -- app-level accelerator shortcuts.
+// Ctrl+R calls the existing Repack action; Ctrl+E calls the existing Open in
+// Native Editor action. Both are advertised through aria-keyshortcuts on the
+// buttons (see renderer/index.html). Suppression rules match the editor's
+// policy: do not steal a keystroke that belongs to a text entry, a modal, or
+// content-editable region. Ctrl+L / Ctrl+O are intentionally NOT wired --
+// the GTK file-open dialog gotcha (AGENTS.md §"Known gotchas") makes them
+// unreliable here.
+function shortcutSuppressed(target) {
+  if (!target) return false;
+  const tag = String(target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  if (target.isContentEditable) return true;
+  if (document.querySelector('.modal-backdrop.show')) return true;
+  return false;
+}
+
+window.addEventListener('keydown', (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  if (e.altKey) return;
+  const k = String(e.key || '').toLowerCase();
+  if (k !== 'r' && k !== 'e') return;
+  if (shortcutSuppressed(e.target)) return;
+  if (k === 'r') {
+    // Don't fire while the button is disabled -- respect the existing toolbar
+    // state model.
+    if (els.repackBtn.disabled) return;
+    e.preventDefault();
+    doRepack();
+  } else if (k === 'e') {
+    if (els.editorBtn.disabled) return;
+    e.preventDefault();
+    doOpenInNativeEditor();
+  }
 });
 
 els.vscodiumBtn.addEventListener('click', async () => {
@@ -152,6 +196,31 @@ els.revealEdit.addEventListener('click', (e) => {
 // path headlessly. It wraps applyState over data from already-exposed IPC and
 // adds no new capability or privilege.
 window.__wrlForgeApplyOpen = applyState;
+
+// Phase: Accessibility + Performance -- when arriving back from the editor
+// via `← Back`, restore focus to the originating workspace's primary action.
+// The sessionStorage key is set by editor.doBack() and consumed exactly once
+// here. A missing/disabled target silently does nothing (no error, no throw).
+(function restoreReturnFocus() {
+  try {
+    const id = window.sessionStorage.getItem('wrlforge.nav.returnFocusId');
+    if (!id) return;
+    window.sessionStorage.removeItem('wrlforge.nav.returnFocusId');
+    const el = document.getElementById(id);
+    if (!el || el.disabled) return;
+    // Defer until the button is enabled (applyState may run later). Retry a
+    // few times cheaply; once focus succeeds or the budget is exhausted,
+    // stop.
+    let tries = 0;
+    const tick = () => {
+      tries += 1;
+      const target = document.getElementById(id);
+      if (target && !target.disabled) { target.focus(); return; }
+      if (tries < 40) setTimeout(tick, 50);
+    };
+    setTimeout(tick, 0);
+  } catch (e) { /* sessionStorage unavailable -- nothing to restore */ }
+})();
 
 // Phase Beta 2 -- at app start, the Mall page is the default landing. If a
 // recovery snapshot exists, raise the Restore / Start Fresh prompt here; it

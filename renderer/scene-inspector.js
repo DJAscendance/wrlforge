@@ -172,6 +172,14 @@
   function renderFindings(findings, deps) {
     const list = document.createElement('div');
     list.className = 'inspector-findings';
+    // Phase: Accessibility + Performance -- the findings list is display-only
+    // (rows have no activation, no navigation, no editing). Per the lane's
+    // keyboard acceptance rule, "if findings are display-only, use semantic
+    // list markup without fake interactive controls." role="list" pairs with
+    // each row's role="listitem" (set below) -- the screen reader virtual
+    // cursor reaches every row without making rows fake-focusable.
+    list.setAttribute('role', 'list');
+    list.setAttribute('aria-label', 'Diagnostic findings for selected item');
     for (const result of findings) {
       // result is `{finding, presentation}`. Defensive: a future caller
       // passing a raw finding would still work because P4-B accepts either

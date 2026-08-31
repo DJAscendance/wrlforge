@@ -1,0 +1,134 @@
+{
+  "debounceMs": 250,
+  "rows": [
+    {
+      "profile": "small Mall item",
+      "stage": "parse",
+      "bytes": 608,
+      "median": 0.1151895,
+      "max": 0.542038
+    },
+    {
+      "profile": "small Mall item",
+      "stage": "scopeGraph",
+      "bytes": 608,
+      "median": 0.057505,
+      "max": 0.172739
+    },
+    {
+      "profile": "small Mall item",
+      "stage": "sceneTree",
+      "bytes": 608,
+      "median": 0.04922,
+      "max": 0.125189
+    },
+    {
+      "profile": "small Mall item",
+      "stage": "findings",
+      "bytes": 608,
+      "median": 0.297044,
+      "max": 1.293115
+    },
+    {
+      "profile": "small Mall item",
+      "stage": "presentation",
+      "bytes": 608,
+      "median": 0.00058,
+      "max": 0.00628
+    },
+    {
+      "profile": "small Mall item",
+      "stage": "TOTAL",
+      "bytes": 608,
+      "median": 0.472008,
+      "max": 1.228785
+    },
+    {
+      "profile": "representative World",
+      "stage": "parse",
+      "bytes": 6929,
+      "median": 0.968901,
+      "max": 4.457112
+    },
+    {
+      "profile": "representative World",
+      "stage": "scopeGraph",
+      "bytes": 6929,
+      "median": 0.357599,
+      "max": 5.525369
+    },
+    {
+      "profile": "representative World",
+      "stage": "sceneTree",
+      "bytes": 6929,
+      "median": 0.281789,
+      "max": 3.108269
+    },
+    {
+      "profile": "representative World",
+      "stage": "findings",
+      "bytes": 6929,
+      "median": 3.176838,
+      "max": 8.469848
+    },
+    {
+      "profile": "representative World",
+      "stage": "presentation",
+      "bytes": 6929,
+      "median": 0.00052,
+      "max": 0.01554
+    },
+    {
+      "profile": "representative World",
+      "stage": "TOTAL",
+      "bytes": 6929,
+      "median": 4.902556000000001,
+      "max": 9.007745
+    },
+    {
+      "profile": "~327KB file",
+      "stage": "parse",
+      "bytes": 326887,
+      "median": 52.8644325,
+      "max": 65.690137
+    },
+    {
+      "profile": "~327KB file",
+      "stage": "scopeGraph",
+      "bytes": 326887,
+      "median": 0.3807835,
+      "max": 0.486018
+    },
+    {
+      "profile": "~327KB file",
+      "stage": "sceneTree",
+      "bytes": 326887,
+      "median": 1.9520225,
+      "max": 3.060187
+    },
+    {
+      "profile": "~327KB file",
+      "stage": "findings",
+      "bytes": 326887,
+      "median": 1.138516,
+      "max": 1.271085
+    },
+    {
+      "profile": "~327KB file",
+      "stage": "presentation",
+      "bytes": 326887,
+      "median": 0.00052,
+      "max": 0.00078
+    },
+    {
+      "profile": "~327KB file",
+      "stage": "TOTAL",
+      "bytes": 326887,
+      "median": 43.3080585,
+      "max": 48.004065
+    }
+  ],
+  "heapDeltaMB": 289.8908386230469,
+  "timestamp": "2026-08-30T19:00:06.062Z",
+  "commit": "unknown"
+}

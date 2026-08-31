@@ -32,6 +32,24 @@ Phase Beta 2 commit replaces 7D0's HEAD on `main`. See
 `docs/PHASE_BETA_2_CRASH_RECOVERY.md` and the roadmap's Phase Beta 2 entry
 for the as-built record and lifecycle rules.
 
+**Phase: Accessibility + Performance — closeout (post-7D0 + post-Phase-Beta-2):**
+The D1 PARTIAL/MISSING items (Mall + World toolbar semantics, ARIA
+labels, `aria-keyshortcuts` on the shortcut-bearing buttons, inspector
+list semantics, back-navigation focus) and the D2 re-measurement are
+**CLOSED** under `docs/ACCESSIBILITY_PERFORMANCE.md`. Independent QA
+verdict: `ACCESSIBILITY_PERFORMANCE_QA_PASS_WITH_NOTES`. Final state:
+1996/1996 repository tests pass, 0 failed, 0 skipped; 13/13 focused
+accessibility tests pass; real Electron accessibility PASS;
+renderer memory stable at **45.20 MB** over 30 cycles (no retention
+leak); 72-texture World current render **847 ms**. Performance gate
+is `MEDIAN_GATE` — profile median < 250 ms; all profile medians pass
+(`small Mall 0.2 ms · representative World 1.4 ms · ~327 KB 49.3 ms ·
+~1.3 MB corpus 216.2 ms · script-heavy 34.4 ms · many errors
+14.2 ms`). **No production performance code change was required.**
+The pure-Node 1192.8 MB heap delta from the analyze() harness is
+classified `ACCEPTABLE_EXPLAINED` / `NOT_A_VALID_PRODUCTION_MEMORY_MEASURE`
+and is not WRL Forge runtime memory.
+
 ---
 
 ## 1. Current test baseline (proven)
