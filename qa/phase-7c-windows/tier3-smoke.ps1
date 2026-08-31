@@ -42,41 +42,65 @@ function Write-Step($msg) {
 Write-Step "tasklist snapshot (before)"
 tasklist | Out-File (Join-Path $OutDir 'tasklist-before.txt') -Encoding utf8
 
+# Track whether the install actually succeeded so we can always clean up.
+$installSucceeded = $false
 $installDir = Join-Path $env:LOCALAPPDATA 'Programs\wrl-forge-qa-tier3'
-Write-Step "silent per-user install into $installDir"
-& $InstallerPath /S "/D=$installDir" | Out-Null
-Start-Sleep -Seconds 3
-
-$exePath = Join-Path $installDir 'WRL Forge.exe'
-$installOk = Test-Path $exePath
-Write-Step "installed exe present: $installOk ($exePath)"
-
-$startMenuGlob = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\WRL Forge*.lnk'
-$shortcut = Get-ChildItem -Path $startMenuGlob -ErrorAction SilentlyContinue
-Write-Step "Start-Menu shortcut present: $([bool]$shortcut) ($($shortcut.FullName -join ', '))"
-
-Write-Step "capture-server smoke against the installed exe (Tier 2 reused, --target=installed)"
-$smokeJobs = Join-Path $OutDir 'tier3-smoke-jobs.json'
-'[{"id":"tier3-smoke","json":true}]' | Out-File $smokeJobs -Encoding utf8
-node "$(Join-Path (Split-Path $PSScriptRoot -Parent | Split-Path -Parent) 'qa\visual-qa\cli.js')" `
-  $smokeJobs --target=installed --exe="$exePath" --allow-headed --max=1 --retries=0 `
-  *> (Join-Path $OutDir 'tier3-capture-smoke.log')
-$smokeOk = $LASTEXITCODE -eq 0
-Write-Step "capture-server smoke exit ok: $smokeOk"
-
-Write-Step "tasklist snapshot (after launch/smoke, before uninstall)"
-tasklist | Out-File (Join-Path $OutDir 'tasklist-mid.txt') -Encoding utf8
-
-$uninstaller = Join-Path $installDir 'Uninstall WRL Forge.exe'
-if (Test-Path $uninstaller) {
-  Write-Step "silent uninstall via $uninstaller"
-  & $uninstaller /S | Out-Null
+try {
+  Write-Step "silent per-user install into $installDir"
+  & $InstallerPath /S "/D=$installDir" | Out-Null
   Start-Sleep -Seconds 3
-} else {
-  Write-Step "WARNING: no uninstaller found at $uninstaller -- install dir may need manual cleanup"
+  $installSucceeded = $true
+
+  $exePath = Join-Path $installDir 'WRL Forge.exe'
+  $installOk = Test-Path $exePath
+  Write-Step "installed exe present: $installOk ($exePath)"
+
+  $startMenuGlob = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\WRL Forge*.lnk'
+  $shortcut = Get-ChildItem -Path $startMenuGlob -ErrorAction SilentlyContinue
+  Write-Step "Start-Menu shortcut present: $([bool]$shortcut) ($($shortcut.FullName -join ', '))"
+
+  Write-Step "capture-server smoke against the installed exe (Tier 2 reused, --target=installed)"
+  $smokeJobs = Join-Path $OutDir 'tier3-smoke-jobs.json'
+  '[{"id":"tier3-smoke","json":true}]' | Out-File $smokeJobs -Encoding utf8
+  try {
+    node "$(Join-Path (Split-Path $PSScriptRoot -Parent | Split-Path -Parent) 'qa\visual-qa\cli.js')" `
+      $smokeJobs --target=installed --exe="$exePath" --allow-headed --max=1 --retries=0 `
+      *>> (Join-Path $OutDir 'tier3-capture-smoke.log')
+    $script:smokeOk = $LASTEXITCODE -eq 0
+  } catch {
+    # Capture-server step crashed mid-run (e.g. process-singleton lock conflict
+    # from a stuck prior instance, or any other launcher error). Log it but
+    # let the finally block below handle cleanup so the Start-Menu shortcut
+    # never leaks across runs (the prior independent-QA finding).
+    Write-Step ("capture-server step threw: " + $_.Exception.Message)
+    $script:smokeOk = $false
+  }
+  Write-Step "capture-server smoke exit ok: $script:smokeOk"
+
+  Write-Step "tasklist snapshot (after launch/smoke, before uninstall)"
+  tasklist | Out-File (Join-Path $OutDir 'tasklist-mid.txt') -Encoding utf8
+}
+finally {
+  # Always uninstall, even if install or capture failed mid-run. This is the
+  # fix for the prior independent-QA's "Start Menu shortcut leftover" finding
+  # when the script aborted before reaching the uninstall step.
+  $uninstaller = Join-Path $installDir 'Uninstall WRL Forge.exe'
+  if ($installSucceeded -and (Test-Path $uninstaller)) {
+    try {
+      Write-Step "silent uninstall via $uninstaller"
+      & $uninstaller /S | Out-Null
+      Start-Sleep -Seconds 3
+    } catch {
+      Write-Step ("uninstall threw: " + $_.Exception.Message)
+    }
+  } elseif (-not $installSucceeded) {
+    Write-Step "install did not complete -- skipping uninstall (no app to remove)"
+  } else {
+    Write-Step "WARNING: no uninstaller found at $uninstaller -- install dir may need manual cleanup"
+  }
 }
 
-$stillInstalled = Test-Path $exePath
+$stillInstalled = Test-Path $installDir
 $shortcutAfter = Get-ChildItem -Path $startMenuGlob -ErrorAction SilentlyContinue
 Write-Step "post-uninstall: exe still present=$stillInstalled shortcut still present=$([bool]$shortcutAfter)"
 
@@ -87,7 +111,7 @@ $summary = [ordered]@{
   installerPath      = (Resolve-Path $InstallerPath).Path
   installOk           = $installOk
   shortcutPresent     = [bool]$shortcut
-  captureSmokeOk      = $smokeOk
+  captureSmokeOk      = $script:smokeOk
   uninstallerFound    = (Test-Path $uninstaller)
   exeRemovedAfterUninstall  = -not $stillInstalled
   shortcutRemovedAfterUninstall = -not [bool]$shortcutAfter
@@ -95,7 +119,7 @@ $summary = [ordered]@{
 $summary | ConvertTo-Json | Out-File (Join-Path $OutDir 'tier3-summary.json') -Encoding utf8
 Write-Step "done -- summary written to tier3-summary.json"
 
-if (-not $installOk -or -not $smokeOk -or $stillInstalled) {
+if (-not $installOk -or -not $script:smokeOk -or $stillInstalled) {
   Write-Step "one or more checks failed -- treat this Tier 3 run as NO-GO"
   exit 1
 }

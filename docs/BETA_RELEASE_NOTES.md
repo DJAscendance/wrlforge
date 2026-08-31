@@ -1,3 +1,105 @@
+# WRL Forge 1.3.0-beta.5 — Cross-Platform Beta (Private, Unsigned)
+
+**Status:** Private beta candidate. **Do not distribute publicly.**
+**Signing:** **Unsigned** — SmartScreen shows the unknown-publisher prompt on first
+run (**More info → Run anyway**); it is **not** removed (see `docs/SIGNING_READINESS.md`).
+**Licence:** **GPL-3.0-or-later** (see `LICENSE`, `COPYRIGHT.md`).
+
+> **Public-download checksums:** the authoritative SHA-256 manifest for the
+> published `v1.3.0-beta.5` release is
+> `SHA256SUMS-1.3.0-beta.5.txt` attached to the GitHub Release. The hashes
+> shown below are the **pre-publication independently QA-tested build** and
+> may differ from the later GitHub Actions rebuild — verify against
+> `SHA256SUMS-1.3.0-beta.5.txt` for public downloads.
+
+## What's new in 1.3.0-beta.5 — Cross-Platform Beta (Phase: Cross Platform Beta)
+
+**No new product features.** This refresh publishes the same source as a
+matching artifact identity on **Linux x64** and **native Windows 11 x64**. The
+included work since the `1.3.0-beta.3` release:
+
+### Accessibility (a major product priority)
+
+- **Keyboard navigation** for the Mall + World toolbars (`role="toolbar"` with
+  a labelled accessible name).
+- **`Ctrl+R` Repack + `Ctrl+E` Open in Native Editor** wired to the same named
+  actions the buttons use; the two shortcut-bearing buttons advertise the
+  shortcuts through `aria-keyshortcuts`.
+- **Shortcut suppression** in text inputs / select / content-editable regions,
+  while `Alt` is held, while a modal-backdrop is mounted, and while the matching
+  button is disabled.
+- **`role="list"` + labelled findings list** in the Inspector; rows keep
+  `role="listitem"` (display-only, no fake interactive controls).
+- **Back-navigation focus** returns to the originating workspace's primary
+  action through a single sessionStorage flag, consumed exactly once.
+- 13 focused behavioural tests added (`test/renderer/accessibility-runtime.test.js`);
+  full `npm test` + `npm run check` **2003 / 2003**, 0 fail, 0 skipped.
+
+### Crash recovery (already in `1.3.0-beta.4`)
+
+- Restore / Start Fresh prompt at next launch — same shared
+  `WRLForgeRecoveryPrompt.maybePrompt` across Mall, Editor, and World.
+- Debounced snapshot under `userData/editor-recovery.json` with the real
+  source bytes' `sourceStat` as the conflict anchor (gzip-aware).
+- Source files on disk are NEVER mutated by recovery; the recovery file is
+  cleared only by successful Save / explicit Discard / explicit Start Fresh.
+
+### Performance gate
+
+- All profile medians PASS the `MEDIAN_GATE` (< 250 ms): small Mall 0.2 ms ·
+  representative World 1.4 ms · ~327 KB 49.3 ms · ~1.3 MB corpus 216.2 ms ·
+  script-heavy 34.4 ms · many errors 14.2 ms.
+- Real Electron renderer memory: **45.20 MB stable** over 30
+  edit-and-reparse cycles (no retention leak).
+- 72-texture World current render: **847 ms**.
+- WD2-A pipeline TOTAL: 4.9 ms median / 9.0 ms max on a representative world
+  — no production performance code change required.
+
+Full evidence: `docs/ACCESSIBILITY_PERFORMANCE.md`,
+`docs/PHASE_BETA_2_CRASH_RECOVERY.md`, and `docs/CROSS_PLATFORM_BETA.md`.
+
+### Artifacts (x64, unsigned)
+
+**Linux x64**
+
+| File | Size | SHA-256 |
+|---|---|---|
+| `WRL-Forge-1.3.0-beta.5-linux-x64.AppImage` | 134,527,292 B (~128 MB) | `45cb38735c814ffc14cb00b6002f7aa7505ac495d1b17b97a6bf99c554f47bec` |
+| `WRL-Forge-1.3.0-beta.5-linux-x64.tar.gz` | 127,632,242 B (~122 MB) | `8cb1c5a2d7fd0524ec075a6d61830d24b328db581d0c41d9dd39cd2c94953df4` |
+
+**Windows x64** — built natively on the sanctioned Windows 11 guest
+(libvirt/QEMU `win11`, local NTFS `C:\Projects\wrlforge`, driven over SSH).
+
+| File | Size | SHA-256 |
+|---|---|---|
+| `WRL-Forge-Setup-1.3.0-beta.5-x64.exe` (NSIS installer) | 111,019,007 B (~106 MB) | `35f0839816e294af3934e26afc318e74116c24846439b932c685acdcda186771` |
+| `WRL-Forge-Portable-1.3.0-beta.5-x64.exe` (portable) | 110,799,995 B (~106 MB) | `c8dca0ec6a6b0a3c4ddd87a9e8f46005bb98c87a938f1c0f06cd5527b5768e30` |
+| `WRL-Forge-1.3.0-beta.5-x64.msi` (MSI installer) | 126,521,344 B (~121 MB) | `a521e530887ca3582d703fbb8c507b8e6e0efa970010ca7b6f0997efef1ecf03` |
+
+Checksums in `release/SHA256SUMS-1.3.0-beta.5.txt` (git-ignored, like the
+artifacts). The SHA-256 values in that manifest are the **public-download
+authority**; the values above are the **pre-publication independently
+QA-tested build** and may differ from the GitHub Actions rebuild. All five are
+**unsigned** (PE certificate table empty — verified at build time) and **x64
+only** (no ARM64). No auto-update, no store packaging, no public release.
+
+### Known limitations (inherited from beta.4)
+
+- **Unsigned** — SmartScreen prompt on first run (expected; **not** a defect).
+- **x64 only** — no ARM64, no macOS.
+- **Review + manual upload** — the WRL Forge World Project Bundle is a review
+  artifact you upload through the Cybertown website by hand. WRL Forge does no
+  direct upload (by design) and makes no CTR server-format claim.
+- No auto-update, telemetry, ads, Microsoft Store packaging, or public release.
+
+### Reporting
+
+File issues privately with: the artifact (AppImage / tar.gz / NSIS / MSI /
+portable), OS + version, repro steps, and any on-screen diagnostic text.
+Attach `%APPDATA%\wrl-forge\` contents if a settings/window-state issue.
+
+---
+
 # WRL Forge 1.3.0-beta.1 — Private Windows Beta (Unsigned)
 
 **Status:** Private beta candidate. **Do not distribute publicly.**

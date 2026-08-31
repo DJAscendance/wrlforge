@@ -30,6 +30,7 @@ const { VisualQaRunner } = require('./runner');
 const { acquire } = require('./lock');
 const { guardWindowsWorkspace } = require('./workspace-guard');
 const { makeCaptureTransport } = require('./transport');
+const { readJsonFile } = require('./json-file');
 
 const repoRoot = path.join(__dirname, '..', '..');
 
@@ -106,7 +107,7 @@ async function main() {
     process.exit(2);
   }
 
-  const jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf8'));
+  const jobs = readJsonFile(jobsFile);
   // Platform-aware transport: stdin on POSIX, a jobs file on Windows (where a
   // GUI-subsystem electron.exe has an immediately-ended stdin -- Phase 7C5).
   const transport = makeCaptureTransport();

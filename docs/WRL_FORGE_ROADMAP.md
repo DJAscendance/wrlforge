@@ -870,7 +870,7 @@ renderer-side memory sanity check on a large world).
 - WD2-A pipeline TOTAL: 4.9 ms median / 9.0 ms max on a representative
   World — no production performance code change required.
 - 13 focused behavioural tests added
-  (`test/renderer/accessibility-runtime.test.js`); 1996 / 1996 tests
+  (`test/renderer/accessibility-runtime.test.js`); 2003 / 2003 tests
   pass, 0 fail, 0 skipped.
 
 **Product direction (durable):** Accessibility is a major WRL Forge
@@ -885,13 +885,51 @@ See `docs/ACCESSIBILITY_PERFORMANCE.md` for the full as-built record
 and `qa/phase-accessibility-perf/PERF.json` for the WD2-A pipeline
 measurements.
 
-### Phase: Cross Platform Beta ⏳
+### Phase: Cross Platform Beta 🚧 (implemented, awaiting independent QA)
 
 D5 + D6: re-run `dist:linux` on `main` and record SHA-256; re-run the
 Tier-1 / Tier-2 visual suites on both platforms; resolve the per-release
-`LICENSE` text question; optionally publish `v1.3.0-beta.3`. **No
-signing**, **no public Microsoft Store**, **no ARM64** — these are
-explicit, documented out-of-scope items.
+`LICENSE` text question; produce a matching cross-platform `v1.3.0-beta.5`
+artifact identity. **No signing**, **no public Microsoft Store**, **no
+ARM64** — these are explicit, documented out-of-scope items.
+
+**Status:** **implemented** (2026-08-31). The lane bumped the working tree to
+`package.json.version = "1.3.0-beta.5"` on **both** the Linux host and the
+sanctioned Windows 11 guest (libvirt/QEMU `win11` at `192.168.122.170`,
+local NTFS `C:\Projects\wrlforge`), built the five configured x64 artifacts
+(`dist:linux` → AppImage + tar.gz; `build:win` → NSIS `Setup` + MSI +
+Portable), generated `release/SHA256SUMS-1.3.0-beta.5.txt` (verified
+`sha256sum -c` 9/9 OK across the new and historical lines), ran the full NSIS
+install → launch → uninstall lifecycle on Windows 11 (Start-menu shortcut
+present after install, install dir + shortcut + registry entry removed after
+uninstall, `%APPDATA%\wrl-forge\window-state.json` + `editor-session.json`
+SHA-256 unchanged across the cycle), and ran the existing source-level
+regression suites — `npm test` 2003/2003, `accessibility-runtime` 13/13,
+`phase-beta-2-integration` 5/5, `phase-beta-2-corrections` 21/21. Five
+artifacts, all unsigned, all x64:
+
+> **Public-download checksums:** the authoritative SHA-256 manifest for the
+> published `v1.3.0-beta.5` release is `SHA256SUMS-1.3.0-beta.5.txt` attached
+> to the GitHub Release. The hashes below are the **pre-publication
+> independently QA-tested build** and may differ from the later GitHub Actions
+> rebuild — verify against `SHA256SUMS-1.3.0-beta.5.txt` for public downloads.
+
+- `WRL-Forge-1.3.0-beta.5-linux-x64.AppImage` — 134,527,292 B,
+  `45cb38735c814ffc14cb00b6002f7aa7505ac495d1b17b97a6bf99c554f47bec`
+- `WRL-Forge-1.3.0-beta.5-linux-x64.tar.gz` — 127,632,242 B,
+  `8cb1c5a2d7fd0524ec075a6d61830d24b328db581d0c41d9dd39cd2c94953df4`
+- `WRL-Forge-Setup-1.3.0-beta.5-x64.exe` (NSIS) — 111,019,007 B,
+  `35f0839816e294af3934e26afc318e74116c24846439b932c685acdcda186771`
+- `WRL-Forge-Portable-1.3.0-beta.5-x64.exe` — 110,799,995 B,
+  `c8dca0ec6a6b0a3c4ddd87a9e8f46005bb98c87a938f1c0f06cd5527b5768e30`
+- `WRL-Forge-1.3.0-beta.5-x64.msi` (MSI) — 126,521,344 B,
+  `a521e530887ca3582d703fbb8c507b8e6e0efa970010ca7b6f0997efef1ecf03`
+
+Source SHA: `2f3591b3c56bee1de5ed38de609f22b11b4f5997`. License: **GPL-3.0-or-later**
+(`package.json`, `LICENSE`, and the shipped `licenses/LICENSE` inside both the
+Linux AppImage and the Windows installer). Evidence: `docs/CROSS_PLATFORM_BETA.md`,
+`docs/RELEASES.md` (new beta.5 entry), `docs/BETA_RELEASE_NOTES.md` (new
+beta.5 entry).
 
 ### Phase WD2-A — Read-Only Scene Tree and Inspector Foundation
 

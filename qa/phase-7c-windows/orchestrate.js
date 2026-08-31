@@ -25,6 +25,7 @@ const { makeCaptureTransport } = require('../visual-qa/transport');
 const { acquire } = require('../visual-qa/lock');
 const evidence = require('../visual-qa/evidence');
 const { guardWindowsWorkspace } = require('../visual-qa/workspace-guard');
+const { readJsonFile } = require('../visual-qa/json-file');
 
 const repoRoot = path.join(__dirname, '..', '..');
 
@@ -54,7 +55,7 @@ function runTier1(electronBinary, outDir) {
   }
   fs.writeFileSync(path.join(outDir, 'tier1-console.txt'), stdout);
   let result = null;
-  try { result = JSON.parse(fs.readFileSync(outJson, 'utf8')); } catch { /* selftest didn't produce JSON */ }
+  try { result = readJsonFile(outJson); } catch { /* selftest didn't produce JSON */ }
   return { ok: ok && !!result && !result.failed, resultPath: outJson, result };
 }
 
@@ -89,7 +90,7 @@ async function main() {
     if (electronBinary) tier1 = runTier1(electronBinary, outDir);
   }
 
-  const jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf8'));
+  const jobs = readJsonFile(jobsFile);
   const release = acquire();
   // Platform-aware transport: on Windows a GUI-subsystem electron.exe has an
   // immediately-ended stdin, so jobs go through a file, not stdin (Phase 7C5).

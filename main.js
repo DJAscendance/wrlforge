@@ -687,6 +687,96 @@ function createWindow() {
         fs.writeFileSync(job.out, img.toPNG());
         payload.out = job.out;
       }
+      // Keyboard interaction job (final QA enablement pass): dispatch real
+      // KeyboardEvents to the packaged Electron window. Two paths:
+      //   - `press` / `keydown` / `keyup` use Electron's native
+      //     webContents.sendInputEvent (this drives OS-level focus traversal
+      //     for Tab, Escape, etc. AND fires keydown listeners on the
+      //     renderer side via the Chromium input pipeline).
+      //   - `inspectFocus` / `goto` use document-level executeJavaScript.
+      // Both are reachable only under WRL_FORGE_CAPTURE_SERVER.
+      if (job.keyboard) {
+        const kb = job.keyboard || {};
+        if (kb.kind === 'inspectFocus') {
+          await new Promise((r) => setTimeout(r, kb.delayMs || 60));
+          const focus = await win.webContents.executeJavaScript(
+            `(function(){var a=document.activeElement;if(!a||a===document.body)return{tag:'BODY',focusable:false};var r=a.getBoundingClientRect?a.getBoundingClientRect():null;return{tag:a.tagName,id:a.id||null,cls:a.className||null,role:a.getAttribute&&a.getAttribute('role'),ariaLabel:a.getAttribute&&a.getAttribute('aria-label'),text:(a.innerText||'').slice(0,80),rect:r?{x:r.x,y:r.y,w:r.width,h:r.height}:null,focusable:true};})()`
+          );
+          payload.focus = focus;
+          return payload;
+        }
+        if (kb.kind === 'goto') {
+          if (kb.page === 'editor') {
+            await mainWindow.loadFile(path.join(__dirname, 'renderer', 'editor.html'));
+            currentPage = 'editor';
+          } else if (kb.page === 'world') {
+            await mainWindow.loadFile(path.join(__dirname, 'renderer', 'world.html'));
+            currentPage = 'world';
+          } else {
+            await mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+            currentPage = 'mall';
+          }
+          await new Promise((r) => setTimeout(r, kb.delayMs || 600));
+          return payload;
+        }
+        if (kb.kind === 'focus') {
+          // Programmatic focus: simulates where Tab navigation would arrive
+          // without depending on OS-level focus traversal.
+          const focusRes = await win.webContents.executeJavaScript(
+            `(function(){var s=${JSON.stringify(kb.selector || '')};if(!s)return{ok:false,err:'no selector'};var el=document.querySelector(s);if(!el)return{ok:false,err:'not found',sel:s};el.focus();var a=document.activeElement;return{ok:true,focusedId:a&&a.id,focusedTag:a&&a.tagName,sel:s};})()`
+          );
+          payload.focusRes = focusRes;
+          await new Promise((r) => setTimeout(r, kb.delayMs || 120));
+          return payload;
+        }
+        if (kb.kind === 'inspect-recovery' || kb.kind === 'inspect-recovery-prompt') {
+          const r = await win.webContents.executeJavaScript(
+            `(async function(){var a=document.activeElement;var dlg=document.getElementById('wrlforgeRecoveryRoot');var visible=!!(dlg&&(dlg.offsetWidth>0||dlg.offsetHeight>0));var found={ok:false,found:false};try{var bridge=window.vrmlpad&&window.vrmlpad.editor;if(bridge&&bridge.recoveryRead){var r=await bridge.recoveryRead();if(r&&r.found){found={ok:true,found:true,activeWorkspace:(r.record&&r.record.activeWorkspace),sourcePath:(r.record&&r.record.sourcePath)}else{found={ok:true,found:false,reason:r&&r.reason};}else{found={ok:false,err:'no bridge'};}}catch(e){found={ok:false,err:String(e)};}return{hasDialog:!!dlg,visible,activeId:a&&a.id,activeTag:a&&a.tagName,recoveryBridge:found};})()`
+          );
+          payload.recovery = r;
+          return payload;
+        }
+        if (kb.kind === 'executeJS') {
+          const r = await win.webContents.executeJavaScript(kb.code || 'null');
+          payload.executeJS = r;
+          return payload;
+        }
+        if (kb.kind === 'fire-keydown') {
+          // Direct render-side dispatch (browser-only KeyboardEvent). Bypasses
+          // Electron's sendInputEvent validation. Used for testing renderer-side
+          // keyboard handlers; does NOT drive system-level Tab/Escape focus.
+          const r = await win.webContents.executeJavaScript(
+            `(function(){var e=new KeyboardEvent('keydown',{key:${JSON.stringify(kb.key || 'Tab')},code:${JSON.stringify(kb.code || kb.key || 'Tab')},ctrlKey:${JSON.stringify((kb.modifiers||[]).includes('control'))},shiftKey:${JSON.stringify((kb.modifiers||[]).includes('shift'))},altKey:${JSON.stringify((kb.modifiers||[]).includes('alt'))},metaKey:${JSON.stringify((kb.modifiers||[]).includes('meta'))},bubbles:true,cancelable:true});var t=document.activeElement||document.body;var d=t.dispatchEvent?t.dispatchEvent(e):false;return{dispatched:!!d,target:t.tagName||'BODY',activeId:t.id||null};})()`
+          );
+          payload.fireKeydown = r;
+          return payload;
+        }
+        // press / keydown / keyup -- Electron native sendInputEvent.
+        // Per Electron docs, `keyCode` is a STRING (Electron Accelerator key
+        // code), NOT a Chromium virtual-key integer. Examples: 'Tab',
+        // 'R', 'E', 'Escape', 'Return', 'Space'. The Accelerator parser
+        // accepts single-letter strings for A-Z and 0-9, and the names for
+        // special keys. The BrowserWindow must be focused before the event
+        // is delivered or it is silently dropped.
+        const FOCUSABLE_NAMES = new Set([
+          'Tab','Return','Enter','Escape','Backspace','Space','Delete',
+          'Insert','Home','End','PageUp','PageDown','ArrowUp','ArrowDown',
+          'ArrowLeft','ArrowRight','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12',
+          'Plus','Minus','Multiply','Divide','Decimal','Separator'
+        ]);
+        let accel = kb.code || kb.key;
+        if (accel && accel.length === 1) accel = accel.toUpperCase();
+        if (!FOCUSABLE_NAMES.has(accel) && !/^[A-Z]$|^Digit[0-9]$/.test(accel)) {
+          throw new Error('unsupported keyCode for sendInputEvent: ' + accel);
+        }
+        // Establish application focus (BrowserWindow.show + focus), which is
+        // required for OS-level input to be delivered to the renderer.
+        try { win.show(); win.focus(); } catch {}
+        const modifiers = Array.isArray(kb.modifiers) ? kb.modifiers.map((m) => String(m).toLowerCase()) : [];
+        if (kb.kind !== 'keyup') win.webContents.sendInputEvent({ type: 'keyDown', keyCode: accel, modifiers });
+        if (kb.kind !== 'keydown') win.webContents.sendInputEvent({ type: 'keyUp', keyCode: accel, modifiers });
+        await new Promise((r) => setTimeout(r, kb.delayMs || 120));
+      }
       return payload;
     }
     // Serialize commands: exactly one job runs at a time inside the process too,
@@ -715,8 +805,14 @@ function createWindow() {
       if (jobsFile) {
         emit('WRL_FORGE_CAPTURE_READY');
         let batch = [];
-        try { batch = JSON.parse(fs.readFileSync(jobsFile, 'utf8')); }
-        catch { emit('WRL_FORGE_CAPTURE_ERR - bad-jobs-file'); }
+        try {
+          // BOM tolerance: PowerShell `Out-File -Encoding utf8` (PS 5.1 default)
+          // writes UTF-8 with BOM. Strip a single leading U+FEFF before parsing
+          // so the QA-tier-3 jobs file round-trips. Mirrors qa/visual-qa/json-file.js.
+          let text = fs.readFileSync(jobsFile, 'utf8');
+          if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+          batch = JSON.parse(text);
+        } catch { emit('WRL_FORGE_CAPTURE_ERR - bad-jobs-file'); }
         for (const job of batch) {
           if (job && job.cmd === 'shutdown') break;
           try {
