@@ -4,7 +4,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { authorizeWorldReference, realpathInside, lexicallyInside } = require('../../src/editor/path-authorizer');
+const { authorizeWorldReference, realpathExistingPrefix, realpathInside, lexicallyInside } = require('../../src/editor/path-authorizer');
 
 function tmpRoot() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'wrlforge-auth-'));
@@ -76,4 +76,33 @@ test('realpathInside / lexicallyInside confinement primitives', () => {
   assert.strictEqual(lexicallyInside(root, path.join(path.dirname(root), 'x')), false);
   // realpathInside falls back to lexical for a not-yet-existing target.
   assert.strictEqual(realpathInside(root, inside), true);
+});
+
+test('realpathExistingPrefix canonicalizes a missing child under macOS-style alias roots', () => {
+  const fakeFs = {
+    realpathSync(value) {
+      const resolved = path.resolve(value);
+      if (resolved === '/var/project') return '/private/var/project';
+      if (resolved === '/var') return '/private/var';
+      if (resolved === '/') return '/';
+      throw new Error('missing');
+    },
+  };
+  assert.strictEqual(
+    realpathExistingPrefix('/var/project/new/nested.wrl', fakeFs),
+    path.resolve('/private/var/project/new/nested.wrl'),
+  );
+  assert.strictEqual(realpathInside('/var/project', '/var/project/new/nested.wrl', fakeFs), true);
+});
+
+test('realpathInside rejects a missing child below a symlinked directory that escapes', () => {
+  const root = tmpRoot();
+  const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrlforge-outside-dir-'));
+  const linkDir = path.join(root, 'linked-dir');
+  try {
+    fs.symlinkSync(outsideDir, linkDir);
+  } catch {
+    return; // platform without symlink permission -- skip (Windows non-admin)
+  }
+  assert.strictEqual(realpathInside(root, path.join(linkDir, 'not-created.wrl')), false);
 });

@@ -169,7 +169,7 @@ test('Linux desktop integration is path-neutral and ships with portable builds',
   assert.ok(association, 'the packaged app must register the VRML MIME type');
   assert.deepEqual([...association.ext].sort(), ['wrl', 'wrz']);
 
-  const extras = pkg.build.extraFiles.map((entry) => `${entry.from}:${entry.to}`);
+  const extras = pkg.build.linux.extraFiles.map((entry) => `${entry.from}:${entry.to}`);
   assert.ok(extras.includes('scripts/install-linux-shortcut.sh:install-linux-shortcut.sh'));
   assert.ok(extras.includes('assets/wrl-forge-cyan.svg:wrl-forge.svg'));
 

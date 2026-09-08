@@ -15,18 +15,32 @@
 const nodePath = require('path');
 const nodeFs = require('fs');
 
+// Resolve the longest prefix that exists on disk, then reattach any missing
+// suffix lexically. This handles macOS's /var -> /private/var canonicalization
+// for a not-yet-existing child and still detects an existing symlinked directory
+// that points outside the project root.
+function realpathExistingPrefix(value, fs = nodeFs) {
+  const absolute = nodePath.resolve(value);
+  let cursor = absolute;
+  const suffix = [];
+  for (;;) {
+    try {
+      return nodePath.resolve(fs.realpathSync(cursor), ...suffix.reverse());
+    } catch {
+      const parent = nodePath.dirname(cursor);
+      if (parent === cursor) return absolute;
+      suffix.push(nodePath.basename(cursor));
+      cursor = parent;
+    }
+  }
+}
+
 // Is `target` inside `root` AFTER resolving symlinks? Symlinks are resolved on
-// whatever prefix exists on disk; a not-yet-existing target falls back to its
-// lexical (already root-confined) form. Exported so session-store reuses the
-// exact same confinement rule for restore.
+// whatever prefix exists on disk. Exported so session-store reuses the exact
+// same confinement rule for restore.
 function realpathInside(root, target, fs = nodeFs) {
-  const absRoot = nodePath.resolve(root);
-  let realTarget;
-  try { realTarget = fs.realpathSync(nodePath.resolve(target)); }
-  catch { realTarget = nodePath.resolve(target); }
-  let realRoot;
-  try { realRoot = fs.realpathSync(absRoot); }
-  catch { realRoot = absRoot; }
+  const realTarget = realpathExistingPrefix(target, fs);
+  const realRoot = realpathExistingPrefix(root, fs);
   const rel = nodePath.relative(realRoot, realTarget);
   return rel === '' || (!rel.startsWith('..') && !nodePath.isAbsolute(rel));
 }
@@ -57,4 +71,4 @@ function authorizeWorldReference({ root, allowedWrl, ref }, deps = {}) {
   return { ok: true, resolved: abs };
 }
 
-module.exports = { authorizeWorldReference, realpathInside, lexicallyInside };
+module.exports = { authorizeWorldReference, realpathExistingPrefix, realpathInside, lexicallyInside };

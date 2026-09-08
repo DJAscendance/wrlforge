@@ -91,6 +91,16 @@ test('linux PNG set exists at the expected square dimensions and decodes', () =>
   }
 });
 
+test('macOS package icon exists at 1024px and decodes', () => {
+  const icon = fs.readFileSync(path.join(GEN, 'macos', 'icon.png'));
+  assert.ok(isPng(icon), 'macos/icon.png not a PNG');
+  assert.equal(icons.pngSize(icon).width, icons.MAC_ICON_SIZE);
+  assert.equal(icons.pngSize(icon).height, icons.MAC_ICON_SIZE);
+
+  const pkg = require(path.join(ROOT, 'package.json'));
+  assert.equal(pkg.build.mac.icon, 'assets/generated/icons/macos/icon.png');
+});
+
 test('runtime window icon and About logo exist and decode', () => {
   const icon = fs.readFileSync(path.join(GEN, 'runtime', 'icon.png'));
   assert.ok(isPng(icon), 'runtime icon.png not a PNG');
@@ -111,9 +121,9 @@ test('electron build config points at the cyan generated ICO (never yellow)', ()
 
 test('all four choosable ICOs ship in the packaged app via extraResources', () => {
   const pkg = require(path.join(ROOT, 'package.json'));
-  const er = pkg.build.extraResources;
+  const er = pkg.build.win.extraResources;
   assert.ok(Array.isArray(er) && er.some((e) => e.from === 'assets/generated/icons/windows' && e.to === 'icons'),
-    'extraResources must bundle the windows ICO folder as resources/icons');
+    'build.win.extraResources must bundle the windows ICO folder as resources/icons');
 });
 
 test('the runtime window-icon path referenced by main.js resolves', () => {
@@ -138,6 +148,7 @@ test('MANIFEST records cyan as the primary variant and lists source hashes', () 
   const m = JSON.parse(fs.readFileSync(path.join(GEN, 'MANIFEST.json'), 'utf8'));
   assert.equal(m.primaryVariant, 'cyan');
   assert.equal(m.primaryIcon, 'assets/generated/icons/windows/wrl-forge-cyan.ico');
+  assert.equal(m.macIcon, 'assets/generated/icons/macos/icon.png');
   for (const name of Object.values(icons.SOURCES)) {
     assert.match(m.sourceHashes[name], /^[0-9a-f]{64}$/, `manifest missing hash for ${name}`);
   }

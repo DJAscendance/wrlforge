@@ -57,6 +57,9 @@ const icoName = (variant) => `wrl-forge-${variant}.ico`;
 const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
 // Linux/freedesktop hicolor + runtime PNG sizes.
 const PNG_SIZES = [16, 24, 32, 48, 64, 128, 256, 512];
+// macOS packaging starts from one high-resolution PNG; electron-builder converts
+// it to the .icns frames embedded in the application bundle.
+const MAC_ICON_SIZE = 1024;
 // Single-file runtime window icon + in-app logo size.
 const RUNTIME_ICON = 256;
 const ABOUT_LOGO = 256;
@@ -138,10 +141,11 @@ function generate() {
     outputs.push(writeFile(path.join('windows', icoName(v.variant)), buildIco(entries)));
   }
 
-  // --- PRIMARY (cyan opaque): Linux PNG set + runtime window icon ---
+  // --- PRIMARY (cyan opaque): Linux PNG set + macOS package + runtime icon ---
   for (const size of PNG_SIZES) {
     outputs.push(writeFile(path.join('linux', `${size}x${size}.png`), rasterize(src.cyan, size)));
   }
+  outputs.push(writeFile(path.join('macos', 'icon.png'), rasterize(src.cyan, MAC_ICON_SIZE)));
   outputs.push(writeFile(path.join('runtime', 'icon.png'), rasterize(src.cyan, RUNTIME_ICON)));
   // In-app / About branding uses the transparent cyan artwork.
   outputs.push(writeFile(path.join('runtime', 'about-logo.png'), rasterize(src.cyanTransparent, ABOUT_LOGO)));
@@ -154,6 +158,7 @@ function generate() {
     note: 'System fonts disabled for cross-machine determinism; the SVG "FORGE" caption is intentionally not rasterized.',
     primaryVariant: PRIMARY_VARIANT,
     primaryIcon: path.posix.join('assets/generated/icons/windows', icoName(PRIMARY_VARIANT)),
+    macIcon: path.posix.join('assets/generated/icons/macos', 'icon.png'),
     choosableVariants: VARIANTS.map((v) => v.variant),
     icoSizes: ICO_SIZES,
     pngSizes: PNG_SIZES,
@@ -194,5 +199,5 @@ if (require.main === module) {
 
 module.exports = {
   generate, buildIco, pngSize, rasterize, resolvePrimaryIcon,
-  ICO_SIZES, PNG_SIZES, SOURCES, VARIANTS, PRIMARY_VARIANT, icoName, OUT, ASSETS,
+  ICO_SIZES, PNG_SIZES, MAC_ICON_SIZE, SOURCES, VARIANTS, PRIMARY_VARIANT, icoName, OUT, ASSETS,
 };

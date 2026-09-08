@@ -1,18 +1,19 @@
 'use strict';
 // Platform-neutral unsigned electron-builder wrapper for public beta builds.
 //
-// `npm run dist:linux` routes through here to produce the Linux AppImage +
-// tar.gz. It mirrors scripts/build-win.js: it guarantees the generated icon
-// tree exists, forces code-signing discovery OFF so the labelled-unsigned beta
-// stays deterministically unsigned, appends `--publish never`, and passes
-// through any extra electron-builder args (e.g. `--linux --x64`).
+// `npm run dist:linux` and `npm run dist:mac` route through here to produce the
+// unsigned Linux and macOS packages. It mirrors scripts/build-win.js: it
+// guarantees the generated icon tree exists, forces code-signing discovery OFF
+// so the labelled-unsigned beta stays deterministically unsigned, appends
+// `--publish never`, and passes through any extra electron-builder args (e.g.
+// `--linux --x64` or `--mac --arm64`).
 //
 //   node scripts/build-dist.js --linux --x64
+//   node scripts/build-dist.js --mac --arm64
 //
 // Windows artifacts are built via scripts/build-win.js (which additionally runs
-// the Windows workspace guard); this wrapper is the cross-platform default used
-// for Linux packaging. It works identically on any host shell because the env
-// var is set in-process rather than as POSIX inline-env syntax.
+// the Windows workspace guard). This wrapper works identically on any host shell
+// because the env var is set in-process rather than as POSIX inline-env syntax.
 
 const { spawnSync } = require('child_process');
 const fs = require('fs');

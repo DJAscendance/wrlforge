@@ -1,22 +1,27 @@
 # Building WRL Forge
 
-WRL Forge runs from source on Linux (`npm start`). Phase 6A added a **private,
-unsigned Windows test build**; Phase 6B promoted it to a **private beta**
+WRL Forge runs from source on Linux, Windows, and macOS (`npm start`). Phase 6A
+added a **private, unsigned Windows test build**; Phase 6B promoted it to a **private beta**
 (`1.1.0-beta.1`, labelled **Private Beta — Unsigned**). No public release, code
 signing, auto-update, or store packaging is configured (intentionally — see the
 roadmap and "Excluded" scope). Signing *readiness* (for a future approved
 certificate) is documented separately in `docs/SIGNING_READINESS.md`; beta
 install/testing instructions are in `docs/BETA_RELEASE_NOTES.md`.
 
+The macOS lane currently produces an **unsigned Apple Silicon developer build**
+for port testing. It is not yet part of the published release workflow.
+
 ## Prerequisites
 
 - Node 20+ and npm.
 - `npm install` (installs `x_ite` runtime + `electron`/`electron-builder` dev deps).
+- For the **macOS** DMG/ZIP: an Apple Silicon Mac. The first lane intentionally
+  disables signing, notarization, and hardened runtime.
 - For the **Windows** build **from Linux**: `wine` (electron-builder uses it to
   stamp the exe icon/metadata and build the NSIS installer). Verified with
   `wine-9.0`. Building on Windows itself needs no wine.
 
-## Run from source (Linux)
+## Run from source
 
 ```bash
 npm start          # launch the app
@@ -25,13 +30,15 @@ npm run check      # npm test + node --check syntax gate over all source
 npm run install:desktop  # per-user Linux menu/icon + .wrl/.wrz Open With entry
 ```
 
+`install:desktop` is Linux-only; the other commands are cross-platform.
+
 ## Icon
 
 The app icon is the approved **WRL Forge cyan** branding, rasterized
 deterministically from `assets/wrl-forge-cyan.svg`:
 
 ```bash
-npm run build:icons   # SVG -> assets/generated/icons/{windows,linux,runtime}
+npm run build:icons   # SVG -> assets/generated/icons/{windows,linux,macos,runtime}
 ```
 
 Cyan opaque is the single executable identity. All four approved variants
@@ -42,6 +49,30 @@ Windows' **Change Icon** dialog. A build may start from a different variant with
 `WRL_FORGE_ICON=cyan|cyan-transparent|yellow|yellow-transparent`. The four source
 SVGs must never be modified; only owner-approved artwork may replace them. Full
 detail — sizes, determinism, regeneration, verification — is in **`docs/ICONS.md`**.
+
+## macOS developer build (unsigned, Apple Silicon)
+
+Run this on an Apple Silicon Mac:
+
+```bash
+npm ci
+npm run check
+npm run dist:mac
+```
+
+The command regenerates the approved icons and native-editor bundle, then invokes
+electron-builder through `scripts/build-dist.js`. Output lands in `release/`:
+
+- `WRL-Forge-<version>-mac-arm64.dmg` — drag-and-drop disk image.
+- `WRL-Forge-<version>-mac-arm64.zip` — zipped `.app` bundle.
+- `release/mac-arm64/WRL Forge.app` — unpacked application bundle.
+
+This first porting build is deliberately unsigned and unnotarized:
+`CSC_IDENTITY_AUTO_DISCOVERY=false`, `mac.identity=null`,
+`mac.hardenedRuntime=false`, and `mac.notarize=false`. Do not present it as a
+normal public download. Gatekeeper may quarantine a downloaded copy; signing and
+notarization are a separate release lane. The package registers `.wrl` and `.wrz`
+as editable document types, and `main.js` handles Finder's `open-file` event.
 
 ## Windows beta build (unsigned)
 
@@ -92,7 +123,9 @@ the generated CodeMirror bundle `renderer/vendor/wrl-editor.bundle.js`, and ever
 (`*.test.js`, `_generate.js`) are excluded (see the `build.files` globs in
 `package.json`). The runtime window-icon PNGs (`assets/generated/icons/runtime/`)
 are included; the Windows `.ico` files are wired via `build.win.icon` and
-`build.extraResources` rather than the app `files` globs.
+`build.win.extraResources` rather than the app `files` globs. The Linux desktop
+helper and SVG are similarly confined to `build.linux.extraFiles`; neither is
+copied into the macOS application.
 
 **Native-editor bundle:** `npm run build:win` runs `npm run build:editor` first
 (esbuild → `renderer/vendor/wrl-editor.bundle.js`), so the bundle is always fresh
@@ -123,4 +156,4 @@ framework/bundler was added; only the editor bundle is precompiled.
 See `docs/PLATFORM_NOTES.md` for the platform-sensitive behaviors (optional
 external editor discovery, filename-case handling, userData/window-state paths,
 path separators)
-and the Linux/Windows test matrix.
+and the platform test matrix.
