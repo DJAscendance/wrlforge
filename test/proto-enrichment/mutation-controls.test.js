@@ -39,7 +39,10 @@ test.after(() => {
 function loadMutant(relFile, edits) {
   const abs = path.join(ROOT, relFile);
   const dir = path.dirname(abs);
-  let src = fs.readFileSync(abs, 'utf8');
+  // LF-normalised for the same reason as WD1.7-B's mutantBuild: the anchors
+  // below are written with LF, and a Windows CRLF checkout of this tree
+  // (src/proto-enrichment/** is not pinned to LF) would fail to match them.
+  let src = fs.readFileSync(abs, 'utf8').replace(/\r\n/g, '\n');
   for (const [from, to] of edits) {
     const hits = src.split(from).length - 1;
     assert.equal(hits, 1, `mutation anchor must match exactly once in ${relFile}: ${JSON.stringify(from.slice(0, 70))}`);

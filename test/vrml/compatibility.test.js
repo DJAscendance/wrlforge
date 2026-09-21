@@ -411,10 +411,12 @@ test('the lane adds no runtime dependency', () => {
 });
 
 test('every new source file is covered by the npm run check syntax gate', () => {
-  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
+  // The gate discovers its own targets in scripts/run-checks.js; it used to be
+  // a literal 'node --check <file>' chain in the package.json "check" script.
+  const covered = new Set(require('../../scripts/run-checks.js').discoverSyntaxTargets());
   for (const f of ['src/vrml/compatibility.js', 'test/vrml/compatibility.test.js',
     'test/vrml/compatibility-mutations.test.js',
     'test/proto-enrichment/compatibility-null.test.js']) {
-    assert.ok(pkg.scripts.check.includes(`node --check ${f}`), `${f} must be in the syntax gate`);
+    assert.ok(covered.has(f), `${f} must be in the syntax gate`);
   }
 });
