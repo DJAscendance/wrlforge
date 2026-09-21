@@ -2,9 +2,16 @@
 // OPTIONAL real-world proof for the Mall size contract.
 //
 // "Ragnum Red" is the shipping Cybertown item that exposed the bug: a 72,820 B
-// gzip artifact holding 335,924 B of VRML. Node zlib level 9 re-encodes that
-// text to 87,187 B, so the old predicted-size gate FAILED an item that is
-// comfortably inside the 81,290 B limit with 8,470 B to spare.
+// gzip artifact holding 335,924 B of VRML. A Node zlib level-9 re-encode of that
+// text lands well above the 81,290 B limit, so the old predicted-size gate FAILED
+// an item that is comfortably inside it with 8,470 B to spare.
+//
+// The exact predicted byte count is NOT a portable fact: it depends on the
+// zlib build Node was linked against. The historical Linux baseline produced
+// 87,187 B; macOS arm64 / Node 26 against a shared system zlib produces 87,366 B.
+// Both are far above the limit, which is the only thing the regression needs.
+// So this test asserts the verdict inversion and the validator's agreement with
+// the current runtime's predictor -- never a hard-coded compressed size.
 //
 // The file lives OUTSIDE this repository and is read strictly read-only. CI must
 // never depend on it, so every assertion is skipped when it is absent -- and the
@@ -49,7 +56,7 @@ test('Ragnum Red: the measured 72,820 B artifact PASSES where the prediction fai
   assert.equal(r.artifactBytes, 72820, 'measured bytes of the real shipping artifact');
   assert.equal(r.artifactBytes, raw.length);
   assert.equal(r.textBytes, 335924);
-  assert.equal(r.predictedRepackBytes, 87187, 'the old zlib level-9 prediction');
+  assert.ok(Number.isInteger(r.predictedRepackBytes), 'the zlib level-9 prediction is reported');
   assert.equal(r.artifactMatchesText, true);
   assert.equal(r.sizeAuthority, 'measured');
   assert.equal(r.sizeStatus, 'pass');
@@ -60,7 +67,9 @@ test('Ragnum Red: the measured 72,820 B artifact PASSES where the prediction fai
   assert.ok(r.artifactBytes <= MALL_UPLOAD_MAX_BYTES, 'the real artifact PASSES');
   assert.equal(MALL_UPLOAD_MAX_BYTES - r.artifactBytes, 8470, 'headroom');
 
-  assert.equal(predictedRepackSize(text), 87187);
+  // The validator reports exactly what this runtime's predictor computes --
+  // a build-independent identity, unlike the byte count itself.
+  assert.equal(r.predictedRepackBytes, predictedRepackSize(text));
 });
 
 test('Ragnum Red: editing the buffer makes the shipping artifact stale, not oversized', { skip }, () => {

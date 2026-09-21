@@ -27,9 +27,17 @@ The gate applies to the **actual `.wrl` file that will be uploaded**. WRLForge
 used to recompress the decompressed text with Node zlib level 9 and present that
 prediction as the upload size. Those are different numbers, and the difference
 is large enough to invert the verdict: the shipping "Ragnum Red" item is a
-72,820 B gzip artifact (PASS, 8,470 B of headroom) whose text re-encodes to
-87,187 B under Node zlib (FAIL). The artifact was packed with a stronger
-encoder; WRLForge's prediction said nothing about it.
+72,820 B gzip artifact (PASS, 8,470 B of headroom) whose text re-encodes under
+Node zlib to a size well over the limit (FAIL). The artifact was packed with a
+stronger encoder; WRLForge's prediction said nothing about it.
+
+The predicted number is **not portable**. It depends on the zlib build Node was
+linked against: the historical Linux baseline produced 87,187 B, while macOS
+arm64 / Node 26 against a shared system zlib produces 87,366 B for the same
+text. On every environment validated for this regression the prediction still
+exceeds the 81,290 B limit while the measured artifact passes — that inversion
+is the contract, not any single byte count. Tests therefore assert the
+inversion, never a hard-coded predicted size.
 
 So three facts are reported, and never merged:
 
@@ -117,6 +125,10 @@ text bytes (decompressed)   upload size (measured)   predicted WRLForge repack s
                                     PASS
 Upload size measured from the gzip artifact on disk. Limit 81,290 B.
 ```
+
+Example values, from the Ragnum Red measurement on the historical Linux
+baseline. The first two are fixed properties of that artifact; the third is
+whatever the running Node's zlib produces, so it varies by build (see above).
 
 Stale and unknown states show `-` in the measured tile — a stale artifact is a
 real measurement of a *different* document — plus the state in words:
