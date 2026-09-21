@@ -2,11 +2,11 @@
 // Cross-platform external-editor discovery (Phase 6A).
 //
 // The app opens a plain `.edit.wrl` working copy in an external editor (VSCodium,
-// falling back to VS Code). On Linux the `codium` binary is on PATH; on Windows
-// it installs as `VSCodium.exe` + a `codium.cmd` shim in per-user/per-machine
-// locations that are NOT on PATH by default. This module resolves the right
-// launch command per platform, honouring an explicit override, and returns a
-// clear "not found" result (with what was tried) so the app can tell the user
+// falling back to VS Code). On Linux the CLI is normally on PATH; Windows and
+// macOS GUI installs also live in well-known application locations that are not
+// necessarily represented in a packaged app's PATH. This module resolves the
+// right launch command per platform, honouring an explicit override, and returns
+// a clear "not found" result (with what was tried) so the app can tell the user
 // how to fix it instead of failing silently.
 //
 // Pure/injectable: `platform`, `env`, and an `existsSync` probe are passed in, so
@@ -69,6 +69,24 @@ function windowsCandidates(env) {
   return out;
 }
 
+// Ordered macOS application-bundle CLI candidates. User-local applications are
+// checked before system-wide applications, while VSCodium remains preferred to
+// VS Code. Launching the CLI executable directly preserves the safe argv-array
+// behavior used on Linux and Windows .exe targets.
+function macCandidates(env) {
+  const roots = [];
+  if (env.HOME) roots.push(path.join(env.HOME, 'Applications'));
+  roots.push('/Applications');
+  const out = [];
+  for (const root of roots) {
+    out.push(path.join(root, 'VSCodium.app', 'Contents', 'Resources', 'app', 'bin', 'codium'));
+  }
+  for (const root of roots) {
+    out.push(path.join(root, 'Visual Studio Code.app', 'Contents', 'Resources', 'app', 'bin', 'code'));
+  }
+  return out;
+}
+
 // Resolve the editor launch command. deps: { platform, env, existsSync }.
 // Returns:
 //   { found:true, command, shell, source }   — command is absolute (discovery)
@@ -80,6 +98,7 @@ function resolveEditor(deps = {}) {
   const env = deps.env || process.env;
   const existsSync = deps.existsSync || require('fs').existsSync;
   const isWindows = platform === 'win32';
+  const isMac = platform === 'darwin';
   const tried = [];
 
   // 1. Explicit override (env / settings). Absolute path → check it exists;
@@ -122,7 +141,30 @@ function resolveEditor(deps = {}) {
     };
   }
 
-  // 2. Linux / macOS: codium then code, verified on PATH.
+  if (isMac) {
+    // A packaged macOS app receives a minimal PATH, so probe the CLI first and
+    // then the conventional application-bundle locations for each editor. This
+    // keeps VSCodium ahead of VS Code regardless of how either was installed.
+    const candidates = macCandidates(env);
+    for (const bare of ['codium', 'code']) {
+      const onPath = findOnPath(bare, env, existsSync, false);
+      tried.push(`${bare} (on PATH)`);
+      if (onPath) return { found: true, command: onPath, shell: false, source: 'path' };
+      for (const candidate of candidates.filter((p) => path.basename(p) === bare)) {
+        tried.push(candidate);
+        if (existsSync(candidate)) {
+          return { found: true, command: candidate, shell: false, source: 'install-location' };
+        }
+      }
+    }
+    return {
+      found: false,
+      tried,
+      hint: `VSCodium/VS Code was not found. Install either app, or set ${EDITOR_ENV} to its command-line executable.`,
+    };
+  }
+
+  // 2. Linux: codium then code, verified on PATH.
   for (const bare of ['codium', 'code']) {
     const onPath = findOnPath(bare, env, existsSync, false);
     tried.push(`${bare} (on PATH)`);
@@ -148,4 +190,4 @@ function buildLaunch(resolution, file) {
   return { command: resolution.command, args: [file], options: { ...base, shell: false } };
 }
 
-module.exports = { EDITOR_ENV, resolveEditor, buildLaunch, findOnPath, isCmdShim, windowsCandidates };
+module.exports = { EDITOR_ENV, resolveEditor, buildLaunch, findOnPath, isCmdShim, windowsCandidates, macCandidates };

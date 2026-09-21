@@ -4,6 +4,7 @@
   "note": "System fonts disabled for cross-machine determinism; the SVG \"FORGE\" caption is intentionally not rasterized.",
   "primaryVariant": "cyan",
   "primaryIcon": "assets/generated/icons/windows/wrl-forge-cyan.ico",
+  "macIcon": "assets/generated/icons/macos/icon.png",
   "choosableVariants": [
     "cyan",
     "cyan-transparent",
@@ -75,6 +76,11 @@
       "file": "assets/generated/icons/linux/64x64.png",
       "bytes": 1084,
       "sha256": "205ae2a8b1a4f0281f4970e5b9265c49ca22ada02f7022eb67e6f077f2511fe5"
+    },
+    {
+      "file": "assets/generated/icons/macos/icon.png",
+      "bytes": 46821,
+      "sha256": "fc5d5128c9e034f949392b233d7242968d750be6861c7a1c4ad762a96413c9b5"
     },
     {
       "file": "assets/generated/icons/runtime/about-logo.png",

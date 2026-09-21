@@ -7,7 +7,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
-const { resolveEditor, buildLaunch, isCmdShim, EDITOR_ENV } = require('../../src/editor/editor-locator');
+const { resolveEditor, buildLaunch, isCmdShim, macCandidates, EDITOR_ENV } = require('../../src/editor/editor-locator');
 
 // A fake fs: `existsSync` true only for the given set of paths.
 const fakeExists = (present) => {
@@ -50,6 +50,46 @@ test('linux: path-default codium preserves historical behavior when PATH probe m
   assert.equal(r.found, true);
   assert.equal(r.command, 'codium');
   assert.equal(r.source, 'path-default');
+});
+
+test('macOS: finds VSCodium in the user Applications folder without relying on PATH', () => {
+  const env = { HOME: '/Users/tester', PATH: '/usr/bin:/bin' };
+  const candidate = macCandidates(env)[0];
+  const r = resolveEditor({ platform: 'darwin', env, existsSync: fakeExists([candidate]) });
+  assert.equal(r.found, true);
+  assert.equal(r.command, candidate);
+  assert.equal(r.shell, false);
+  assert.equal(r.source, 'install-location');
+});
+
+test('macOS: finds system-wide VS Code when VSCodium is absent', () => {
+  const env = { HOME: '/Users/tester', PATH: '/usr/bin:/bin' };
+  const candidate = macCandidates(env).at(-1);
+  const r = resolveEditor({ platform: 'darwin', env, existsSync: fakeExists([candidate]) });
+  assert.equal(r.found, true);
+  assert.equal(r.command, candidate);
+  assert.equal(r.source, 'install-location');
+});
+
+test('macOS: PATH command takes precedence over an application bundle', () => {
+  const env = { HOME: '/Users/tester', PATH: '/opt/homebrew/bin:/usr/bin' };
+  const codium = path.join('/opt/homebrew/bin', 'codium');
+  const bundle = macCandidates(env)[0];
+  const r = resolveEditor({ platform: 'darwin', env, existsSync: fakeExists([codium, bundle]) });
+  assert.equal(r.command, codium);
+  assert.equal(r.source, 'path');
+});
+
+test('macOS: reports not-found clearly instead of returning an unresolvable command', () => {
+  const r = resolveEditor({
+    platform: 'darwin',
+    env: { HOME: '/Users/tester', PATH: '/usr/bin:/bin' },
+    existsSync: fakeExists([]),
+  });
+  assert.equal(r.found, false);
+  assert.match(r.hint, /VSCodium\/VS Code/);
+  assert.match(r.hint, new RegExp(EDITOR_ENV));
+  assert.ok(r.tried.some((candidate) => /Applications/.test(candidate)));
 });
 
 // ---- Windows ---------------------------------------------------------------

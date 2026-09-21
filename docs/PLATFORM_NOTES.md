@@ -1,10 +1,10 @@
 # Platform Notes
 
-Linux is the first supported platform and is tested thoroughly, today.
-Windows support is planned in the near future — this document exists so
-reusable core logic stays cross-platform-conscious now rather than picking
-up Linux-only assumptions that have to be unwound later. It records
-platform-sensitive behavior; it does not implement Windows packaging.
+Linux remains the first and most thoroughly tested platform. Windows has a
+validated x64 build. macOS has an initial unsigned Apple Silicon developer-build
+lane for port testing; it is not yet part of the published beta release workflow.
+This document records the platform-sensitive behavior that keeps reusable core
+logic portable.
 
 ## VSCodium executable discovery (cross-platform — Phase 6A)
 
@@ -17,8 +17,11 @@ action). Editor discovery is resolved by `src/editor/editor-locator.js`
 1. **Override** — `editorCommand` in `settings.json` (under Electron's userData)
    or the `WRL_FORGE_EDITOR` env var (an absolute path or a bare PATH command).
 2. **Platform discovery**:
-   - **Linux/macOS**: `codium` then `code`, verified on `PATH` (falls back to the
-     bare `codium` command to preserve the historical behavior).
+   - **Linux**: `codium` then `code`, verified on `PATH` (falls back to the bare
+     `codium` command to preserve the historical behavior).
+   - **macOS**: `codium` then `code` on `PATH`, plus the CLI executables inside
+     VSCodium and Visual Studio Code under `~/Applications` and `/Applications`.
+     This matters because Finder-launched packaged apps receive a minimal PATH.
    - **Windows**: known install locations, existence-checked — VSCodium
      `%LOCALAPPDATA%\Programs\VSCodium\VSCodium.exe` (and `bin\codium.cmd`),
      `%ProgramFiles%`/`%ProgramFiles(x86)%` equivalents, then VS Code
@@ -30,7 +33,7 @@ double-quoted (survives `cmd.exe` re-parsing of paths with spaces/Unicode) — s
 `buildLaunch`. When nothing is found, `launchEditor` returns a structured
 `{ launched:false, reason:'not-found', hint, tried }`; the renderer surfaces a
 clear message ("Set `WRL_FORGE_EDITOR` or `editorCommand`…") instead of failing
-silently. Unit-tested for Linux **and** Windows via injected `platform`/`env`/
+silently. Unit-tested for Linux, macOS, **and** Windows via injected `platform`/`env`/
 `existsSync` (`test/editor/editor-locator.test.js`), and verified on real Windows
 11 (the not-found path, since VSCodium was absent in the test VM — see
 `qa/phase-6a-windows/`).
@@ -148,7 +151,7 @@ Derived from `app.getPath('userData')`, which Electron bases on `package.json`'s
 
 - Linux: `~/.config/wrl-forge`
 - Windows: `%APPDATA%\wrl-forge`
-- macOS: `~/Library/Application Support/wrl-forge` (out of scope — macOS isn't part of the Linux-first/Windows-near-term posture, noted only for completeness)
+- macOS: `~/Library/Application Support/wrl-forge`
 
 `main.js`'s window-state load falls back to the pre-rename `~/.config/vrmlpad` path (see `AGENTS.md` "Rename note") — that fallback is about the old *package name*, not the old *directory path*, and stays correct regardless of platform or any future directory move.
 

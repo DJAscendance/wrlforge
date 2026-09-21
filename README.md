@@ -130,8 +130,13 @@ npm test                # non-visual test suite
 npm run check           # tests + syntax gate
 npm start               # run in development
 npm run dist:linux      # build Linux AppImage + tar.gz (run on Linux)
+npm run dist:mac        # build unsigned Apple Silicon DMG + ZIP (run on macOS)
 npm run dist:windows    # build Windows NSIS + MSI + portable + ZIP (run on Windows)
 ```
+
+The macOS command currently produces an **unsigned Apple Silicon developer
+build** for port testing; it is not yet one of the published public-beta
+downloads. See [docs/BUILD.md](docs/BUILD.md) for the Gatekeeper implications.
 
 See [docs/BUILD.md](docs/BUILD.md) for full build and packaging details, and [CHANGELOG.md](CHANGELOG.md) for release history.
 

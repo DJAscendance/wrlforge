@@ -29,6 +29,7 @@
     "build:win": "node qa/visual-qa/workspace-preflight.js --label=build:win && npm run build:editor && node scripts/build-win.js --win",
     "build:win:portable": "node qa/visual-qa/workspace-preflight.js --label=build:win:portable && npm run build:editor && node scripts/build-win.js --win portable",
     "dist:linux": "npm run build:icons && npm run build:editor && node scripts/build-dist.js --linux --x64",
+    "dist:mac": "npm run build:icons && npm run build:editor && node scripts/build-dist.js --mac --arm64",
     "dist:windows": "npm run build:win",
     "release:checksums": "node scripts/release-checksums.js",
     "check": "node scripts/run-checks.js"
@@ -95,24 +96,7 @@
       "!**/*.test.js",
       "!**/_generate.js"
     ],
-    "extraResources": [
-      {
-        "from": "assets/generated/icons/windows",
-        "to": "icons",
-        "filter": [
-          "*.ico"
-        ]
-      }
-    ],
     "extraFiles": [
-      {
-        "from": "scripts/install-linux-shortcut.sh",
-        "to": "install-linux-shortcut.sh"
-      },
-      {
-        "from": "assets/wrl-forge-cyan.svg",
-        "to": "wrl-forge.svg"
-      },
       {
         "from": "LICENSE",
         "to": "licenses/LICENSE"
@@ -134,6 +118,16 @@
       "category": "Graphics",
       "maintainer": "Ryan Bundy",
       "synopsis": "VRML97 editor and X_ITE preview tool for classic Cybertown .wrl content",
+      "extraFiles": [
+        {
+          "from": "scripts/install-linux-shortcut.sh",
+          "to": "install-linux-shortcut.sh"
+        },
+        {
+          "from": "assets/wrl-forge-cyan.svg",
+          "to": "wrl-forge.svg"
+        }
+      ],
       "target": [
         {
           "target": "AppImage",
@@ -152,8 +146,38 @@
     "appImage": {
       "artifactName": "WRL-Forge-${version}-linux-x64.AppImage"
     },
+    "mac": {
+      "icon": "assets/generated/icons/macos/icon.png",
+      "category": "public.app-category.graphics-design",
+      "identity": null,
+      "hardenedRuntime": false,
+      "notarize": false,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
     "win": {
       "icon": "assets/generated/icons/windows/wrl-forge-cyan.ico",
+      "extraResources": [
+        {
+          "from": "assets/generated/icons/windows",
+          "to": "icons",
+          "filter": [
+            "*.ico"
+          ]
+        }
+      ],
       "target": [
         {
           "target": "nsis",

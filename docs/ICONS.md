@@ -38,6 +38,8 @@ assets/generated/icons/
     wrl-forge-yellow-transparent.ico
   linux/
     16x16.png 24x24.png 32x32.png 48x48.png 64x64.png 128x128.png 256x256.png 512x512.png
+  macos/
+    icon.png          <- 1024px cyan opaque; electron-builder's .icns source
   runtime/
     icon.png          <- 256px cyan opaque; BrowserWindow window/taskbar icon
     about-logo.png    <- 256px cyan transparent; in-app branding
@@ -47,6 +49,8 @@ assets/generated/icons/
 - **ICO sizes:** 16, 24, 32, 48, 64, 128, 256 (multi-image PNG-embedding `.ico`,
   read directly by modern Windows shells and Electron packaging).
 - **PNG sizes:** 16, 24, 32, 48, 64, 128, 256, 512.
+- **macOS source:** one 1024×1024 PNG, converted to the application `.icns` by
+  electron-builder during `npm run dist:mac`.
 
 ### Tooling / dependency
 
@@ -86,8 +90,9 @@ assets/generated/icons/
 | Surface | Wiring |
 |---|---|
 | Dev BrowserWindow / Linux window / Windows dev taskbar | `main.js` → `assets/generated/icons/runtime/icon.png` |
+| Packaged macOS application and DMG | `build.mac.icon` → `assets/generated/icons/macos/icon.png` |
 | Packaged Windows exe, installer, shortcut, taskbar, Add/Remove entry | `build.win.icon` → `assets/generated/icons/windows/wrl-forge-cyan.ico` |
-| All four choosable icons inside the installed app | `build.extraResources` → `resources/icons/wrl-forge-*.ico` |
+| All four choosable icons inside the installed Windows app | `build.win.extraResources` → `resources/icons/wrl-forge-*.ico` |
 
 There is no separate About screen in the app; branding is carried by the window /
 taskbar icon. The transparent `about-logo.png` is generated and available for a

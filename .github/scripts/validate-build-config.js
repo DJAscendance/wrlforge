@@ -56,6 +56,21 @@ function validate(pkg, lock) {
   req(linuxTargets.includes('tar.gz'), 'linux target tar.gz missing');
   req(b.appImage && /WRL-Forge-\$\{version\}-linux-x64\.AppImage/.test(b.appImage.artifactName || ''), 'appImage.artifactName not canonical');
 
+  // --- macOS targets (first supported lane: Apple Silicon, unsigned) ---
+  const macTargets = (b.mac && b.mac.target || []).map((t) => t.target);
+  for (const t of ['dmg', 'zip']) {
+    req(macTargets.includes(t), `macOS target ${t} missing`);
+  }
+  req(b.mac && b.mac.icon === 'assets/generated/icons/macos/icon.png', 'macOS icon path not canonical');
+  req(b.mac && b.mac.identity === null, 'macOS developer build must disable signing identity discovery');
+  req(b.mac && b.mac.hardenedRuntime === false, 'unsigned macOS build must disable hardened runtime');
+  req(b.mac && b.mac.notarize === false, 'macOS developer build must disable notarization');
+  for (const target of (b.mac && b.mac.target || [])) {
+    req(Array.isArray(target.arch) && target.arch.includes('arm64'), `macOS target ${target.target || '<unknown>'} must include arm64`);
+  }
+  req(!b.extraResources, 'platform-specific resources must not be declared globally');
+  req((b.extraFiles || []).every((entry) => !/linux|windows/i.test(entry.from || '')), 'platform-specific files must not be declared globally');
+
   // --- Windows targets ---
   // The Windows ZIP is assembled from win-unpacked in the release workflow (the
   // electron-builder `zip` target collided with the `msi` output name), so only
@@ -67,12 +82,13 @@ function validate(pkg, lock) {
   req(/WRL-Forge-Setup-\$\{version\}-x64\.exe/.test((b.nsis || {}).artifactName || ''), 'nsis.artifactName not canonical');
   req(/WRL-Forge-\$\{version\}-x64\.msi/.test((b.msi || {}).artifactName || ''), 'msi.artifactName not canonical');
   req(/WRL-Forge-Portable-\$\{version\}-x64\.exe/.test((b.portable || {}).artifactName || ''), 'portable.artifactName not canonical');
+  req((b.win && b.win.extraResources || []).some((entry) => entry.from === 'assets/generated/icons/windows'), 'Windows alternate icons missing from win.extraResources');
 
   // --- global artifactName (covers AppImage/tar.gz/zip via ${os}) ---
   req(/WRL-Forge-\$\{version\}-\$\{os\}-\$\{arch\}\.\$\{ext\}/.test(b.artifactName || ''), 'global build.artifactName not canonical');
 
   // --- required scripts ---
-  for (const s of ['dist:linux', 'dist:windows', 'release:checksums', 'build:icons', 'build:editor', 'check']) {
+  for (const s of ['dist:linux', 'dist:mac', 'dist:windows', 'release:checksums', 'build:icons', 'build:editor', 'check']) {
     req(pkg.scripts && pkg.scripts[s], `npm script "${s}" missing`);
   }
 
@@ -90,5 +106,5 @@ if (require.main === module) {
     for (const p of problems) console.error('  - ' + p);
     process.exit(1);
   }
-  console.log(`Packaging config OK: version ${pkg.version} (package.json authoritative, package-lock in sync), metadata, Linux + Windows targets, canonical artifact names, and release scripts all present.`);
+  console.log(`Packaging config OK: version ${pkg.version} (package.json authoritative, package-lock in sync), metadata, Linux + macOS + Windows targets, canonical artifact names, and release scripts all present.`);
 }
