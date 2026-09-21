@@ -17,6 +17,20 @@ const vm = require('node:vm');
 const ROOT = path.resolve(__dirname, '..', '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
+// The Mall size half of an IPC payload, in its measured-and-passing shape.
+// Tests that care about a specific size state override the relevant fields.
+const SIZE_PAYLOAD = {
+  textBytes: 1,
+  artifactBytes: 1,
+  artifactIsGzip: true,
+  artifactMatchesText: true,
+  predictedRepackBytes: 1,
+  sizeAuthority: 'measured',
+  sizeStatus: 'pass',
+  sizeReason: 'measured',
+  mallUploadMaxBytes: 81290,
+};
+
 // ---- minimal DOM stub ------------------------------------------------------
 
 function makeEl(tag) {
@@ -39,7 +53,14 @@ function makeEl(tag) {
       return {
         add(c) { set.add(c); },
         remove(c) { set.delete(c); },
-        toggle(c) { if (set.has(c)) set.delete(c); else set.add(c); },
+        // The real DOM's second argument FORCES the state. The stub used to
+        // ignore it, so `toggle('over', false)` added the class -- a stub that
+        // disagrees with the browser hides exactly the bugs it should catch.
+        toggle(c, force) {
+          const on = force === undefined ? !set.has(c) : !!force;
+          if (on) set.add(c); else set.delete(c);
+          return on;
+        },
         contains(c) { return set.has(c); },
       };
     },
@@ -196,7 +217,7 @@ test('Mall Ctrl+R dispatches Repack; Ctrl+E dispatches Open in Native Editor', a
   const openBtn = ctx.document.elementsById.openBtn;
   ctx.__wrlForgeApplyOpen({
     mallPath: '/tmp/x.wrl', editFile: '/tmp/x.edit.wrl',
-    rawBytes: 1, gzipBytes: 1,
+    ...SIZE_PAYLOAD,
     results: [],
   });
 
@@ -220,7 +241,7 @@ test('Mall keyboard shortcuts do not fire while a text input has focus', async (
   await flushMicrotasks(ctx);
   ctx.__wrlForgeApplyOpen({
     mallPath: '/tmp/x.wrl', editFile: '/tmp/x.edit.wrl',
-    rawBytes: 1, gzipBytes: 1,
+    ...SIZE_PAYLOAD,
     results: [],
   });
 
@@ -240,7 +261,7 @@ test('Mall keyboard shortcuts do not fire while a modal-backdrop.show is mounted
   await flushMicrotasks(ctx);
   ctx.__wrlForgeApplyOpen({
     mallPath: '/tmp/x.wrl', editFile: '/tmp/x.edit.wrl',
-    rawBytes: 1, gzipBytes: 1,
+    ...SIZE_PAYLOAD,
     results: [],
   });
 
@@ -370,8 +391,9 @@ function makeBrowserContext() {
     empty: makeEl('div'), loaded: makeEl('div'),
     mallPath: makeEl('span'), editFile: makeEl('span'),
     revealMall: makeEl('a'), revealEdit: makeEl('a'),
-    rawSize: makeEl('span'), gzSize: makeEl('span'),
-    rawStat: makeEl('div'), gzStat: makeEl('div'),
+    textSize: makeEl('div'), artifactSize: makeEl('div'), predictedSize: makeEl('div'),
+    sizeVerdict: makeEl('div'), sizeNote: makeEl('div'),
+    textStat: makeEl('div'), artifactStat: makeEl('div'), predictedStat: makeEl('div'),
     results: makeEl('div'),
     editorMsg: makeEl('div'),
     __modalBackdrop: null,
@@ -390,8 +412,8 @@ function makeBrowserContext() {
   sandbox.__bridgeCalls = bridgeCalls;
   const bridgeStub = {
     openMall: () => { bridgeCalls.openMall += 1; return Promise.resolve({}); },
-    repack: () => { bridgeCalls.repack += 1; return Promise.resolve({ rawBytes: 1, gzipBytes: 1, results: [] }); },
-    check: () => { bridgeCalls.check += 1; return Promise.resolve({ rawBytes: 1, gzipBytes: 1, results: [] }); },
+    repack: () => { bridgeCalls.repack += 1; return Promise.resolve({ ...SIZE_PAYLOAD, results: [] }); },
+    check: () => { bridgeCalls.check += 1; return Promise.resolve({ ...SIZE_PAYLOAD, results: [] }); },
     revealInFolder: () => Promise.resolve(),
     goto: (page) => { bridgeCalls.goto += 1; return Promise.resolve({ page }); },
     openInEditor: () => Promise.resolve({ editorStatus: null }),
@@ -562,4 +584,130 @@ test('source: Mall toolbar buttons retain their existing aria-label when present
   // None of them carry aria-label (visible text is the accessible name).
   assert.doesNotMatch(html, /id="openBtn"[^>]*aria-label=/, 'openBtn must not double its accessible name');
   assert.doesNotMatch(html, /id="repackBtn"[^>]*aria-label=/, 'repackBtn must not double its accessible name');
+});
+// ---- Mall size display: measured / predicted / stale / unknown --------------
+//
+// Lane A (Mall artifact size truth). The renderer must never present a
+// PREDICTED repack size as the size of the file that will be uploaded, and the
+// four size states must be distinguishable in WORDS, not only by colour --
+// otherwise "not verified" reaches assistive technology as a silent pass.
+
+// Drive renderResults through the real renderer with one size payload.
+async function renderSize(over) {
+  const ctx = makeBrowserContext();
+  ctx.sessionStorage.setItem('wrlforge.nav.returnFocusId', '');
+  loadModule(ctx, 'renderer/renderer.js');
+  await flushMicrotasks(ctx);
+  const data = {
+    mallPath: '/tmp/x.wrl', editFile: '/tmp/x.edit.wrl',
+    ...SIZE_PAYLOAD, results: [], ...over,
+  };
+  ctx.__wrlForgeApplyOpen(data);
+  const el = ctx.document.elementsById;
+  return {
+    ctx,
+    textSize: el.textSize.textContent,
+    artifactSize: el.artifactSize.textContent,
+    predictedSize: el.predictedSize.textContent,
+    verdict: el.sizeVerdict.textContent,
+    note: el.sizeNote.textContent,
+    stat: el.artifactStat,
+  };
+}
+
+test('measured state shows the artifact bytes, the verdict, and the prediction separately', async () => {
+  const r = await renderSize({
+    textBytes: 335924, artifactBytes: 72820, predictedRepackBytes: 87187,
+    sizeStatus: 'pass', sizeReason: 'measured', sizeAuthority: 'measured',
+  });
+  assert.equal(r.artifactSize, (72820).toLocaleString());
+  assert.equal(r.predictedSize, (87187).toLocaleString());
+  assert.equal(r.textSize, (335924).toLocaleString());
+  assert.equal(r.verdict, 'PASS');
+  assert.notEqual(r.artifactSize, r.predictedSize,
+    'the measured artifact and the predicted repack are different numbers');
+  assert.match(r.note, /measured/i);
+  assert.match(r.note, /81,290/, 'the limit is shown with a measured verdict');
+  assert.equal(r.stat._classes.has('size-pass'), true);
+});
+
+test('an over-limit measured artifact reads FAIL, in words and in class', async () => {
+  const r = await renderSize({ artifactBytes: 81291, sizeStatus: 'fail' });
+  assert.equal(r.verdict, 'FAIL');
+  assert.equal(r.stat._classes.has('size-fail'), true);
+  assert.equal(r.stat._classes.has('over'), true);
+});
+
+test('stale state says NOT the size -- no number, no PASS, prediction labelled', async () => {
+  const r = await renderSize({
+    artifactBytes: 72820, predictedRepackBytes: 87187,
+    artifactMatchesText: false, sizeStatus: 'stale',
+    sizeReason: 'stale-artifact', sizeAuthority: 'none',
+  });
+  assert.equal(r.verdict, 'STALE');
+  assert.equal(r.artifactSize, '-',
+    'a stale artifact measures a DIFFERENT document; its bytes are not this upload size');
+  assert.equal(r.predictedSize, (87187).toLocaleString(), 'the prediction is still offered');
+  assert.match(r.note, /not verified/i);
+  assert.match(r.note, /stale/i);
+  assert.match(r.note, /prediction, not a measurement/i);
+  assert.equal(/\bPASS\b/.test(r.verdict), false);
+  assert.equal(r.stat._classes.has('size-stale'), true);
+  assert.equal(r.stat._classes.has('over'), false);
+});
+
+test('unknown state says no gzip artifact exists and shows only a prediction', async () => {
+  const r = await renderSize({
+    artifactBytes: null, artifactIsGzip: false, artifactMatchesText: null,
+    predictedRepackBytes: 87187, sizeStatus: 'unknown',
+    sizeReason: 'no-gzip-artifact', sizeAuthority: 'none',
+  });
+  assert.equal(r.verdict, 'NOT VERIFIED');
+  assert.equal(r.artifactSize, '-');
+  assert.equal(r.predictedSize, (87187).toLocaleString());
+  assert.match(r.note, /no gzip upload artifact exists/i);
+  assert.equal(r.stat._classes.has('size-unknown'), true);
+});
+
+test('the size tile carries its state in an accessible name, not only in colour', async () => {
+  const measured = await renderSize({ artifactBytes: 72820, sizeStatus: 'pass' });
+  assert.match(measured.stat.getAttribute('aria-label'), /72,820 bytes/);
+  assert.match(measured.stat.getAttribute('aria-label'), /limit 81,290 bytes/);
+  assert.match(measured.stat.getAttribute('aria-label'), /PASS/);
+
+  const stale = await renderSize({ sizeStatus: 'stale', sizeReason: 'stale-artifact' });
+  assert.match(stale.stat.getAttribute('aria-label'), /STALE/);
+  assert.equal(/\bPASS\b/.test(stale.stat.getAttribute('aria-label')), false);
+
+  // aria-live on the note means a state change is announced, not just repainted.
+  const html = read('renderer/index.html');
+  assert.match(html, /id="sizeNote"[^>]*role="status"[^>]*aria-live="polite"/);
+});
+
+test('the size check row renders STALE / NOT VERIFIED instead of a PASS or FAIL badge', async () => {
+  const rows = (status) => ([{
+    name: 'Upload size within 81,290 B', pass: null, detail: 'not verified', severity: 'info', status,
+  }]);
+
+  for (const [status, badge] of [['stale', 'STALE'], ['unknown', 'NOT VERIFIED']]) {
+    const r = await renderSize({ sizeStatus: status, results: rows(status) });
+    const row = r.ctx.document.elementsById.results.children[0];
+    assert.match(row.innerHTML, new RegExp(`<span class="badge">${badge}</span>`),
+      `a ${status} size row must not be badged PASS or FAIL`);
+    assert.match(row.className, new RegExp(`check ${status} info`));
+  }
+});
+
+test('ordinary pass/fail check rows are unchanged', async () => {
+  const r = await renderSize({
+    results: [
+      { name: 'WorldInfo present', pass: true, detail: '', severity: 'hard' },
+      { name: 'Every USE has a matching DEF', pass: false, detail: 'missing: X', severity: 'hard' },
+    ],
+  });
+  const [ok, bad] = r.ctx.document.elementsById.results.children;
+  assert.match(ok.innerHTML, /<span class="badge">PASS<\/span>/);
+  assert.equal(ok.className, 'check pass hard');
+  assert.match(bad.innerHTML, /<span class="badge">FAIL<\/span>/);
+  assert.equal(bad.className, 'check fail hard');
 });

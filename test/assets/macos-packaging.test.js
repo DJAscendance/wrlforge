@@ -16,8 +16,11 @@ test('macOS packaging is an unsigned Apple Silicon DMG + ZIP build', () => {
   assert.equal(mac.hardenedRuntime, false);
   assert.equal(mac.notarize, false);
   assert.equal(mac.category, 'public.app-category.graphics-design');
+  // Only the configured path is asserted here. The generated file's existence,
+  // decode, 1024px dimensions and deterministic regeneration are owned by
+  // test/assets/icon-generation.test.js, which runs them alongside the generator
+  // that rebuilds that tree.
   assert.equal(mac.icon, 'assets/generated/icons/macos/icon.png');
-  assert.ok(fs.existsSync(path.join(ROOT, mac.icon)), 'configured macOS icon is missing');
 
   const targets = new Map(mac.target.map((entry) => [entry.target, entry.arch]));
   assert.deepEqual(targets.get('dmg'), ['arm64']);

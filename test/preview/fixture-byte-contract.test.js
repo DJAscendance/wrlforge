@@ -11,6 +11,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const REPO = path.join(__dirname, '..', '..');
 const FX = path.join(REPO, 'test', 'fixtures');
@@ -42,4 +43,41 @@ test('root .gitattributes marks the fixture trees as byte-exact (-text)', () => 
   const ga = fs.readFileSync(path.join(REPO, '.gitattributes'), 'utf8');
   assert.match(ga, /test\/fixtures\/\*\*\s+-text/, 'test/fixtures/** must be -text');
   assert.match(ga, /spikes\/xite-mall-fit\/fixtures\/\*\*\s+-text/, 'spikes fixtures must be -text');
+});
+
+// The gzip-encoding twins are the oracle for the Mall upload-size gate: they
+// prove that identical VRML text can be a legal gzip `.wrl` on either side of
+// the 81,290 B limit. Their VALUE is their exact byte count, so drift is not a
+// cosmetic problem -- a regenerated or EOL-rewritten fixture would silently stop
+// straddling the limit and the size test would pass while proving nothing.
+const GZIP_TWINS = [
+  { rel: 'gzip-encodings/twin.plain.wrl', bytes: 81753, gzip: false,
+    sha256: '309ccdcb09dfa1ad10a5da6b0076de3200f247d1c978d59c1c2b3789a5ecd120' },
+  { rel: 'gzip-encodings/twin-small.wrl.gz', bytes: 451, gzip: true,
+    sha256: 'aa23dbbc3516a26e0082b095fbe09eaa6c17145dacc482e533b83f73d659f389' },
+  { rel: 'gzip-encodings/twin-large.wrl.gz', bytes: 81781, gzip: true,
+    sha256: '960c2a616a982fcfe682203c78fbb82aaf12f434dc3c49cf184601e220692771' },
+];
+
+test('gzip-encoding twin fixtures are byte-identical on every platform', () => {
+  for (const fx of GZIP_TWINS) {
+    const buf = fs.readFileSync(path.join(FX, fx.rel));
+    assert.equal(buf.length, fx.bytes, `${fx.rel} byte count drifted`);
+    assert.equal(crypto.createHash('sha256').update(buf).digest('hex'), fx.sha256,
+      `${fx.rel} content drifted -- these bytes are the oracle, not a derived artifact`);
+    assert.equal(isGzip(buf), fx.gzip, `${fx.rel} gzip-ness changed`);
+  }
+});
+
+test('gzip-encoding twins still straddle the Mall upload limit', () => {
+  const { MALL_UPLOAD_MAX_BYTES } = require('../../validator');
+  const [, small, large] = GZIP_TWINS;
+  assert.ok(small.bytes <= MALL_UPLOAD_MAX_BYTES, 'the small twin must fit the limit');
+  assert.ok(large.bytes > MALL_UPLOAD_MAX_BYTES, 'the large twin must exceed the limit');
+});
+
+test('the plain gzip-encoding twin is LF-only (no autocrlf rewrite)', () => {
+  const buf = fs.readFileSync(path.join(FX, 'gzip-encodings/twin.plain.wrl'));
+  assert.equal(hasCR(buf), false,
+    'a CR byte means autocrlf converted it and the gzip twins no longer decompress to it');
 });

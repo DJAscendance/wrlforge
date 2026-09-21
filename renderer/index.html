@@ -58,6 +58,14 @@
   .sizes .stat { background: #111; border-radius: 6px; padding: 8px 14px; }
   .sizes .stat .n { font-size: 18px; font-weight: 600; }
   .sizes .stat.over .n { color: #ff6161; }
+  /* Status is carried in words as well as colour: `#sizeVerdict` always spells
+     out PASS / FAIL / STALE / NOT VERIFIED, so the state survives greyscale,
+     high-contrast mode, and a screen reader. */
+  .sizes .stat .verdict { font-size: 11px; font-weight: 700; letter-spacing: .04em; margin-top: 3px; }
+  .sizes .stat.size-pass .verdict { color: #6ee787; }
+  .sizes .stat.size-fail .verdict { color: #ff6161; }
+  .sizes .stat.size-stale .verdict, .sizes .stat.size-unknown .verdict { color: #e3b341; }
+  .size-note { color: #aaa; font-size: 12px; margin: -4px 0 10px; }
   .sizes .stat .l { color: #888; font-size: 11px; text-transform: uppercase; }
 
   /* Preview + report two-column layout, collapsing on narrow windows. */
@@ -97,6 +105,10 @@
   .check.fail .badge::before { content: ""; }
   .check.fail .badge { color: #ff8b3d; }
   .check.fail.hard .badge { color: #ff6161; }
+  /* The size row's two non-verdict states. They are neither pass nor fail, so
+     they get their own amber treatment and a wider badge for the longer word. */
+  .check.stale, .check.unknown { background: #3a2f10; }
+  .check.stale .badge, .check.unknown .badge { color: #ffce6a; width: auto; min-width: 46px; }
   .check .detail { color: #999; }
   .rulelist .check .badge { width: 62px; }
   .warn { background: #3a2f10; color: #ffce6a; border-radius: 4px; padding: 6px 10px; margin: 4px 0; font-size: 12.5px; }
@@ -140,10 +152,19 @@
       <div><span class="label">editing:</span><span id="editFile"></span> <a href="#" id="revealEdit" class="link">reveal</a> <span class="hint">(working copy — edit here or in an external editor)</span></div>
     </div>
 
+    <!-- Three separate numbers, never merged into one "size". Each tile names
+         where its value came from so a prediction can never be read as a
+         measurement of the file that will actually be uploaded. -->
     <div class="sizes">
-      <div class="stat" id="rawStat"><div class="n" id="rawSize">-</div><div class="l">raw bytes</div></div>
-      <div class="stat" id="gzStat"><div class="n" id="gzSize">-</div><div class="l">gzip bytes (mall cap 80KB)</div></div>
+      <div class="stat" id="textStat"><div class="n" id="textSize">-</div><div class="l">text bytes (decompressed)</div></div>
+      <div class="stat" id="artifactStat">
+        <div class="n" id="artifactSize">-</div>
+        <div class="l">upload size (measured)</div>
+        <div class="verdict" id="sizeVerdict">-</div>
+      </div>
+      <div class="stat" id="predictedStat"><div class="n" id="predictedSize">-</div><div class="l">predicted WRLForge repack size</div></div>
     </div>
+    <div class="size-note" id="sizeNote" role="status" aria-live="polite"></div>
 
     <div class="workspace">
       <div class="preview-col">

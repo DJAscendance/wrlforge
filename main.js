@@ -8,6 +8,7 @@ const { validate } = require('./validator');
 const { isGzip, editPathFor } = require('./src/files/vrml-file');
 const { backupPath } = require('./src/files/backups');
 const { readWrlSource } = require('./src/preview/wrl-source');
+const { measureArtifact, mallPayload } = require('./src/mall/artifact-size');
 const { fileDirUrl } = require('./src/preview/texture-base');
 const { isBlockedPreviewUrl, scanRemoteUrls } = require('./src/preview/url-policy');
 const { detectPrimaries } = require('./src/world-project/project-loader');
@@ -1090,13 +1091,22 @@ function openMallFile(mallPath) {
   // action below.
   const info = openMallItem(mallPath, mallEditDeps);
   currentSession = { mallPath, editFile: info.editFile };
-  return {
+  // `info.text` came out of THIS artifact, so identity is already proven here:
+  // the artifact's own byte count is the authoritative upload size, and
+  // `info.rawBytes` is that count measured off disk -- not recomputed from text.
+  const sizeContext = info.wasGzipped
+    ? { artifactBytes: info.rawBytes, artifactIsGzip: true, artifactMatchesText: true }
+    : { artifactBytes: null, artifactIsGzip: false, artifactMatchesText: null };
+  // mallPayload refuses to let validator output shadow a measured file fact --
+  // the exact defect that used to drop `rawBytes` on the floor here.
+  return mallPayload({
     mallPath: info.mallPath,
     editFile: info.editFile,
     wasGzipped: info.wasGzipped,
-    rawBytes: info.rawBytes,
-    ...validate(info.text),
-  };
+    // Bytes of the file actually on disk (gzip bytes for a packed item), kept
+    // distinct from the validator's textBytes/artifactBytes.
+    sourceFileBytes: info.rawBytes,
+  }, validate(info.text, sizeContext));
 }
 
 // Resolve the external editor per platform (VSCodium → VS Code), honouring a
@@ -1172,14 +1182,17 @@ ipcMain.handle('preview:load', async (_evt, role) => {
 // without repacking -- used for a live "Check" button while editing.
 ipcMain.handle('mall:check', async (_evt, editFile) => {
   const text = fs.readFileSync(editFile, 'utf8');
-  return validate(text);
+  // Measure the REAL mall artifact and prove whether it still decompresses to
+  // the working copy being checked. Without this the check would report the
+  // size of a file WRLForge has not written yet.
+  const mallPath = currentSession ? currentSession.mallPath : null;
+  return validate(text, measureArtifact(mallPath, text));
 });
 
 // Repack the edited plain text back into the mall .wrl, gzip by default
 // (matching the mall upload convention), backing up whatever was there.
 ipcMain.handle('mall:repack', async (_evt, { mallPath, editFile, asGzip }) => {
   const text = fs.readFileSync(editFile, 'utf8');
-  const result = validate(text);
 
   if (fs.existsSync(mallPath)) {
     fs.copyFileSync(mallPath, backupPath(mallPath));
@@ -1188,7 +1201,12 @@ ipcMain.handle('mall:repack', async (_evt, { mallPath, editFile, asGzip }) => {
   const out = asGzip ? zlib.gzipSync(Buffer.from(text, 'utf8'), { level: 9 }) : Buffer.from(text, 'utf8');
   fs.writeFileSync(mallPath, out);
 
-  return { mallPath, writtenBytes: out.length, ...result };
+  // Validate AFTER the write, against the file that now exists. The pre-write
+  // prediction is not the artifact's size -- `measureArtifact` re-reads the
+  // bytes actually on disk and re-proves the round trip.
+  const result = validate(text, measureArtifact(mallPath, text));
+
+  return mallPayload({ mallPath, writtenBytes: out.length }, result);
 });
 
 ipcMain.handle('shell:revealInFolder', async (_evt, filePath) => {

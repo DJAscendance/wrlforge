@@ -19,9 +19,16 @@ const ROOT = path.join(__dirname, '..');
 // Explicit top-level test files (order preserved for stable output).
 const EXPLICIT = [
   'test/backups.test.js',
+  'test/build-config.test.js',
+  'test/run-checks.test.js',
   'test/validator.test.js',
+  'test/mall-size-truth.test.js',
+  // Optional real-artifact proof: every test inside skips when the external
+  // item repository is absent, so this never makes the suite depend on it.
+  'test/mall-size-ragnum.test.js',
   'test/vrml-file.test.js',
   'test/window-state.test.js',
+  'test/portability.test.js',
   'test/product-posture.test.js',
 ];
 
