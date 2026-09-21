@@ -6,9 +6,10 @@ const zlib = require('zlib');
 const { spawn } = require('child_process');
 const { validate } = require('./validator');
 const { isGzip, editPathFor } = require('./src/files/vrml-file');
-const { backupPath } = require('./src/files/backups');
 const { readWrlSource } = require('./src/preview/wrl-source');
 const { measureArtifact, mallPayload } = require('./src/mall/artifact-size');
+const { repackMall } = require('./src/mall/repack');
+const { activeRepackPaths } = require('./src/mall/repack-paths');
 const { fileDirUrl } = require('./src/preview/texture-base');
 const { isBlockedPreviewUrl, scanRemoteUrls } = require('./src/preview/url-policy');
 const { detectPrimaries } = require('./src/world-project/project-loader');
@@ -1190,23 +1191,28 @@ ipcMain.handle('mall:check', async (_evt, editFile) => {
 });
 
 // Repack the edited plain text back into the mall .wrl, gzip by default
-// (matching the mall upload convention), backing up whatever was there.
-ipcMain.handle('mall:repack', async (_evt, { mallPath, editFile, asGzip }) => {
+// (matching the mall upload convention).
+//
+// Lane B B2: this handler is now THIN. It resolves the paths it owns and hands
+// the write to `repackMall`, which runs the shared safe-write discipline --
+// unchanged-gzip preservation, verified in-memory candidate, the 81,290 B
+// pre-write ceiling, then temp + fsync + read-back + backup + atomic rename.
+// The old direct `fs.writeFileSync(mallPath, out)` (and its own
+// backup-before-write) are gone: nothing outside file-io.js writes a real Mall
+// artifact any more.
+//
+// Paths are main-owned, with no fallback. Repack REQUIRES an active
+// `currentSession`, and reads/writes only the paths that session holds. The
+// renderer still sends `mallPath`/`editFile` for wire compatibility (no preload
+// change), and they are deliberately not destructured here: only `asGzip` may
+// influence this operation. With no session open the request is rejected before
+// anything is read, backed up, encoded or written -- see
+// src/mall/repack-paths.js for why the old `? :` fallback was a defect.
+ipcMain.handle('mall:repack', async (_evt, { asGzip }) => {
+  const { mallPath, editFile } = activeRepackPaths(currentSession);
   const text = fs.readFileSync(editFile, 'utf8');
 
-  if (fs.existsSync(mallPath)) {
-    fs.copyFileSync(mallPath, backupPath(mallPath));
-  }
-
-  const out = asGzip ? zlib.gzipSync(Buffer.from(text, 'utf8'), { level: 9 }) : Buffer.from(text, 'utf8');
-  fs.writeFileSync(mallPath, out);
-
-  // Validate AFTER the write, against the file that now exists. The pre-write
-  // prediction is not the artifact's size -- `measureArtifact` re-reads the
-  // bytes actually on disk and re-proves the round trip.
-  const result = validate(text, measureArtifact(mallPath, text));
-
-  return mallPayload({ mallPath, writtenBytes: out.length }, result);
+  return repackMall({ mallPath, text, asGzip });
 });
 
 ipcMain.handle('shell:revealInFolder', async (_evt, filePath) => {

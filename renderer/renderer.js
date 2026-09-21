@@ -85,10 +85,42 @@ function renderSizes(data) {
   els.sizeNote.textContent = note;
 }
 
+// Lane B B2 -- the save outcome, rendered in the EXISTING results list rather
+// than a new modal or panel. An ESIZE refusal is the case that matters: it must
+// print the verified pre-write CANDIDATE size, the exact limit, the overage,
+// and the fact that the existing file was not changed. The candidate is never
+// called the measured upload artifact -- Lane A owns that wording, and the
+// measured tile above still describes the file that really is on disk.
+function saveOutcomeRow(data) {
+  if (!data || data.errorCode == null) {
+    // A preserved no-op is worth stating: "nothing was written" is a result,
+    // not a silence.
+    if (data && data.saved === true && data.preserved === true) {
+      return { name: 'Repack', status: 'pass', severity: 'info', detail: data.message };
+    }
+    return null;
+  }
+  const n = (v) => Number(v).toLocaleString();
+  let detail = data.message || 'Not saved.';
+  if (data.errorCode === 'ESIZE' && data.candidateBytes != null) {
+    detail = `verified pre-write candidate ${n(data.candidateBytes)} B, over the `
+      + `${n(data.maxBytes)} B limit by ${n(data.overBytes)} B — the existing file was not changed`;
+  }
+  return { name: `Repack refused (${data.errorCode})`, status: 'fail', severity: 'hard', detail };
+}
+
 function renderResults(data) {
   renderSizes(data);
 
   els.results.innerHTML = '';
+  const outcome = saveOutcomeRow(data);
+  if (outcome) {
+    const div = document.createElement('div');
+    div.className = `check ${outcome.status} ${outcome.severity}`;
+    div.innerHTML = `<span class="badge">${outcome.status === 'pass' ? 'PASS' : 'FAIL'}</span>`
+      + `<span>${outcome.name}</span><span class="detail">— ${outcome.detail}</span>`;
+    els.results.appendChild(div);
+  }
   for (const r of data.results) {
     // Suppress the validator's advisory, untransformed text-bbox placement line
     // when the authoritative transform-aware X_ITE bounds drive the Fit panel
@@ -176,12 +208,35 @@ els.checkBtn.addEventListener('click', async () => {
 // Ctrl+E keyboard shortcuts share ONE action path so the shortcut is never
 // an alternative code route. Each handler is a small named function the
 // listener dispatches into.
+// Lane B B2: the button now reports what actually happened to the file. The
+// old code said "Saved ✓" unconditionally, which would announce success for a
+// refused or failed write -- the one message a save button must never show
+// when nothing was written.
+//
+// Three outcomes, three labels:
+//   preserved   -> 'Already saved ✓'  the existing gzip artifact already
+//                  matched this text, so it was deliberately NOT rewritten.
+//   real write  -> 'Saved ✓'
+//   refused or  -> 'Not saved'        the file on disk is unchanged; the
+//   failed                            reason is spelled out in the results.
+function repackButtonLabel(data) {
+  if (!data || data.saved !== true) return 'Not saved';
+  return data.preserved === true ? 'Already saved ✓' : 'Saved ✓';
+}
+
 async function doRepack() {
   if (!state) return;
   const asGzip = els.toggleGzip.checked;
-  const data = await window.vrmlpad.repack(state.mallPath, state.editFile, asGzip);
-  renderResults(data);
-  els.repackBtn.textContent = 'Saved ✓';
+  let data = null;
+  try {
+    data = await window.vrmlpad.repack(state.mallPath, state.editFile, asGzip);
+  } catch (e) {
+    // An IPC-level failure is still "nothing was written" from the user's
+    // point of view -- never fall through to the success label.
+    data = null;
+  }
+  if (data) renderResults(data);
+  els.repackBtn.textContent = repackButtonLabel(data);
   setTimeout(() => { els.repackBtn.textContent = 'Repack & Save to mall .wrl'; }, 1500);
 }
 

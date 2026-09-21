@@ -30,6 +30,24 @@
 //   * FAIL CLOSED. Identity must be PROVEN by an exact decompressed-text
 //     comparison. Anything unprovable -- missing, plain, corrupt, unreadable or
 //     simply different -- falls through to the normal encode-and-write path.
+//
+// PRE-WRITE CANDIDATE GUARDS (Lane B, B2). Two further OPT-IN options let a
+// caller prove things about the encoded bytes BEFORE the destination is touched
+// at all -- no temp, no backup, no rename:
+//   * `verifyCandidate` -- the encoded buffer must decode back to exactly the
+//     requested text, or ESAVE/EVERIFY is raised with nothing written. This does
+//     NOT replace the existing post-temp read-back; the first check proves the
+//     ENCODER, the second proves the BYTES THAT REACHED THE DISK.
+//   * `maxBytes` -- an exact ceiling on the encoded candidate's length. Over it,
+//     ESIZE is raised before any mutation and the destination keeps its bytes.
+//
+// Both default to off, so every existing caller is byte-for-byte unchanged.
+// `maxBytes` implies `verifyCandidate`: refusing a candidate on its size is only
+// meaningful once that candidate is known to be the right document.
+//
+// This module stays PROFILE-NEUTRAL. `maxBytes` is a number the caller supplies;
+// file-io does not know what a Mall upload limit is and never imports
+// validator.js. The Mall's 81,290 B ceiling is passed in by src/mall/repack.js.
 
 const nodeFs = require('fs');
 const nodeZlib = require('zlib');
@@ -154,6 +172,8 @@ function wouldPreserve({ filePath, text, format }, deps) {
 //   2. refuse if the destination changed under us (unless allowOverwrite)
 //  2a. OPT-IN: if the destination already IS the needed gzip artifact, no-op
 //   1. encode text (gzip when the target format is gzip)
+//  1a. OPT-IN: verify the in-memory candidate decodes back to exactly `text`
+//  1b. OPT-IN: refuse (ESIZE) a candidate longer than `maxBytes`
 //   3. write a temp sibling, flushing to disk (fsync) and closing it
 //   4. VERIFY the temp reopens and decodes back to exactly `text`
 //   5. back up the prior file to a timestamped, collision-free name
@@ -167,7 +187,16 @@ function wouldPreserve({ filePath, text, format }, deps) {
 //
 // `preserveExistingGzip` (default false) opts into step 2a. Only the native
 // Save path sets it; Save As deliberately does not (see the header note).
-function safeSave({ filePath, text, format, expectedStat, allowOverwrite, preserveExistingGzip }, deps) {
+//
+// `verifyCandidate` (default false) opts into step 1a and `maxBytes` (default
+// null = no ceiling) into step 1b; both are Lane B B2 and used by the Mall
+// repack path. Steps 1a/1b run AFTER preservation on purpose: a save that needs
+// no write has no candidate to judge, so an existing well-packed artifact can
+// never be refused for the size a hypothetical re-encode would have had.
+function safeSave({
+  filePath, text, format, expectedStat, allowOverwrite, preserveExistingGzip,
+  verifyCandidate = false, maxBytes = null,
+}, deps) {
   const d = resolveDeps(deps);
   const fmt = format || FORMAT.PLAIN;
 
@@ -196,6 +225,36 @@ function safeSave({ filePath, text, format, expectedStat, allowOverwrite, preser
 
   // (1) encode.
   const bytes = encodeForSave(text, fmt, deps);
+
+  // A size ceiling is only meaningful once the candidate is known to be the
+  // right document, so asking for one asks for the verification too.
+  const wantVerify = verifyCandidate || maxBytes != null;
+
+  // (1a) prove the ENCODER before anything on disk moves. The post-temp
+  // read-back below still runs and proves a different thing -- the bytes that
+  // actually reached the filesystem. Neither check substitutes for the other.
+  if (wantVerify) {
+    let decoded;
+    try {
+      decoded = decodeBytes(bytes, fmt, deps);
+    } catch (err) {
+      throw taggedError('EVERIFY',
+        `Encoded candidate did not verify: ${err.message}`, { candidateBytes: bytes.length });
+    }
+    if (decoded !== text) {
+      throw taggedError('EVERIFY',
+        'Encoded candidate did not verify: it does not decode back to the buffer.',
+        { candidateBytes: bytes.length });
+    }
+  }
+
+  // (1b) size ceiling. Strictly greater-than: a candidate of exactly `maxBytes`
+  // is inside the limit and must be allowed through.
+  if (maxBytes != null && bytes.length > maxBytes) {
+    throw taggedError('ESIZE',
+      `Encoded candidate is ${bytes.length} B, over the ${maxBytes} B limit by ${bytes.length - maxBytes} B; nothing was written.`,
+      { candidateBytes: bytes.length, maxBytes, overBytes: bytes.length - maxBytes });
+  }
 
   const tmpPath = tempSiblingPath(filePath, d);
   try {
