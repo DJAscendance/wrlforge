@@ -24,6 +24,7 @@ const EXPLICIT = [
   'test/validator.test.js',
   'test/vrml-file.test.js',
   'test/window-state.test.js',
+  'test/portability.test.js',
   'test/product-posture.test.js',
 ];
 

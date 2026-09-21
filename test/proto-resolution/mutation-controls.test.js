@@ -41,7 +41,10 @@ test.after(() => {
 function loadMutant(relFile, edits) {
   const abs = path.join(ROOT, relFile);
   const dir = path.dirname(abs);
-  let src = fs.readFileSync(abs, 'utf8');
+  // LF-normalised: src/proto-resolution/** is not pinned to LF in
+  // .gitattributes, so a Windows core.autocrlf=true checkout hands back
+  // CRLF and any multi-line anchor below would stop matching.
+  let src = fs.readFileSync(abs, 'utf8').replace(/\r\n/g, '\n');
   for (const [from, to] of edits) {
     const hits = src.split(from).length - 1;
     assert.equal(hits, 1, `mutation anchor must match exactly once in ${relFile}: ${JSON.stringify(from.slice(0, 60))}`);

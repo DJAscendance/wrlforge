@@ -43,7 +43,12 @@ function mutantBuild(file, from, to) {
   fs.copyFileSync(path.join(SRC, 'files', 'vrml-file.js'), path.join(dir, 'files', 'vrml-file.js'));
   for (const m of MODULES) fs.copyFileSync(path.join(SRC, 'external-proto', m), path.join(dir, 'external-proto', m));
   const target = path.join(dir, 'external-proto', file);
-  const before = fs.readFileSync(target, 'utf8');
+  // Anchors below are written with LF. Git for Windows' core.autocrlf=true
+  // checks these modules out as CRLF (only src/vrml/** is pinned to LF in
+  // .gitattributes), so a multi-line anchor would not be found and the
+  // mutation would silently not happen. Normalise to LF before anchoring so
+  // the mutant is the same program on every platform.
+  const before = fs.readFileSync(target, 'utf8').replace(/\r\n/g, '\n');
   assert.ok(before.includes(from), `mutation anchor not found in ${file}: ${from}`);
   fs.writeFileSync(target, before.replace(from, to));
   // eslint-disable-next-line global-require, import/no-dynamic-require

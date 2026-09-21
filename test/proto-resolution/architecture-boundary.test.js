@@ -59,7 +59,8 @@ test('requiring the browser-safe vrml facade loads NO orchestration and NO retri
 test('requiring the vrml facade still pulls in no Node capability module', () => {
   const out = execFileSync(process.execPath, ['-e', `
     require(${JSON.stringify(path.join(ROOT, 'src', 'vrml'))});
-    const src = Object.keys(require.cache).filter((p) => p.includes('${path.sep}src${path.sep}'));
+    const sep = require('path').sep;
+    const src = Object.keys(require.cache).filter((p) => p.includes(sep + 'src' + sep));
     const fs2 = require('fs');
     const bad = [];
     for (const p of src) {
