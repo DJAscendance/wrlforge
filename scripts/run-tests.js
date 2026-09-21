@@ -22,6 +22,10 @@ const EXPLICIT = [
   'test/build-config.test.js',
   'test/run-checks.test.js',
   'test/validator.test.js',
+  'test/mall-size-truth.test.js',
+  // Optional real-artifact proof: every test inside skips when the external
+  // item repository is absent, so this never makes the suite depend on it.
+  'test/mall-size-ragnum.test.js',
   'test/vrml-file.test.js',
   'test/window-state.test.js',
   'test/portability.test.js',
