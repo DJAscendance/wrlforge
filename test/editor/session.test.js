@@ -113,3 +113,92 @@ test('operations throw clearly when nothing is open', () => {
   assert.throws(() => s.save(), /No document is open/);
   assert.throws(() => s.reload(), /No document is open/);
 });
+
+// --- Lane B B1: gzip preservation through the session ------------------------
+
+const crypto = require('node:crypto');
+const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
+
+// A gzip artifact whose bytes are NOT what Node's encoder would produce, so a
+// silent re-encode is detectable by hash.
+function foreignGzip(text) {
+  const buf = zlib.gzipSync(Buffer.from(text, 'utf8'), { level: 9 });
+  buf[9] = 0x03; // OS byte: 0x03 (Unix) where Node writes 0x13
+  return buf;
+}
+
+test('B1: session.save preserves an unchanged gzip source and still reports clean', () => {
+  const p = tmpFile('item.wrl', foreignGzip(WRL));
+  const beforeSha = sha256(fs.readFileSync(p));
+  const beforeMtime = fs.statSync(p).mtimeMs;
+
+  const s = new EditorSession();
+  const d = s.open(p);
+  assert.strictEqual(d.format, 'gzip');
+  assert.strictEqual(d.dirty, false);
+
+  const res = s.save();
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(res.preserved, true, 'preservation is reported through the session');
+  assert.strictEqual(res.bytesWritten, 0);
+  assert.strictEqual(res.backup, null);
+  assert.strictEqual(res.format, 'gzip', 'format is unchanged');
+  assert.strictEqual(res.sourcePath, p, 'source path is unchanged');
+  assert.strictEqual(res.dirty, false);
+
+  assert.strictEqual(sha256(fs.readFileSync(p)), beforeSha, 'bytes are byte-identical');
+  assert.strictEqual(fs.statSync(p).mtimeMs, beforeMtime, 'mtime is untouched');
+
+  // The session is synced and its stat remains a valid conflict baseline.
+  assert.strictEqual(s.describe().dirty, false, 'buffer is clean');
+  assert.ok(res.stat && typeof res.stat.hash === 'string');
+  assert.strictEqual(s.checkConflict().changed, false, 'no phantom conflict after a no-op');
+});
+
+test('B1: a session save of CHANGED text still writes and backs up normally', () => {
+  const p = tmpFile('item.wrl', foreignGzip(WRL));
+  const beforeSha = sha256(fs.readFileSync(p));
+  const s = new EditorSession();
+  s.open(p);
+  s.setText(WRL + '# edited\n');
+
+  const res = s.save();
+  assert.strictEqual(res.preserved, false);
+  assert.ok(res.bytesWritten > 0);
+  assert.ok(res.backup && fs.existsSync(res.backup), 'a real overwrite backs up');
+  assert.notStrictEqual(sha256(fs.readFileSync(p)), beforeSha);
+  assert.strictEqual(zlib.gunzipSync(fs.readFileSync(p)).toString('utf8'), WRL + '# edited\n');
+});
+
+test('B1: an external change still raises EEXTERNAL on an unchanged gzip buffer', () => {
+  const p = tmpFile('item.wrl', foreignGzip(WRL));
+  const s = new EditorSession();
+  s.open(p);
+  // Buffer untouched; the file is rewritten externally to different bytes that
+  // still decode to the same text.
+  const rewritten = zlib.gzipSync(Buffer.from(WRL, 'utf8'), { level: 1 });
+  fs.writeFileSync(p, rewritten);
+
+  assert.throws(() => s.save(), (err) => err.code === 'EEXTERNAL',
+    'conflict wins over preservation');
+  assert.strictEqual(sha256(fs.readFileSync(p)), sha256(rewritten), 'file untouched by the refusal');
+});
+
+test('B1 scope: saveAs does NOT preserve, even into an identical gzip destination', () => {
+  const p = tmpFile('src.wrl', foreignGzip(WRL));
+  const dst = path.join(path.dirname(p), 'dest.wrl');
+  // The destination already holds a gzip artifact of exactly the same text.
+  fs.writeFileSync(dst, foreignGzip(WRL));
+  const destBefore = sha256(fs.readFileSync(dst));
+
+  const s = new EditorSession();
+  s.open(p);
+  const res = s.saveAs(dst); // same (gzip) format, identical text
+
+  assert.strictEqual(res.ok, true);
+  assert.notStrictEqual(res.preserved, true, 'Save As preservation is B3 scope, not B1');
+  assert.ok(res.backup && fs.existsSync(res.backup), 'the existing destination got its normal backup');
+  assert.notStrictEqual(sha256(fs.readFileSync(dst)), destBefore,
+    'a normal safe write occurred -- Node re-encoded the destination');
+  assert.strictEqual(zlib.gunzipSync(fs.readFileSync(dst)).toString('utf8'), WRL);
+});

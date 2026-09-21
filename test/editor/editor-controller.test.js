@@ -299,3 +299,96 @@ test('openFromRecovery keeps gzip format intact (no silent conversion to plain)'
   assert.strictEqual(d.format, 'gzip', 'format is gzip, NEVER silently plain');
   assert.deepStrictEqual(fs.readFileSync(p), onDisk, 'source untouched');
 });
+
+// --- Lane B B1: preservation propagates through the controller ---------------
+
+const crypto = require('node:crypto');
+const sha256B1 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
+
+// Gzip bytes that Node's own encoder would not produce (OS byte 0x03 vs 0x13),
+// so a silent re-encode shows up as a hash change.
+function foreignGzipB1(text) {
+  const buf = zlib.gzipSync(Buffer.from(text, 'utf8'), { level: 9 });
+  buf[9] = 0x03;
+  return buf;
+}
+
+test('B1: controller.save propagates preserved for an unchanged gzip Mall source', () => {
+  const dir = tmpDir('ctl-preserve');
+  const p = path.join(dir, 'item.wrl');
+  fs.writeFileSync(p, foreignGzipB1(WRL));
+  const before = sha256B1(fs.readFileSync(p));
+
+  const c = mallController(p);
+  const d = c.openMall();
+  assert.strictEqual(d.format, 'gzip');
+
+  const res = c.save(d.sessionId, WRL);
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(res.preserved, true);
+  assert.strictEqual(res.bytesWritten, 0);
+  assert.strictEqual(res.backup, null);
+  assert.strictEqual(res.sessionId, d.sessionId, 'the session id still rides along');
+  assert.strictEqual(sha256B1(fs.readFileSync(p)), before, 'artifact untouched');
+
+  // The existing guards are unaffected by the new branch.
+  assert.throws(() => c.save(d.sessionId + 99, WRL), (e) => e.code === 'ESTALE');
+  const empty = new EditorController({});
+  assert.throws(() => empty.save(null, WRL), (e) => e.code === 'ENOOPEN');
+});
+
+test('B1: a preserved save still clears the recovery snapshot', () => {
+  const dir = tmpDir('ctl-preserve-recovery');
+  const p = path.join(dir, 'item.wrl');
+  fs.writeFileSync(p, foreignGzipB1(WRL));
+
+  let cleared = 0;
+  const c = new EditorController({
+    getMallSource: () => p,
+    recoveryController: { recordClear: () => { cleared += 1; } },
+  });
+  const d = c.openMall();
+  const res = c.save(d.sessionId, WRL);
+  assert.strictEqual(res.preserved, true);
+  assert.strictEqual(cleared, 1,
+    'a no-op save is still "the user has safely kept their work"');
+});
+
+test('B1: a recovered gzip buffer matching disk is preserved, and EEXTERNAL still wins', () => {
+  const dir = tmpDir('ctl-preserve-recovered');
+  const p = path.join(dir, 'item.wrl');
+  fs.writeFileSync(p, foreignGzipB1(WRL));
+  const before = sha256B1(fs.readFileSync(p));
+
+  const io = require('../../src/editor/file-io');
+  const sourceStat = io.statFile(p);
+
+  // Recovered buffer equals the current source text: saving it must not
+  // re-encode the artifact.
+  const c = new EditorController({ getMallSource: () => p });
+  const r = c.openFromRecovery({
+    sourcePath: p, profile: 'mall-item', context: 'mall',
+    buffer: WRL, baseline: WRL, sourceStat,
+  });
+  assert.strictEqual(r.recoveredAsUnsaved, false);
+  const res = c.save(r.sessionId, WRL);
+  assert.strictEqual(res.preserved, true);
+  assert.strictEqual(sha256B1(fs.readFileSync(p)), before);
+
+  // The persistent sourceStat remains the authoritative conflict anchor: an
+  // external change after recovery is still refused, preservation notwithstanding.
+  const dir2 = tmpDir('ctl-preserve-recovered-conflict');
+  const p2 = path.join(dir2, 'item.wrl');
+  fs.writeFileSync(p2, foreignGzipB1(WRL));
+  const stat2 = io.statFile(p2);
+  fs.writeFileSync(p2, zlib.gzipSync(Buffer.from(WRL, 'utf8'), { level: 1 }));
+  const after2 = sha256B1(fs.readFileSync(p2));
+
+  const c2 = new EditorController({ getMallSource: () => p2 });
+  const r2 = c2.openFromRecovery({
+    sourcePath: p2, profile: 'mall-item', context: 'mall',
+    buffer: WRL, baseline: WRL, sourceStat: stat2,
+  });
+  assert.throws(() => c2.save(r2.sessionId, WRL), (e) => e.code === 'EEXTERNAL');
+  assert.strictEqual(sha256B1(fs.readFileSync(p2)), after2, 'untouched by the refusal');
+});

@@ -75,6 +75,12 @@ class EditorSession {
   // EEXTERNAL) if the file changed on disk since it was opened, unless the caller
   // resolved the conflict and passes allowOverwrite. On success the buffer is the
   // new baseline and the fresh on-disk stat is recorded.
+  //
+  // `preserveExistingGzip: true` (Lane B, B1) is set HERE and only here: if the
+  // held gzip source already decompresses to exactly this buffer, the save is a
+  // true no-op and the existing artifact keeps its bytes. The document still
+  // becomes clean -- the buffer genuinely does match disk, which is the whole
+  // reason nothing needed writing. Save As does NOT opt in (see saveAs below).
   save(text, { allowOverwrite = false } = {}) {
     if (!this.doc) throw new Error('No document is open.');
     const buffer = text != null ? text : this.doc.text;
@@ -84,16 +90,24 @@ class EditorSession {
       format: this.doc.format,
       expectedStat: this.doc.stat,
       allowOverwrite,
+      preserveExistingGzip: true,
     }, this.deps);
     this.doc = markSynced(withText(this.doc, buffer), { text: buffer, stat: res.stat });
     return {
       ok: true, sourcePath: this.doc.sourcePath, format: this.doc.format,
       dirty: false, stat: res.stat, backup: res.backup, bytesWritten: res.bytesWritten,
+      preserved: res.preserved === true,
     };
   }
 
   // Save to a NEW destination (path supplied by main's Save dialog). The session
   // re-points at the new file; format may change (e.g. gzip source -> plain copy).
+  //
+  // Lane B B1 deliberately does NOT opt into gzip preservation here. A Save As
+  // destination is a different file with its own contract -- the format may
+  // differ from the source, and a destination that happens to hold the same
+  // decompressed text is not evidence that the user wants it left alone. Those
+  // rules are B3's to define; until then Save As takes the normal write path.
   saveAs(destPath, { text = null, format = null } = {}) {
     if (!this.doc) throw new Error('No document is open.');
     const buffer = text != null ? text : this.doc.text;

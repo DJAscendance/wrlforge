@@ -12,6 +12,24 @@
 //
 // Format is round-tripped exactly: a gzip source saves back as gzip, a plain
 // source as plain. A gzip file is NEVER silently rewritten as plain.
+//
+// GZIP PRESERVATION (Lane B, B1). A gzip `.wrl` on disk may have been packed by
+// a stronger encoder than Node's zlib -- the real Cybertown corpus holds
+// Zopfli-packed items. Re-encoding one with `gzipSync(level 9)` when its
+// decompressed text has NOT changed destroys a better artifact for no reason
+// (measured on a shipping item: 72,820 B -> 87,366 B). `safeSave` therefore
+// supports an OPT-IN true no-op: when the destination already IS the exact gzip
+// artifact the requested text needs, nothing is written at all.
+//
+// Three properties make that safe, and each is load-bearing:
+//   * OPT-IN. `preserveExistingGzip` defaults to false, so Save As -- which also
+//     calls safeSave -- keeps its current write behaviour untouched.
+//   * CONFLICT FIRST. The external-change guard runs BEFORE the preservation
+//     test, so a file that changed underneath us still raises EEXTERNAL even if
+//     its new contents happen to decode to the same text.
+//   * FAIL CLOSED. Identity must be PROVEN by an exact decompressed-text
+//     comparison. Anything unprovable -- missing, plain, corrupt, unreadable or
+//     simply different -- falls through to the normal encode-and-write path.
 
 const nodeFs = require('fs');
 const nodeZlib = require('zlib');
@@ -97,10 +115,45 @@ function decodeBytes(bytes, format, deps) {
   return bytes.toString('utf8');
 }
 
+// --- gzip preservation (Lane B, B1) ------------------------------------------
+// Is the file at `filePath` ALREADY the exact gzip artifact that saving `text`
+// in `format` would need? Pure predicate: it only reads, and it returns a
+// boolean -- never a "probably".
+//
+// The bar is exact decompressed-text identity. Deliberately NOT sufficient, and
+// each rejected for a concrete reason:
+//   * file size          -- a level-9 repack of twin-small.wrl.gz is the SAME
+//                           451 bytes yet different bytes (the fixture forces
+//                           gzip OS 0x03; Node writes 0x13).
+//   * mtime              -- says nothing about contents.
+//   * compressed length  -- same as size.
+//   * gzip header        -- encoder metadata, not payload.
+//   * a hash of the decompressed text alone -- a hash comparison is only as
+//                           good as what it is compared against; we have both
+//                           strings in hand, so compare them directly.
+//
+// Every failure mode answers `false`, including a read or inflate that throws:
+// preservation is an optimization of writes, never an error bypass.
+function wouldPreserve({ filePath, text, format }, deps) {
+  const d = resolveDeps(deps);
+  if (format !== FORMAT.GZIP) return false;
+  if (typeof text !== 'string') return false;
+  try {
+    if (!d.fs.existsSync(filePath)) return false;
+    const raw = d.fs.readFileSync(filePath);
+    if (!isGzip(raw)) return false;
+    return d.zlib.gunzipSync(raw).toString('utf8') === text;
+  } catch {
+    // Unreadable, truncated or corrupt: identity is unprovable, so it is false.
+    return false;
+  }
+}
+
 // --- safe save ---------------------------------------------------------------
 // Conservative save that never leaves the destination in a half-written state:
-//   1. encode text (gzip when the target format is gzip)
 //   2. refuse if the destination changed under us (unless allowOverwrite)
+//  2a. OPT-IN: if the destination already IS the needed gzip artifact, no-op
+//   1. encode text (gzip when the target format is gzip)
 //   3. write a temp sibling, flushing to disk (fsync) and closing it
 //   4. VERIFY the temp reopens and decodes back to exactly `text`
 //   5. back up the prior file to a timestamped, collision-free name
@@ -110,12 +163,19 @@ function decodeBytes(bytes, format, deps) {
 // The original is only ever replaced by an already-verified temp, so ANY failure
 // (encode, write, fsync, verify) leaves the source file untouched and removes the
 // temp -- the caller keeps the buffer dirty and shows the error. Returns
-// { ok, bytesWritten, backup, stat, format }.
-function safeSave({ filePath, text, format, expectedStat, allowOverwrite }, deps) {
+// { ok, preserved, bytesWritten, backup, stat, format }.
+//
+// `preserveExistingGzip` (default false) opts into step 2a. Only the native
+// Save path sets it; Save As deliberately does not (see the header note).
+function safeSave({ filePath, text, format, expectedStat, allowOverwrite, preserveExistingGzip }, deps) {
   const d = resolveDeps(deps);
   const fmt = format || FORMAT.PLAIN;
 
-  // (2) conflict guard -- before touching anything on disk.
+  // (2) conflict guard -- before touching anything on disk, and BEFORE the
+  // preservation test. An externally-changed file must raise EEXTERNAL even
+  // when its new contents happen to decode to the text we were about to save:
+  // the user asked to be told, and "it already matches" is not an answer to
+  // "somebody else edited this".
   if (!allowOverwrite && expectedStat && d.fs.existsSync(filePath)) {
     const change = detectExternalChange(expectedStat, filePath, deps);
     if (change.changed) {
@@ -123,6 +183,15 @@ function safeSave({ filePath, text, format, expectedStat, allowOverwrite }, deps
         `The file changed on disk since it was opened (${change.reason}); refusing to overwrite.`,
         { current: change.current });
     }
+  }
+
+  // (2a) true no-op. Nothing is encoded, no temp is created, no backup is
+  // taken (there is no overwrite to protect against -- owner policy) and the
+  // destination's bytes and mtime are left exactly as they are. The returned
+  // stat describes that untouched file, so the caller's conflict baseline
+  // stays correct.
+  if (preserveExistingGzip && wouldPreserve({ filePath, text, format: fmt }, deps)) {
+    return { ok: true, preserved: true, bytesWritten: 0, backup: null, format: fmt, stat: statFile(filePath, deps) };
   }
 
   // (1) encode.
@@ -154,7 +223,7 @@ function safeSave({ filePath, text, format, expectedStat, allowOverwrite }, deps
     d.fs.renameSync(tmpPath, filePath);
 
     // (7) success -- stamp the freshly written file for future conflict checks.
-    return { ok: true, bytesWritten: bytes.length, backup, format: fmt, stat: statFile(filePath, deps) };
+    return { ok: true, preserved: false, bytesWritten: bytes.length, backup, format: fmt, stat: statFile(filePath, deps) };
   } catch (err) {
     // Never leave the temp presented as a completed save; original stays intact.
     safeUnlink(tmpPath, d);
@@ -206,6 +275,7 @@ module.exports = {
   loadDocument,
   reloadDocument,
   safeSave,
+  wouldPreserve,
   encodeForSave,
   decodeBytes,
   statFile,

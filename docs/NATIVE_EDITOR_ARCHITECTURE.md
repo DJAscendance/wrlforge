@@ -264,12 +264,52 @@ Phase 7A parser (`src/vrml`) — there is **no second grammar or regex mode**.
 
 - `src/editor/wrl-document.js` — pure buffer model; `dirty` is **derived**
   (`text !== baseline`), never stored.
-- `src/editor/file-io.js` — the only fs-touching editor module. Safe save: encode
-  → conflict-guard → temp sibling write + `fsync` → **verify the temp decodes back
-  to the buffer** → timestamped backup → **atomic rename** → success only after
-  verify. Any failure leaves the source intact and removes the temp. External-
-  change detection = size + authoritative content hash (mtime is a hint).
-  Injectable `deps` (fs/zlib/hash/clock) make every failure path unit-testable.
+- `src/editor/file-io.js` — the only fs-touching editor module. Safe save:
+  conflict-guard → **gzip-preservation check (opt-in)** → encode → temp sibling
+  write + `fsync` → **verify the temp decodes back to the buffer** → timestamped
+  backup → **atomic rename** → success only after verify. Any failure leaves the
+  source intact and removes the temp. External-change detection = size +
+  authoritative content hash (mtime is a hint). Injectable `deps`
+  (fs/zlib/hash/clock) make every failure path unit-testable.
+
+#### Unchanged-gzip preservation (Lane B, B1)
+
+A gzip `.wrl` on disk may have been packed by a **stronger encoder than Node's
+zlib** — the real Cybertown corpus holds Zopfli-packed items. Re-encoding one
+with `gzipSync(level 9)` when its decompressed text has not changed replaces a
+better artifact with a worse one for no reason (measured on a shipping item:
+72,820 B → 87,366 B).
+
+**Native Save is therefore a true no-op when the destination already is the
+exact gzip artifact the buffer needs**: nothing is encoded, no temp is created,
+no rename happens, and the file's bytes *and* mtime are left untouched. The save
+reports `{ ok: true, preserved: true, bytesWritten: 0, backup: null }` and the
+buffer becomes clean — it genuinely does match disk, which is precisely why
+nothing needed writing.
+
+Four rules govern it, and each is load-bearing:
+
+1. **The conflict check runs first.** An externally-changed file raises
+   `EEXTERNAL` even when its new contents happen to decode to the same text.
+   "It already matches" is not an answer to "somebody else edited this".
+2. **A no-op creates no backup.** A backup exists to recover bytes an overwrite
+   replaced; a no-op replaces nothing, so the copy would protect against
+   nothing. The backup-before-overwrite rule is unchanged — it governs
+   *overwrites*, and this is the absence of one.
+3. **Identity must be proven by exact decompressed-text comparison**
+   (`wouldPreserve`). Size, mtime, compressed length and gzip headers are all
+   insufficient: a level-9 repack of `test/fixtures/gzip-encodings/twin-small.wrl.gz`
+   is the *same 451 bytes* yet *different bytes*. Anything unprovable — missing,
+   plain, corrupt, unreadable — falls through to the normal write path.
+4. **Preservation is opt-in** (`preserveExistingGzip`, default `false`). Only
+   `session.save()` sets it. **Save As is not covered by B1**: a Save As
+   destination is a different file with its own format contract, and those rules
+   are a later lane's to define, so `session.saveAs()` always takes the normal
+   write path.
+
+Plain files are out of scope — plain saves keep their existing behaviour
+unchanged. This is preservation, not optimization: an unchanged artifact that a
+repack would make *smaller* is still left exactly as it is.
 - `src/editor/language.js` — one `analyze(text)` pass → highlight spans + SYNTAX
   diagnostics + SEMANTIC advisories (kept separate) + AST outline. Identifier
   roles (nodeType/fieldName/DEF/USE) come from the AST.
