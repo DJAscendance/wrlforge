@@ -20,6 +20,10 @@ const ROOT = path.join(__dirname, '..');
 const EXPLICIT = [
   'test/backups.test.js',
   'test/validator.test.js',
+  'test/mall-size-truth.test.js',
+  // Optional real-artifact proof: every test inside skips when the external
+  // item repository is absent, so this never makes the suite depend on it.
+  'test/mall-size-ragnum.test.js',
   'test/vrml-file.test.js',
   'test/window-state.test.js',
   'test/product-posture.test.js',

@@ -1,6 +1,26 @@
 'use strict';
 
-const MAX_GZIP = 80 * 1024;
+// The Mall upload limit is NOT duplicated here. Every payload carries
+// `mallUploadMaxBytes` from validator.js, so the renderer can never drift from
+// the one authoritative constant (see docs/MALL_SIZE_CONTRACT.md).
+
+// Words, not colours. Assistive technology and greyscale both need the state
+// spelled out, so every size state has a literal label.
+const SIZE_VERDICT_LABEL = {
+  pass: 'PASS',
+  fail: 'FAIL',
+  stale: 'STALE',
+  unknown: 'NOT VERIFIED',
+};
+
+// Why the size is (or is not) authoritative. Each string names the source of
+// the number shown above it.
+const SIZE_NOTE = {
+  'measured': 'Upload size measured from the gzip artifact on disk.',
+  'stale-artifact': 'Upload size not verified for current edits — the existing artifact is stale. The figure on the right is a prediction, not a measurement.',
+  'unverified-artifact': 'Upload size not verified — a gzip artifact exists but could not be proven to match the current text. The figure on the right is a prediction, not a measurement.',
+  'no-gzip-artifact': 'Upload size not verified — no gzip upload artifact exists. The figure on the right is a prediction, not a measurement.',
+};
 
 let state = null; // { mallPath, editFile }
 let pollTimer = null;
@@ -19,17 +39,54 @@ const els = {
   editFile: document.getElementById('editFile'),
   revealMall: document.getElementById('revealMall'),
   revealEdit: document.getElementById('revealEdit'),
-  rawSize: document.getElementById('rawSize'),
-  gzSize: document.getElementById('gzSize'),
-  rawStat: document.getElementById('rawStat'),
-  gzStat: document.getElementById('gzStat'),
+  textSize: document.getElementById('textSize'),
+  artifactSize: document.getElementById('artifactSize'),
+  predictedSize: document.getElementById('predictedSize'),
+  sizeVerdict: document.getElementById('sizeVerdict'),
+  textStat: document.getElementById('textStat'),
+  artifactStat: document.getElementById('artifactStat'),
+  predictedStat: document.getElementById('predictedStat'),
+  sizeNote: document.getElementById('sizeNote'),
   results: document.getElementById('results'),
 };
 
+// Render the three size facts. The middle tile is the only one that carries a
+// verdict, because it is the only one measured from the file that gets
+// uploaded: `artifactBytes` is null whenever no gzip artifact has been weighed,
+// and in that state the tile shows a dash and "NOT VERIFIED" rather than
+// borrowing the prediction beside it.
+function renderSizes(data) {
+  const n = (v) => Number(v).toLocaleString();
+  const status = data.sizeStatus || 'unknown';
+
+  els.textSize.textContent = data.textBytes == null ? '-' : n(data.textBytes);
+  els.predictedSize.textContent = data.predictedRepackBytes == null ? '-' : n(data.predictedRepackBytes);
+
+  // A measured number appears here ONLY when the artifact was proven to match
+  // the current text. A stale artifact's byte count is a real measurement of
+  // the wrong document, so it is not shown as this document's upload size.
+  const measured = status === 'pass' || status === 'fail';
+  els.artifactSize.textContent = measured ? n(data.artifactBytes) : '-';
+  els.sizeVerdict.textContent = SIZE_VERDICT_LABEL[status] || 'NOT VERIFIED';
+
+  for (const s of ['size-pass', 'size-fail', 'size-stale', 'size-unknown']) {
+    els.artifactStat.classList.remove(s);
+  }
+  els.artifactStat.classList.add(`size-${status}`);
+  els.artifactStat.classList.toggle('over', status === 'fail');
+
+  const limit = data.mallUploadMaxBytes;
+  els.artifactStat.setAttribute('aria-label', measured
+    ? `Upload size measured ${n(data.artifactBytes)} bytes, limit ${n(limit)} bytes, ${SIZE_VERDICT_LABEL[status]}`
+    : `Upload size ${SIZE_VERDICT_LABEL[status] || 'NOT VERIFIED'}, limit ${limit == null ? 'unknown' : `${n(limit)} bytes`}`);
+
+  let note = SIZE_NOTE[data.sizeReason] || SIZE_NOTE['no-gzip-artifact'];
+  if (measured && limit != null) note += ` Limit ${n(limit)} B.`;
+  els.sizeNote.textContent = note;
+}
+
 function renderResults(data) {
-  els.rawSize.textContent = data.rawBytes.toLocaleString();
-  els.gzSize.textContent = data.gzipBytes.toLocaleString();
-  els.gzStat.classList.toggle('over', data.gzipBytes >= MAX_GZIP);
+  renderSizes(data);
 
   els.results.innerHTML = '';
   for (const r of data.results) {
@@ -40,9 +97,14 @@ function renderResults(data) {
     // static validator checks (header, WorldInfo, size, textures, DEF/USE, URLs)
     // remain authoritative and are shown unchanged.
     if (/^Placement\/bbox/.test(r.name)) continue;
+    // Most rows are pass/fail. The size row carries an explicit `status` because
+    // "not verified" is neither -- rendering it as FAIL would invent a defect,
+    // rendering it as PASS would invent an approval.
+    const status = r.status || (r.pass ? 'pass' : 'fail');
+    const badge = SIZE_VERDICT_LABEL[status] || (r.pass ? 'PASS' : 'FAIL');
     const div = document.createElement('div');
-    div.className = `check ${r.pass ? 'pass' : 'fail'} ${r.severity}`;
-    div.innerHTML = `<span class="badge">${r.pass ? 'PASS' : 'FAIL'}</span><span>${r.name}</span>` +
+    div.className = `check ${status} ${r.severity}`;
+    div.innerHTML = `<span class="badge">${badge}</span><span>${r.name}</span>` +
       (r.detail ? `<span class="detail">— ${r.detail}</span>` : '');
     els.results.appendChild(div);
   }
@@ -107,7 +169,7 @@ if (worldBtn) worldBtn.addEventListener('click', () => window.vrmlpad.goto('worl
 els.checkBtn.addEventListener('click', async () => {
   if (!state) return;
   const data = await window.vrmlpad.check(state.editFile);
-  renderResults({ ...data, rawBytes: data.rawBytes, gzipBytes: data.gzipBytes });
+  renderResults(data);
 });
 
 // Phase: Accessibility + Performance -- the click handler and the Ctrl+R /

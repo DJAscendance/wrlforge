@@ -4,15 +4,15 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
-const { validate, gzipSize } = require('../validator');
+const { validate, predictedRepackSize, MALL_UPLOAD_MAX_BYTES } = require('../validator');
 
 const fixturesDir = path.join(__dirname, 'fixtures');
 const readFixture = (name) => fs.readFileSync(path.join(fixturesDir, name), 'utf8');
 
-test('gzipSize returns the gzip-compressed byte length of a string', () => {
+test('predictedRepackSize returns the zlib level-9 byte length of a string', () => {
   const text = 'hello world';
   const expected = zlib.gzipSync(Buffer.from(text, 'utf8'), { level: 9 }).length;
-  assert.equal(gzipSize(text), expected);
+  assert.equal(predictedRepackSize(text), expected);
 });
 
 test('valid-plain.wrl passes all hard checks', () => {
@@ -34,12 +34,29 @@ test('no-worldinfo.wrl fails the WorldInfo check', () => {
   assert.equal(worldInfoCheck.pass, false);
 });
 
-test('oversized.wrl fails the gzip size check', () => {
+// Size is now MEASURED, never predicted: an oversized item is only a hard
+// failure once a real artifact of that size has been weighed. Validating the
+// text alone reports `unknown`, because nothing has been packed yet.
+test('oversized.wrl reports an unverified size when no artifact has been measured', () => {
   const result = validate(readFixture('oversized.wrl'));
+  const sizeCheck = result.results.find((r) => r.name.startsWith('Upload size'));
+  assert.equal(result.sizeStatus, 'unknown');
+  assert.equal(sizeCheck.severity, 'info', 'an unmeasured size cannot hard-fail the item');
+  assert.equal(sizeCheck.pass, null);
+  assert.equal(result.mallReady, false);
+  assert.ok(result.predictedRepackBytes > MALL_UPLOAD_MAX_BYTES,
+    'the prediction still warns that a WRLForge repack would not fit');
+});
+
+test('oversized.wrl fails the size check once a real over-limit artifact is measured', () => {
+  const text = readFixture('oversized.wrl');
+  const result = validate(text, {
+    artifactBytes: MALL_UPLOAD_MAX_BYTES + 1, artifactIsGzip: true, artifactMatchesText: true,
+  });
   assert.equal(result.ok, false);
-  const sizeCheck = result.results.find((r) => r.name.startsWith('Gzip size under'));
+  const sizeCheck = result.results.find((r) => r.name.startsWith('Upload size'));
   assert.equal(sizeCheck.pass, false);
-  assert.ok(result.gzipBytes >= 80 * 1024);
+  assert.equal(sizeCheck.severity, 'hard');
 });
 
 test('forbidden-node.wrl fails the forbidden-nodes check', () => {
