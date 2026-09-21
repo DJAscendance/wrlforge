@@ -19,6 +19,8 @@ const ROOT = path.join(__dirname, '..');
 // Explicit top-level test files (order preserved for stable output).
 const EXPLICIT = [
   'test/backups.test.js',
+  'test/build-config.test.js',
+  'test/run-checks.test.js',
   'test/validator.test.js',
   'test/vrml-file.test.js',
   'test/window-state.test.js',

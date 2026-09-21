@@ -470,10 +470,12 @@ test('15 the finding code is grouped, and every group value is reachable', () =>
 });
 
 test('16 every new source file is covered by the npm run check syntax gate', () => {
-  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
+  // The gate discovers its own targets in scripts/run-checks.js; it used to be
+  // a literal 'node --check <file>' chain in the package.json "check" script.
+  const covered = new Set(require('../../scripts/run-checks.js').discoverSyntaxTargets());
   for (const f of ['src/vrml/presentation.js', 'test/vrml/presentation-fixtures.js',
     'test/vrml/presentation.test.js', 'test/vrml/presentation-matrix.test.js',
     'test/vrml/presentation-mutations.test.js']) {
-    assert.ok(pkg.scripts.check.includes(`node --check ${f}`), `${f} must be in the syntax gate`);
+    assert.ok(covered.has(f), `${f} must be in the syntax gate`);
   }
 });
