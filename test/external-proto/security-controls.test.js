@@ -288,25 +288,40 @@ test('CONTROL 10 -- refusing URL-space excess ".." loses a conforming reference'
 // failure mode: THE ONE THE CORRECTION MUST NOT CAUSE. A URL-normalised
 //               `/foo.wrl` is interpreted as a workstation path, so clamping a
 //               `../` turns into host filesystem access.
-// mutation:     resolve the archive-relative path from the filesystem root
-//               instead of the configured source root (both the lookup and the
-//               containment check, so this is the real "no boundary" build).
+// mutation:     resolve the archive-relative path from a directory OUTSIDE the
+//               configured source root -- a test-owned stand-in for the
+//               workstation root -- for both the lookup and the containment
+//               check, so this is the real "no boundary" build.
+//
+// The stand-in is deliberate. Spelling the outside file as a path from the REAL
+// drive root made the LIVENESS half of this control depend on host layout:
+// `locateExactCase` requires every component to match a directory entry
+// VERBATIM, and on a GitHub-hosted Windows runner `os.tmpdir()` is
+// `C:\Users\RUNNER~1\AppData\Local\Temp` -- an 8.3 alias whose real on-disk
+// entry is `runneradmin`. The walk from `C:\` then stopped at that segment, the
+// mutant answered NOT_FOUND instead of leaking, and the control went red for a
+// host-spelling reason rather than a security reason. The property being proven
+// never needed the real root: what matters is that the reference is resolved
+// INSIDE the configured root and nowhere else.
 test('CONTROL 11 -- a URL-normalised path must never be resolved against the workstation root', () => {
-  const root = makeTree({ 'base.wrl': 'root' });
-  const outside = makeTree({ 'secret.wrl': 'WORKSTATION SECRET' });
-  const outsideFile = path.join(outside, 'secret.wrl');
-  // Spell the outside file as a URL-ROOT-RELATIVE reference. Under the real
-  // build it names a path inside the configured archive; under the mutant it
-  // names the host filesystem.
-  const fsRoot = path.parse(outsideFile).root;
-  const written = `/${path.relative(fsRoot, outsideFile).split(path.sep).join('/')}`;
+  const sandbox = makeTree({
+    'configured/base.wrl': 'root',
+    'workstation/secret.wrl': 'WORKSTATION SECRET',
+  });
+  const root = path.join(sandbox, 'configured');
   const cfg = { sources: [{ id: 'web', prefix: 'http://h/', root }] };
+  // A URL-ROOT-RELATIVE reference. Under the real build it names a path inside
+  // the configured archive; under the mutant it names the workstation root.
+  const written = '/secret.wrl';
 
   const mutant = mutantBuild(
     'retrieval.js',
     "  const base = { sourceId: source.id, artifactPath: requestedPath };\n  const segments = requestedPath.split('/');",
-    "  const base = { sourceId: source.id, artifactPath: requestedPath };\n  const segments = requestedPath.split('/');\n  source = { ...source, root: nodePath.parse(source.root).root };",
+    "  const base = { sourceId: source.id, artifactPath: requestedPath };\n  const segments = requestedPath.split('/');\n  source = { ...source, root: nodePath.join(source.root, '..', 'workstation') };",
   );
+  // The mutant must be a DIFFERENT program from the real build, or the control
+  // proves nothing: a mutant that merely fails to find anything is a no-op.
+  assert.notEqual(mutant.retrieveExternalCandidate, real.retrieveExternalCandidate);
   const escaped = run(mutant, cfg, written);
   assert.equal(escaped.status, 'RETRIEVED', 'mutation must be live');
   assert.equal(escaped.text, 'WORKSTATION SECRET');
