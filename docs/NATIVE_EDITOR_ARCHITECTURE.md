@@ -298,8 +298,10 @@ Four rules govern it, and each is load-bearing:
    *overwrites*, and this is the absence of one.
 3. **Identity must be proven by exact decompressed-text comparison**
    (`wouldPreserve`). Size, mtime, compressed length and gzip headers are all
-   insufficient: a level-9 repack of `test/fixtures/gzip-encodings/twin-small.wrl.gz`
-   is the *same 451 bytes* yet *different bytes*. Anything unprovable — missing,
+   insufficient: two valid gzip artifacts can share a byte length *and* a
+   decompressed text while their compressed bytes differ —
+   `test/fixtures/gzip-encodings/twin-small.wrl.gz` is 451 bytes, and so is a
+   copy of it with one gzip header byte changed. Anything unprovable — missing,
    plain, corrupt, unreadable — falls through to the normal write path.
 4. **Preservation is opt-in** (`preserveExistingGzip`, default `false`). Only
    `session.save()` sets it. **Save As is not covered by B1**: a Save As

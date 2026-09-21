@@ -119,11 +119,12 @@ test('operations throw clearly when nothing is open', () => {
 const crypto = require('node:crypto');
 const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 
-// A gzip artifact whose bytes are NOT what Node's encoder would produce, so a
-// silent re-encode is detectable by hash.
+// A gzip artifact carrying foreign-encoder header metadata. B1 must decide
+// preservation on decompressed-text identity alone, never on the header, the
+// size or which encoder wrote the file.
 function foreignGzip(text) {
   const buf = zlib.gzipSync(Buffer.from(text, 'utf8'), { level: 9 });
-  buf[9] = 0x03; // OS byte: 0x03 (Unix) where Node writes 0x13
+  buf[9] = 0x03; // OS header byte: metadata only, it does not change the payload
   return buf;
 }
 
@@ -197,8 +198,18 @@ test('B1 scope: saveAs does NOT preserve, even into an identical gzip destinatio
 
   assert.strictEqual(res.ok, true);
   assert.notStrictEqual(res.preserved, true, 'Save As preservation is B3 scope, not B1');
+
+  // The normal write path is proven by its observable effects. A legitimate
+  // Save As may re-encode to the very same gzip bytes, so destination byte
+  // inequality is not a portable proof that a write happened -- the backup is.
   assert.ok(res.backup && fs.existsSync(res.backup), 'the existing destination got its normal backup');
-  assert.notStrictEqual(sha256(fs.readFileSync(dst)), destBefore,
-    'a normal safe write occurred -- Node re-encoded the destination');
-  assert.strictEqual(zlib.gunzipSync(fs.readFileSync(dst)).toString('utf8'), WRL);
+  assert.strictEqual(sha256(fs.readFileSync(res.backup)), destBefore,
+    'the backup holds the destination bytes from before Save As -- an overwrite really occurred');
+
+  const after = fs.readFileSync(dst);
+  assert.ok(after[0] === 0x1f && after[1] === 0x8b, 'the destination is still a valid gzip');
+  assert.strictEqual(zlib.gunzipSync(after).toString('utf8'), WRL,
+    'and decompresses to exactly the saved text');
+  assert.strictEqual(res.sourcePath, dst, 'the session now points at the destination');
+  assert.strictEqual(res.format, 'gzip', 'the format is unchanged');
 });

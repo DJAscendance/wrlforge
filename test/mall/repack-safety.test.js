@@ -30,8 +30,9 @@ function tmpDir(tag) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `wrlforge-b2-${tag}-`));
 }
 
-// Gzip bytes Node's own encoder would not produce (OS byte 0x03 vs 0x13), so a
-// silent re-encode is visible as a SHA change even when the length matches.
+// Gzip bytes carrying foreign-encoder header metadata (OS byte forced to 0x03).
+// Preservation may only be decided by decompressed-text identity, never by the
+// header or by a length that happens to match.
 function foreignGzip(text) {
   const buf = zlib.gzipSync(Buffer.from(text, 'utf8'), { level: 9 });
   buf[9] = 0x03;

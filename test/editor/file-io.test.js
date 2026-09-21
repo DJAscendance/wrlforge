@@ -177,9 +177,14 @@ test('paths with spaces and non-ASCII characters round-trip through save + load'
 });
 
 // --- Lane B B1: unchanged-gzip preservation ----------------------------------
-// A gzip `.wrl` may have been packed by a stronger encoder than Node's zlib.
+// A gzip `.wrl` may have been packed by a different encoder than Node's zlib.
 // Saving it back unchanged must not re-encode it. These tests assert EXACT
 // BYTES (sha256), never length -- see the same-size case below for why.
+//
+// They never assume that a Node re-encode of the same text produces DIFFERENT
+// compressed bytes from a given artifact: whether it does depends on the zlib
+// build and platform, so byte inequality is not a portable proof that a write
+// happened. Real writes are proven by their observable effects instead.
 
 const crypto = require('node:crypto');
 const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
@@ -231,8 +236,9 @@ test('wouldPreserve proves identity only for an exact gzip match, and fails clos
 test('B1: an unchanged gzip save is a true no-op -- exact bytes, mtime and no backup', () => {
   const dir = tmpDir('preserve-noop');
   const p = path.join(dir, 'item.wrl');
-  // Force the gzip OS byte to 0x03 so these bytes are NOT what Node would write,
-  // exactly like a foreign-encoder artifact.
+  // Force the gzip OS header byte so the artifact carries foreign-encoder
+  // metadata. What matters for B1 is that only decompressed-text identity may
+  // decide preservation -- never the header, the size or the encoder.
   const original = zlib.gzipSync(Buffer.from(WRL, 'utf8'), { level: 9 });
   original[9] = 0x03;
   fs.writeFileSync(p, original);
@@ -261,11 +267,21 @@ test('B1: an unchanged gzip save is a true no-op -- exact bytes, mtime and no ba
   // stays usable for the next save.
   assert.strictEqual(res.stat.hash, io.statFile(p).hash);
 
-  // Control: the same save WITHOUT the opt-in does re-encode and destroy them.
+  // Control: the same save WITHOUT the opt-in takes the normal real-write path.
+  // Proven by its observable effects -- a fresh encode, a backup holding the
+  // exact prior artifact, and a valid gzip result -- not by hoping this
+  // runtime's encoder emits bytes unequal to the ones already on disk.
   const res2 = io.safeSave({ filePath: p, text: WRL, format: FORMAT.GZIP, expectedStat: io.statFile(p) });
-  assert.strictEqual(res2.preserved, false);
-  assert.ok(res2.bytesWritten > 0);
-  assert.notStrictEqual(sha256(fs.readFileSync(p)), beforeSha, 'without the opt-in the artifact is replaced');
+  assert.strictEqual(res2.preserved, false, 'without the opt-in nothing is preserved');
+  assert.ok(res2.bytesWritten > 0, 'a real encode was written');
+  assert.ok(res2.backup && fs.existsSync(res2.backup), 'an overwrite makes its normal backup');
+  assert.strictEqual(sha256(fs.readFileSync(res2.backup)), beforeSha,
+    'the backup holds the EXACT prior artifact bytes -- so the prior file really was replaced');
+  const written = fs.readFileSync(p);
+  assert.ok(written[0] === 0x1f && written[1] === 0x8b, 'the result is still a valid gzip');
+  assert.strictEqual(zlib.gunzipSync(written).toString('utf8'), WRL,
+    'and it decompresses to exactly the requested text');
+  assert.strictEqual(written.length, res2.bytesWritten, 'bytesWritten describes the real file');
 });
 
 test('B1: same-size-different-bytes -- twin-small.wrl.gz survives byte-identical', () => {
@@ -274,12 +290,17 @@ test('B1: same-size-different-bytes -- twin-small.wrl.gz survives byte-identical
   const beforeSha = sha256(beforeBytes);
   const text = zlib.gunzipSync(beforeBytes).toString('utf8');
 
-  // The trap this fixture exists to catch: a Node level-9 repack of this text is
-  // the SAME LENGTH but DIFFERENT BYTES, so a size-based preservation check
-  // would silently pass while the artifact was being rewritten.
-  const repack = zlib.gzipSync(Buffer.from(text, 'utf8'), { level: 9 });
-  assert.strictEqual(repack.length, beforeBytes.length, 'repack is the same size');
-  assert.notStrictEqual(sha256(repack), beforeSha, 'but not the same bytes');
+  // The trap this fixture exists to catch: two valid gzip artifacts can have the
+  // same byte length AND the same decompressed text while their compressed bytes
+  // differ, so a size-based preservation check would silently pass while the
+  // artifact was being rewritten. Built deterministically from the fixture's own
+  // bytes -- one gzip HEADER metadata byte changed -- rather than relying on this
+  // runtime's encoder to disagree with the fixture.
+  const alternate = Buffer.from(beforeBytes);
+  alternate[9] = beforeBytes[9] === 0xff ? 0x03 : 0xff; // OS byte: metadata only
+  assert.strictEqual(alternate.length, beforeBytes.length, 'same compressed size');
+  assert.notStrictEqual(sha256(alternate), beforeSha, 'but not the same bytes');
+  assert.strictEqual(zlib.gunzipSync(alternate).toString('utf8'), text, 'and the same text');
 
   const res = io.safeSave({
     filePath: dest, text, format: FORMAT.GZIP,
@@ -334,7 +355,7 @@ test('B1: an external change still wins over preservation (EEXTERNAL)', () => {
   const dir = tmpDir('preserve-conflict');
   const p = path.join(dir, 'item.wrl');
   const first = zlib.gzipSync(Buffer.from(WRL, 'utf8'), { level: 9 });
-  first[9] = 0x03;
+  first[9] = 0x03; // foreign-encoder OS header byte; metadata only
   fs.writeFileSync(p, first);
   const opened = io.statFile(p);
 

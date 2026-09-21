@@ -140,9 +140,10 @@ function decodeBytes(bytes, format, deps) {
 //
 // The bar is exact decompressed-text identity. Deliberately NOT sufficient, and
 // each rejected for a concrete reason:
-//   * file size          -- a level-9 repack of twin-small.wrl.gz is the SAME
-//                           451 bytes yet different bytes (the fixture forces
-//                           gzip OS 0x03; Node writes 0x13).
+//   * file size          -- two valid gzip artifacts can share a byte length AND
+//                           a decompressed text while their compressed bytes
+//                           differ (twin-small.wrl.gz is 451 bytes; so is a
+//                           copy of it with one gzip header byte changed).
 //   * mtime              -- says nothing about contents.
 //   * compressed length  -- same as size.
 //   * gzip header        -- encoder metadata, not payload.

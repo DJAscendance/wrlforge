@@ -305,8 +305,8 @@ test('openFromRecovery keeps gzip format intact (no silent conversion to plain)'
 const crypto = require('node:crypto');
 const sha256B1 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 
-// Gzip bytes that Node's own encoder would not produce (OS byte 0x03 vs 0x13),
-// so a silent re-encode shows up as a hash change.
+// Gzip bytes carrying foreign-encoder header metadata (OS byte forced to 0x03).
+// Preservation may only be decided by decompressed-text identity.
 function foreignGzipB1(text) {
   const buf = zlib.gzipSync(Buffer.from(text, 'utf8'), { level: 9 });
   buf[9] = 0x03;
