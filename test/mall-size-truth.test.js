@@ -326,11 +326,35 @@ test('an open-flow payload never reports text bytes as the artifact size', () =>
 test('main.js measures the artifact on every Mall size path and never validates text alone', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
   const calls = [...src.matchAll(/\bvalidate\(([^)]*)\)/g)].map((m) => m[1]);
-  assert.ok(calls.length >= 3, 'expected the open / check / repack size paths');
+  assert.ok(calls.length >= 2, 'expected the open and check size paths');
   for (const args of calls) {
     assert.ok(/,/.test(args),
       `validate() must be given a size context, got validate(${args})`);
   }
-  assert.match(src, /mall:repack[\s\S]{0,900}?fs\.writeFileSync\(mallPath, out\)[\s\S]{0,400}?measureArtifact\(mallPath/,
-    'repack must measure the file AFTER writing it, not predict beforehand');
+});
+
+// Lane B B2 moved the repack write out of main.js and into src/mall/repack.js,
+// so this invariant moved with it. The rule is unchanged and is if anything
+// stronger now: repack measures the REAL file, and it does so after the write
+// rather than predicting beforehand. It must also never let the pre-write
+// candidate count stand in for the measurement.
+test('the Mall repack path measures the real artifact, never a pre-write prediction', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'mall', 'repack.js'), 'utf8');
+  const code = src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+
+  // Every validate() in the repack path is handed a measured size context.
+  const calls = [...code.matchAll(/\bcheck\(([^)]*)\)/g)].map((m) => m[1]);
+  assert.ok(calls.length >= 2, 'expected the success and refusal size paths');
+  for (const args of calls) {
+    assert.match(args, /measure\(/,
+      `the repack verdict must come from a measured artifact, got check(${args})`);
+  }
+
+  // main.js hands the write to the helper rather than doing it itself.
+  const mainSrc = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+  const mainCode = mainSrc.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+  assert.match(mainCode, /mall:repack[\s\S]{0,600}?repackMall\(/,
+    'the repack handler routes through repackMall');
+  assert.ok(!mainCode.includes('fs.writeFileSync(mallPath'),
+    'main.js no longer writes the Mall artifact directly');
 });

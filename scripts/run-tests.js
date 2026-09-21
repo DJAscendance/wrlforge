@@ -40,6 +40,7 @@ const DIRS = [
   'test/world-recon',
   'test/world-project',
   'test/editor',
+  'test/mall',
   'test/renderer',
   'test/settings',
   'test/vrml',

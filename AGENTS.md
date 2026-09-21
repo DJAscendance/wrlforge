@@ -304,7 +304,18 @@ the user opts into a Cybertown profile.
   - `editPathFor()` derives the plain working-copy path: `<name>.wrl` → `<name>.edit.wrl`, written next to the mall file so it inherits VSCodium's workspace trust for `~/Projects/cybertown` (untrusted folders run extensions in Restricted Mode, which silently disables 3D preview — always keep edit files inside a trusted tree).
   - `openMallFile()` — decompress-if-needed, write `.edit.wrl`. Opening a Mall item **never** launches the external editor; that happens only through the explicit "Open in External Editor" action.
   - `mall:check` — re-validate the current `.edit.wrl` on demand (polled every 3s by the renderer while a file is open).
-  - `mall:repack` — backup the existing mall file (`<name>.wrl.bak-<timestamp>`), then write the edited text back, gzip by default.
+  - `mall:repack` — a **thin** handler that hands the write to `src/mall/repack.js`.
+    It does **not** write the mall file itself and no longer runs its own
+    backup-before-write. The shared safe-write discipline in
+    `src/editor/file-io.js` runs: an **unchanged gzip artifact is preserved**
+    (no write, no backup, no new mtime), a changed one is encoded to a
+    **verified in-memory candidate**, refused before any mutation if it is over
+    the exact **81,290 B** upload limit (`ESIZE`), and otherwise written to a
+    temp sibling, fsynced, read back, verified, backed up
+    (`<name>.wrl.bak-<timestamp>`) and atomically renamed into place. Lane A
+    then measures the **real** file on disk for the verdict — the pre-write
+    candidate count is never reported as the upload size. See
+    `docs/MALL_SIZE_CONTRACT.md`.
   - `loadWindowState()` / `saveWindowState()` — window position/size persistence, with a fallback that reads the pre-rename `vrmlpad` userData directory (see "Rename note").
   - The `mall:*` IPC channel names and the `window.vrmlpad` bridge object name are retained from the pre-rename codebase. They are internal symbols, not user-facing branding — do not rename them for cosmetic consistency. The World Project lane deliberately reuses the `window.vrmlpad` bridge (adding a `world` sub-object) rather than introducing a new bridge name.
 - `preload.js` — contextBridge. Keep `contextIsolation: true` / `nodeIntegration: false`; add new capabilities as new IPC handlers, never by relaxing this. This applies to the embedded X_ITE preview too.
@@ -327,7 +338,10 @@ the user opts into a Cybertown profile.
 ## Conventions
 
 - **Backups before any overwrite** of a real mall `.wrl` — never repack without
-  the `mall:repack` backup step. This non-destructive/backup-first convention is
+  the backup step (now owned by `safeSave`, taken after verification and
+  immediately before the atomic rename). A repack that writes **nothing** —
+  preservation, or a refusal — correctly takes **no** backup: the owner policy is
+  *no write means no backup*. This non-destructive/backup-first convention is
   mandatory for **every** profile. World Project packaging honours it by never
   mutating the source at all.
 - `.edit.wrl` working copies are disposable/regenerable; the mall `.wrl` (or its
@@ -358,8 +372,14 @@ the user opts into a Cybertown profile.
    transform-aware bounds and placement guides.
 4. Validation re-runs automatically every few seconds. The Fit preview is
    **display-only** — it never rewrites your file (Apply/Bake is not implemented).
-5. "Repack & Save to mall .wrl" backs up and writes the gzip mall file — the
-   actual `.edit.wrl` text, never a preview-fitted transform.
+5. "Repack & Save to mall .wrl" writes the gzip mall file — the actual
+   `.edit.wrl` text, never a preview-fitted transform. It does **not** always
+   write: if the existing gzip artifact already decompresses to exactly this
+   text it is **preserved untouched** (the button says *Already saved ✓*), which
+   is what keeps a Zopfli-packed item from being re-encoded into an over-limit
+   file. A changed document that would exceed 81,290 B is **refused before
+   anything is written** (*Not saved*), leaving the existing artifact
+   byte-identical. A real write backs up first, then swaps atomically.
 
 ## Known gotchas (found during build/verification)
 
