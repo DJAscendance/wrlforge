@@ -79,20 +79,31 @@ test('realpathInside / lexicallyInside confinement primitives', () => {
 });
 
 test('realpathExistingPrefix canonicalizes a missing child under macOS-style alias roots', () => {
+  // A pure simulation of the macOS /var -> /private/var alias. The host
+  // filesystem needs neither path; the injected fs supplies the alias. The
+  // simulated paths are built with the HOST path module so the fixture is
+  // portable -- on Windows path.resolve('/var') is a native absolute path
+  // (e.g. D:\\var), and comparing against a POSIX literal would never match.
+  const aliasVar = path.resolve('/var');
+  const aliasProject = path.join(aliasVar, 'project');
+  const realVar = path.resolve('/private/var');
+  const realProject = path.join(realVar, 'project');
+  const nativeRoot = path.parse(aliasVar).root;
+
+  const input = path.join(aliasProject, 'new', 'nested.wrl');
+  const expected = path.join(realProject, 'new', 'nested.wrl');
+
   const fakeFs = {
     realpathSync(value) {
       const resolved = path.resolve(value);
-      if (resolved === '/var/project') return '/private/var/project';
-      if (resolved === '/var') return '/private/var';
-      if (resolved === '/') return '/';
+      if (resolved === aliasProject) return realProject;
+      if (resolved === aliasVar) return realVar;
+      if (resolved === nativeRoot) return nativeRoot;
       throw new Error('missing');
     },
   };
-  assert.strictEqual(
-    realpathExistingPrefix('/var/project/new/nested.wrl', fakeFs),
-    path.resolve('/private/var/project/new/nested.wrl'),
-  );
-  assert.strictEqual(realpathInside('/var/project', '/var/project/new/nested.wrl', fakeFs), true);
+  assert.strictEqual(realpathExistingPrefix(input, fakeFs), expected);
+  assert.strictEqual(realpathInside(aliasProject, input, fakeFs), true);
 });
 
 test('realpathInside rejects a missing child below a symlinked directory that escapes', () => {
