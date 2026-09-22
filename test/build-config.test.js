@@ -42,8 +42,8 @@ test('package.json is the version authority and package-lock mirrors it', () => 
   assert.strictEqual(realLock.packages[''].name, realPkg.name);
 });
 
-test('the current intended version 1.3.0-beta.5 passes', () => {
-  const { pkg, lock } = pairAt('1.3.0-beta.5');
+test('the current intended version 1.4.0 passes', () => {
+  const { pkg, lock } = pairAt('1.4.0');
   assert.deepStrictEqual(validate(pkg, lock), []);
 });
 

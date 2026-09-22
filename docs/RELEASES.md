@@ -24,7 +24,31 @@ All releases are published on GitHub:
 
 ---
 
+## 1.4.0 (Beta) — Release Candidate (Not Yet Published)
 
+**Status: Beta · Prerelease · Unsigned — release-prep candidate. Not yet
+tagged, built, or published. Not downloadable yet.**
+
+Starting with this release, **the versioning convention changes**: the machine
+version drops the `-beta.N` suffix (`1.4.0`, not `1.4.0-beta.1`) and **Beta
+becomes a release-channel/status label** carried in the human-facing release
+name (`WRL Forge 1.4.0 (Beta)`) and the GitHub prerelease flag, not in the
+SemVer string itself. This is **not** a claim that the project has left beta —
+see [CHANGELOG.md](../CHANGELOG.md) for the `[1.4.0] - UNRELEASED` entry
+summarizing the source changes since `1.3.0-beta.3`.
+
+When this release is tagged (`v1.4.0`), built, and published, it will
+supersede `1.3.0-beta.5` below as the current release and this section will be
+updated with real artifact hashes from the release workflow's
+`SHA256SUMS-1.4.0.txt`. Until then, the most recent **actually published**
+release remains `1.3.0-beta.5` — see below.
+
+**Remaining pre-tag gate:** a Linux-side audit of the Mall upload-limit
+constant (`81,920` = `80 * 1024` bytes) across the `cybertownmall`/`ctr`/`CTNG`
+repositories is required before `v1.4.0` is tagged. Not performed in this
+release-prep pass.
+
+---
 
 ## 1.3.0-beta.5 — Cross-Platform Beta (Private, Unsigned)
 

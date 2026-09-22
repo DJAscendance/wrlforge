@@ -1,3 +1,9 @@
+> **This file is a historical archive** of independent-QA private-beta candidate
+> notes, oldest work preserved as it was written for each past build. It is
+> **not** the active release-note template. The current/next release
+> (`1.4.0 (Beta)`) is tracked in [`docs/RELEASES.md`](RELEASES.md); do not add
+> new entries here as if this were still the live document.
+
 # WRL Forge 1.3.0-beta.5 — Cross-Platform Beta (Private, Unsigned)
 
 **Status:** Private beta candidate. **Do not distribute publicly.**
