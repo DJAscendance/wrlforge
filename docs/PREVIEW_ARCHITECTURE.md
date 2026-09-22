@@ -33,6 +33,7 @@ spike now references them, no duplicate implementations):
 | `mall-preview-bridge.js` | pure/injectable (Phase 7C2) | main-process Mall authorizer: session→proof→overlay register + generation; renderer never supplies a path |
 | `world-preview-bridge.js` | pure/injectable (Phase 7C3) | main-process World authorizer: session→scan-graph membership→proof→overlay + the `wrlworld://` serving context; renderer never supplies a path |
 | `viewpoint-preserve.js` | pure (Phase 7C3) | viewpoint-restore resolver: DEF → unique description → index → first → default |
+| `browser-readiness.js` | pure/injectable | bounded X_ITE/WebGL readiness gate: predicate + canvas-replacement recovery before any parse (see "X_ITE browser startup contract") |
 
 Pure/browser modules keep no Electron or filesystem dependency, so they are
 unit-tested under `node:test` (`test/preview/*.test.js`) independent of the
@@ -494,3 +495,65 @@ job. The POSIX stdin path is unchanged. Transport selection is in
 `qa/visual-qa/transport.js`; `VisualQaRunner` exposes `prepareJobs`/`writeJob`/
 `requestShutdown` hooks (stdin defaults). This is QA-only — the shipped preview
 behavior is identical on every platform.
+
+
+## X_ITE browser startup contract (readiness before parsing)
+
+**`await X3D()` is not proof that a preview can parse anything.** X_ITE's `X3D()`
+promise resolves as soon as every `<x3d-canvas>` element has a `.browser`
+property. It says nothing about the WebGL2 context that browser captured when it
+was constructed.
+
+Measured on Windows 11, packaged app, **first launch from a fresh application
+directory**:
+
+```
+gl.isContextLost()                    === true
+gl.getParameter(gl.MAX_TEXTURE_SIZE)  === null
+gl.getError()                         === 0x9242 (CONTEXT_LOST_WEBGL)
+```
+
+X_ITE listens for `webglcontextlost` but never calls `preventDefault()` on it, so
+the engine never restores that context — it is dead for the life of that X_ITE
+browser. The next `createX3DFromString()` then throws while allocating the default
+1×1 texture (`... greater than the maximum texture size (null px)`), and because
+that throw happens **inside X_ITE's VRML parser**, the parser rewrites it as
+`Parser error ... Unexpected end of file`. The result was a valid `.wrl` reported
+as malformed, with bounds and Cybertown Fit silently unavailable. NSIS/MSI/ZIP
+recovered on a later launch; the portable EXE, which extracts to a fresh
+directory every run, never did.
+
+`src/preview/browser-readiness.js` is the single shared gate both preview lanes
+(`renderer/preview.js`, `renderer/world-preview.js`) go through before any parse:
+
+1. **Predicate** — the context exists, is not lost, and reports a positive
+   `MAX_TEXTURE_SIZE`. That is exactly the value whose `null` made X_ITE's texture
+   guard misfire, so proving it readable proves the state the parser depends on.
+2. **Recovery** — waiting cannot revive a context the engine will never restore,
+   so a dead context is replaced: the old browser is disposed and a fresh
+   `<x3d-canvas>` (same attributes, same `id`) is swapped in, at most
+   `maxRecreates` times.
+3. **Bounds** — finite deadline (8000 ms), short poll (50 ms), returns the instant
+   the predicate holds, never spins, never loops forever. There is no fixed delay
+   anywhere in the contract.
+4. **Retry safety** — a failed acquisition caches neither a rejected promise nor a
+   half-initialised browser, so **Refresh Preview** re-attempts initialization in
+   the same process. Recovery is never "relaunch the app".
+
+Measured on the reproducing Windows first launch: the gate entered with the dead
+context at ~514 ms, replaced the canvas once, and returned a usable browser
+**231 ms** later; a warm launch satisfies the predicate immediately with zero
+replacements.
+
+**Error classification is part of the contract.** A readiness failure is reported
+as `initError` and never as `parseError`: the document was never parsed, so it is
+never blamed and the user is never told to "fix the file". The same re-check runs
+in the parse `catch`, so a context that dies mid-parse is reclassified instead of
+being surfaced as X_ITE's disguised "Unexpected end of file". Genuinely malformed
+documents are unchanged: still `parseError`, still keeping the last valid scene,
+still recoverable with Refresh.
+
+Coverage: `test/preview/browser-readiness.test.js` (gate, on injected time),
+`test/renderer/preview-readiness.test.js` and
+`test/renderer/world-preview-readiness.test.js` (classification + retry safety,
+runtime tests against the real controllers).

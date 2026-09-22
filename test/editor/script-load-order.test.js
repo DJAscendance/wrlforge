@@ -30,6 +30,9 @@ const ROOT = path.join(__dirname, '..', '..');
 // maybePrompt immediately. Deferred scripts run in document order.
 const EDITOR_PAGE_SCRIPTS = [
   'src/preview/extrusion-bounds.js',
+  // The bounded X_ITE readiness gate must be defined before preview.js /
+  // world-preview.js, which read window.WrlBrowserReadiness at load time.
+  'src/preview/browser-readiness.js',
   'src/preview/bbox-traversal.js',
   'src/preview/guides.js',
   'src/preview/fit-math.js',

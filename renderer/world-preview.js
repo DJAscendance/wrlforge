@@ -54,17 +54,43 @@
     if (b) b.style.display = on ? 'inline-block' : 'none';
   }
 
+  // ---- X_ITE readiness -------------------------------------------------------
+  // Same X_ITE/WebGL startup contract as the Mall lane: X3D() resolving proves
+  // only that <x3d-canvas>.browser exists, not that its WebGL context is alive.
+  // The World preview reaches createX3DFromString() through the SAME X_ITE
+  // surface, so the SAME bounded readiness gate applies here -- no World Project
+  // behaviour, policy, or Mall rule is involved.
+  // See src/preview/browser-readiness.js.
+  const Readiness = window.WrlBrowserReadiness;
+
+  async function acquireBrowser() {
+    const res = await Readiness.acquireReadyBrowser({
+      awaitX3D: () => X3D(),
+      getBrowser: () => { const c = el('wpCanvas'); return c ? c.browser : null; },
+      recreateBrowser: () => {
+        const c = Readiness.replaceCanvasElement(document, 'wpCanvas');
+        return c ? c.browser : null;
+      },
+      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+      now: () => Date.now(),
+    });
+    browser = res.browser;
+    // Discover viewpoints authored inside nested Inline scenes too.
+    try { browser.setBrowserOption('EnableInlineViewpoints', true); } catch { /* older X_ITE */ }
+    return browser;
+  }
+
   async function ensureBrowser() {
-    if (browser) return browser;
+    if (browser && Readiness.isBrowserUsable(browser)) return browser;
+    if (browser) { browser = null; ready = null; }
     if (!ready) {
-      ready = (async () => {
-        await X3D();
-        const canvas = el('wpCanvas');
-        browser = canvas.browser;
-        // Discover viewpoints authored inside nested Inline scenes too.
-        try { browser.setBrowserOption('EnableInlineViewpoints', true); } catch { /* older X_ITE */ }
-        return browser;
-      })();
+      ready = acquireBrowser().catch((err) => {
+        // Never cache a rejected promise or a half-initialised browser: Refresh
+        // must be able to retry without restarting the app.
+        ready = null;
+        browser = null;
+        throw err;
+      });
     }
     return ready;
   }
@@ -78,12 +104,24 @@
 
   // ---- public: (re)load the current world into the preview -------------------
   // Returns the debug snapshot augmented with { ok } / { ok:false, parseError |
-  // error } so an orchestrator (the editor lane) can drive its own state machine
-  // while the existing QA hooks keep their fields.
+  // error | initError } so an orchestrator (the editor lane) can drive its own
+  // state machine while the existing QA hooks keep their fields. `initError` means
+  // the preview could not start -- no world text was parsed, so nothing about the
+  // project is being called invalid.
   async function load(opts = {}) {
     const source = (opts && opts.source) || (W ? defaultSource : null);
     if (!source) { setStatus('World preview unavailable (no bridge).', 'error'); return { ...debugState(), ok: false, error: 'no-bridge' }; }
-    await ensureBrowser();
+    try {
+      await ensureBrowser();
+    } catch (err) {
+      // Initialization failure -- no world text was parsed, so nothing about the
+      // project is being called invalid. Reported as initError, not parseError.
+      const msg = String((err && err.message) || err);
+      setStatus(msg + ' Use Refresh to try again.', 'error');
+      setStale(haveValidScene);
+      renderMeta();
+      return { ...debugState(), ok: false, initError: msg };
+    }
     setStatus('Loading world preview…');
     let payload;
     try {
@@ -115,6 +153,17 @@
       haveValidScene = true;
       setStale(false);
     } catch (err) {
+      // A dead WebGL context makes X_ITE throw from INSIDE its VRML parser, which
+      // rewrites it as "Unexpected end of file". Re-check readiness before
+      // blaming the world.
+      if (!Readiness.isBrowserUsable(browser)) {
+        browser = null; ready = null;   // next load()/Refresh re-acquires
+        const msg = '3D preview lost its graphics context before this world could be parsed. The world was NOT read as invalid — use Refresh to try again.';
+        setStatus(msg, 'error');
+        setStale(haveValidScene);
+        renderMeta();
+        return { ...debugState(), ok: false, initError: msg, detail: String((err && err.message) || err) };
+      }
       // Temporary parse error (e.g. a half-written external save): keep the last
       // valid scene AND its viewpoint, flag stale, allow a manual Refresh. Do NOT
       // clear the canvas.
@@ -231,11 +280,21 @@
   // replace the full scene with that piece missing instead of keeping the last
   // good version. Parser diagnostics are NOT consulted -- X_ITE decides.
   async function validateText(text) {
-    await ensureBrowser();
+    try {
+      await ensureBrowser();
+    } catch (err) {
+      return { ok: false, initError: String((err && err.message) || err) };
+    }
     try {
       await browser.createX3DFromString(String(text == null ? '' : text));
       return { ok: true };
     } catch (err) {
+      // Same separation as load(): a dead graphics context is never reported as
+      // the edited text being invalid.
+      if (!Readiness.isBrowserUsable(browser)) {
+        browser = null; ready = null;
+        return { ok: false, initError: '3D preview lost its graphics context; the text was not validated.', detail: String((err && err.message) || err) };
+      }
       return { ok: false, error: String((err && err.message) || err) };
     }
   }
