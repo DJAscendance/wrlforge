@@ -45,7 +45,7 @@ version drops the `-beta.N` suffix (`1.4.0`, not `1.4.0-beta.1`) and **Beta
 becomes a release-channel/status label** carried in the human-facing release
 name (`WRL Forge 1.4.0 (Beta)`) and the GitHub prerelease flag, not in the
 SemVer string itself. This is **not** a claim that the project has left beta —
-see [CHANGELOG.md](../CHANGELOG.md) for the `[1.4.0] - UNRELEASED` entry
+see [CHANGELOG.md](../CHANGELOG.md) for the `[1.4.0]` entry
 summarizing the source changes since `1.3.0-beta.3`.
 
 Once published, `1.4.0` supersedes `1.3.0-beta.5` below as the current

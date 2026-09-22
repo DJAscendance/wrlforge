@@ -54,7 +54,7 @@ GitHub release, including public beta releases.
 
 **Not sure which to pick?** On Linux, download the **AppImage**. On Windows, download the **Setup EXE**. On macOS, download the **DMG**.
 
-Canonical artifact file names (Version 1.4.0 (Beta), the current release-prep version — see [docs/RELEASES.md](docs/RELEASES.md) for what is actually published):
+Canonical artifact file names for the 1.4.0 (Beta) release — see [docs/RELEASES.md](docs/RELEASES.md) for release details:
 
 - Linux x64
   - `WRL-Forge-1.4.0-linux-x64.AppImage` (recommended)
