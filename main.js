@@ -1195,7 +1195,7 @@ ipcMain.handle('mall:check', async (_evt, editFile) => {
 //
 // Lane B B2: this handler is now THIN. It resolves the paths it owns and hands
 // the write to `repackMall`, which runs the shared safe-write discipline --
-// unchanged-gzip preservation, verified in-memory candidate, the 81,290 B
+// unchanged-gzip preservation, verified in-memory candidate, the 81,920 B
 // pre-write ceiling, then temp + fsync + read-back + backup + atomic rename.
 // The old direct `fs.writeFileSync(mallPath, out)` (and its own
 // backup-before-write) are gone: nothing outside file-io.js writes a real Mall

@@ -310,7 +310,7 @@ the user opts into a Cybertown profile.
     `src/editor/file-io.js` runs: an **unchanged gzip artifact is preserved**
     (no write, no backup, no new mtime), a changed one is encoded to a
     **verified in-memory candidate**, refused before any mutation if it is over
-    the exact **81,290 B** upload limit (`ESIZE`), and otherwise written to a
+    the exact **81,920 B** (80 KiB) upload limit (`ESIZE`), and otherwise written to a
     temp sibling, fsynced, read back, verified, backed up
     (`<name>.wrl.bak-<timestamp>`) and atomically renamed into place. Lane A
     then measures the **real** file on disk for the verdict — the pre-write
@@ -377,7 +377,7 @@ the user opts into a Cybertown profile.
    write: if the existing gzip artifact already decompresses to exactly this
    text it is **preserved untouched** (the button says *Already saved ✓*), which
    is what keeps a Zopfli-packed item from being re-encoded into an over-limit
-   file. A changed document that would exceed 81,290 B is **refused before
+   file. A changed document that would exceed 81,920 B is **refused before
    anything is written** (*Not saved*), leaving the existing artifact
    byte-identical. A real write backs up first, then swaps atomically.
 

@@ -26,10 +26,14 @@ const FORBIDDEN_NODES = [
   'HAnimHumanoid', 'HAnimJoint', 'HAnimSegment', 'HAnimSite',
 ];
 
-// The Cybertown Mall `.wrl` upload limit, in bytes, confirmed by the owner.
-// This is an exact byte count -- NOT 80 * 1024, NOT 80000, and not a rounded
-// "80 KB" display value. It is the only limit the Mall upload-size gate uses.
-const MALL_UPLOAD_MAX_BYTES = 81290;
+// The Cybertown Mall `.wrl` upload limit: 80 KiB, i.e. 80 * 1024 = 81,920 bytes,
+// confirmed by the owner. It is binary KiB, NOT a decimal 80,000. The rule is
+// written as the arithmetic it comes from rather than as a bare literal.
+// (A transposed 81,290 was propagated through the codebase and is wrong.)
+// It is the only limit the Mall upload-size gate uses.
+const MALL_UPLOAD_MAX_BYTES = 80 * 1024;
+// A separate policy that happens to share the same number -- the per-texture
+// ceiling is not the item upload ceiling. Do not merge them.
 const MAX_TEXTURE_BYTES = 80 * 1024;
 
 // Size states. `sizeStatus` answers "what do we actually know about the bytes

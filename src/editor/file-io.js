@@ -47,7 +47,7 @@
 //
 // This module stays PROFILE-NEUTRAL. `maxBytes` is a number the caller supplies;
 // file-io does not know what a Mall upload limit is and never imports
-// validator.js. The Mall's 81,290 B ceiling is passed in by src/mall/repack.js.
+// validator.js. The Mall's 81,920 B ceiling is passed in by src/mall/repack.js.
 
 const nodeFs = require('fs');
 const nodeZlib = require('zlib');
