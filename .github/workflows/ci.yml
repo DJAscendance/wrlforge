@@ -2,8 +2,8 @@ name: CI
 
 # Non-visual continuous integration for WRL Forge.
 # Runs the node test suite, the syntax/check gate, deterministic icon
-# generation, product-posture checks, and packaging-config validation on both
-# Ubuntu and Windows. It deliberately does NOT launch any Electron visual QA
+# generation, product-posture checks, and packaging-config validation on Ubuntu,
+# Windows, and macOS. It deliberately does NOT launch any Electron visual QA
 # suite -- those run one process at a time under the sanctioned VisualQaRunner
 # locally, never concurrently in CI.
 
@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

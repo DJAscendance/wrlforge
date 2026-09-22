@@ -54,15 +54,42 @@
   function fmtVec(v) { return v.map(fmt).join(', '); }
   function pct(r) { return Number.isFinite(r) ? Math.round(r * 100) + '%' : 'unbounded'; }
 
+  // ---- X_ITE readiness ---------------------------------------------------
+  // X3D() resolving only proves <x3d-canvas>.browser exists -- NOT that its
+  // WebGL context is alive. On a Windows first launch from a fresh application
+  // directory that context can already be lost, and parsing against it throws
+  // from inside X_ITE's VRML parser, which disguises the failure as
+  // "Unexpected end of file". src/preview/browser-readiness.js holds the bounded
+  // predicate + recovery; this lane only supplies the DOM/X_ITE bindings.
+  const Readiness = window.WrlBrowserReadiness;
+
+  async function acquireBrowser() {
+    const res = await Readiness.acquireReadyBrowser({
+      awaitX3D: () => X3D(),
+      getBrowser: () => { const c = el('preview'); return c ? c.browser : null; },
+      recreateBrowser: () => {
+        const c = Readiness.replaceCanvasElement(document, 'preview');
+        return c ? c.browser : null;
+      },
+      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+      now: () => Date.now(),
+    });
+    browser = res.browser;
+    return browser;
+  }
+
   async function ensureBrowser() {
-    if (browser) return browser;
+    if (browser && Readiness.isBrowserUsable(browser)) return browser;
+    // A browser that went unusable is discarded, not reused.
+    if (browser) { browser = null; ready = null; }
     if (!ready) {
-      ready = (async () => {
-        await X3D();
-        const canvas = el('preview');
-        browser = canvas.browser;
-        return browser;
-      })();
+      ready = acquireBrowser().catch((err) => {
+        // Never leave a rejected promise (or a half-initialised browser) cached:
+        // Refresh Preview must be able to try again without restarting the app.
+        ready = null;
+        browser = null;
+        throw err;
+      });
     }
     return ready;
   }
@@ -129,10 +156,22 @@ ${body}
 
   // ---- public: (re)load the current source into the preview --------------
   // Returns a small status object so an orchestrator (the editor lane) can drive
-  // its own state machine: { ok:true } | { ok:false, parseError } | { ok:false, error }.
+  // its own state machine: { ok:true } | { ok:false, parseError } | { ok:false, error }
+  // | { ok:false, initError } (the preview could not start -- the document was
+  // never parsed, so it is never reported as malformed).
   async function load(opts = {}) {
     const source = (opts && opts.source) || defaultSource;
-    await ensureBrowser();
+    try {
+      await ensureBrowser();
+    } catch (err) {
+      // Initialization failure -- the document was never parsed, so it is never
+      // blamed. Reported as initError (NOT parseError) so callers can tell a
+      // runtime problem from a malformed file.
+      const msg = String((err && err.message) || err);
+      setStatus(msg + ' Use Refresh Preview to try again.', true);
+      renderReport({ initError: msg });
+      return { ok: false, initError: msg };
+    }
     setStatus('Loading preview…');
     let loaded;
     try {
@@ -151,6 +190,16 @@ ${body}
       await browser.replaceWorld(originalScene);
       lastGoodText = meta.text;
     } catch (err) {
+      // A dead WebGL context makes X_ITE throw from INSIDE its VRML parser, and
+      // the parser rewrites that as "Unexpected end of file". Re-check the
+      // readiness predicate before blaming the document.
+      if (!Readiness.isBrowserUsable(browser)) {
+        browser = null; ready = null;   // next load()/Refresh re-acquires
+        const msg = '3D preview lost its graphics context before this file could be parsed. The file was NOT read as invalid — use Refresh Preview to try again.';
+        setStatus(msg, true);
+        renderReport({ initError: msg });
+        return { ok: false, initError: msg, detail: String((err && err.message) || err) };
+      }
       // Temporary parse error (e.g. a half-written save): keep the last valid
       // scene, warn, and allow a manual retry. Do NOT clear the canvas.
       setStatus('Parse error — keeping last valid preview. Fix the file and Refresh. (' + (err && err.message || err) + ')', true);
@@ -268,6 +317,9 @@ ${body}
   function renderWarnings(extra) {
     const box = el('previewWarnings');
     const items = [];
+    if (extra && extra.initError) {
+      items.push(`<div class="warn err">Preview initialization failed (the document was not parsed): ${escapeHtml(extra.initError)}</div>`);
+    }
     if (extra && extra.parseError) {
       items.push(`<div class="warn err">Parse error (showing last valid preview): ${escapeHtml(extra.parseError)}</div>`);
     }
