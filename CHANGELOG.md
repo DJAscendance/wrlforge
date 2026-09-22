@@ -2,11 +2,53 @@
 
 All notable changes to WRL Forge are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project uses semantic-style version numbers with beta/prerelease tags.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Releases through `1.3.0-beta.5` used semantic-style version numbers with
+`-beta.N` prerelease tags. Starting with `1.4.0`, **Beta is a release
+channel/status label, not part of the version string** — the machine version is
+plain semver (`1.4.0`) and the human-facing release name carries the status
+(`WRL Forge 1.4.0 (Beta)`). See [docs/RELEASES.md](docs/RELEASES.md).
 
 WRL Forge is in **public beta**: releases are **beta / prerelease** and Windows
 builds are **unsigned by design**. Not a stable/production release.
+
+## [1.4.0] - UNRELEASED
+
+**Beta.** Release-prep source changes since `1.3.0-beta.3` (the last logged
+public release; `1.3.0-beta.4`/`.5` shipped without their own changelog
+entries). Summarized from the commit history — see git log for full detail.
+
+### Added
+
+- Crash recovery for the native editor.
+- Accessibility and performance checks/improvements.
+- A preferences and settings surface.
+- Cross-platform (macOS/Apple Silicon) development support — an **unsigned
+  Apple Silicon developer build only**; the public release assets remain
+  **Linux x64 and Windows x64**, unchanged.
+- Substantial `src/vrml/` document-core work underlying the model editor: the
+  span-patch edit algebra, the generated VRML97/X3D node schema, two-tier node
+  identity, and the DEF/USE/PROTO/`IS`/ROUTE scope-semantics resolver (WD1.1–WD1.5).
+
+### Fixed
+
+- Corrected the Mall upload ceiling to `80 * 1024 = 81,920` bytes.
+- Mall repack now uses the measured artifact size, not an assumed one, for
+  upload-size truth.
+- Unchanged buffers are preserved byte-for-byte as gzip on save (no
+  spurious re-compression), with the write authority kept in the main process.
+- Windows and gzip-preservation tests made cross-platform/host-portable
+  (no host-root or macOS-alias assumptions baked into fixtures).
+- Cross-platform CI validation gates repaired.
+
+### Notes
+
+- WRL Forge relicensed to `GPL-3.0-or-later` during this cycle; White Dune and
+  other GPL-compatible open-source material may now be reused with preserved
+  notices and recorded provenance — see `OPEN_SOURCE_PROVENANCE.md`.
+- This entry documents release-prep source state. It is **not yet tagged,
+  built, or published** — see [docs/RELEASES.md](docs/RELEASES.md) for what is
+  actually available for download.
 
 ## [1.3.0-beta.3] - 2026-07-25
 

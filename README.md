@@ -53,17 +53,17 @@ GitHub release, including public beta releases.
 
 **Not sure which to pick?** On Linux, download the **AppImage**. On Windows, download the **Setup EXE**.
 
-Canonical artifact file names:
+Canonical artifact file names (Version 1.4.0 (Beta), the current release-prep version — see [docs/RELEASES.md](docs/RELEASES.md) for what is actually published):
 
 - Linux x64
-  - `WRL-Forge-1.3.0-beta.3-linux-x64.AppImage` (recommended)
-  - `WRL-Forge-1.3.0-beta.3-linux-x64.tar.gz` (portable app directory)
+  - `WRL-Forge-1.4.0-linux-x64.AppImage` (recommended)
+  - `WRL-Forge-1.4.0-linux-x64.tar.gz` (portable app directory)
 - Windows x64
-  - `WRL-Forge-Setup-1.3.0-beta.3-x64.exe` (recommended — NSIS installer)
-  - `WRL-Forge-1.3.0-beta.3-x64.msi` (MSI installer)
-  - `WRL-Forge-Portable-1.3.0-beta.3-x64.exe` (portable, no install)
-  - `WRL-Forge-1.3.0-beta.3-windows-x64.zip` (portable unpacked app)
-- Checksums: `SHA256SUMS-1.3.0-beta.3.txt`
+  - `WRL-Forge-Setup-1.4.0-x64.exe` (recommended — NSIS installer)
+  - `WRL-Forge-1.4.0-x64.msi` (MSI installer)
+  - `WRL-Forge-Portable-1.4.0-x64.exe` (portable, no install)
+  - `WRL-Forge-1.4.0-windows-x64.zip` (portable unpacked app)
+- Checksums: `SHA256SUMS-1.4.0.txt`
 
 These are **unsigned beta** builds. See [Known Limitations](#known-limitations) and [docs/INSTALLATION.md](docs/INSTALLATION.md) for install details.
 
