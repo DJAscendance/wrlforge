@@ -2,19 +2,24 @@
 
 WRL Forge runs from source on Linux, Windows, and macOS (`npm start`). Phase 6A
 added a **private, unsigned Windows test build**; Phase 6B promoted it to a **private beta**
-(`1.1.0-beta.1`, labelled **Private Beta — Unsigned**). No public release, code
-signing, auto-update, or store packaging is configured (intentionally — see the
-roadmap and "Excluded" scope). Signing *readiness* (for a future approved
+(`1.1.0-beta.1`, labelled **Private Beta — Unsigned**). Public beta releases are
+now published from the Release workflow. Code signing is configured for
+**macOS only**; Linux and Windows artifacts remain deliberately unsigned, and no
+auto-update or store packaging is configured (intentionally — see the roadmap
+and "Excluded" scope). Windows signing *readiness* (for a future approved
 certificate) is documented separately in `docs/SIGNING_READINESS.md`; beta
 install/testing instructions are in `docs/BETA_RELEASE_NOTES.md`.
 
 The macOS lane produces a **Developer ID signed, notarized and stapled Apple
-Silicon build**. It is not yet wired into the published release workflow (that is
-a separate lane); the artifacts are built locally on an Apple Silicon Mac.
+Silicon build**. It **is** wired into the published release workflow: the
+`.github/workflows/release.yml` Release workflow builds, signs, notarizes, and
+staples the public macOS arm64 DMG and ZIP on GitHub Actions. The same lane can
+also be run locally on an Apple Silicon Mac with the credentials below.
 
 ## Prerequisites
 
-- Node 20+ and npm.
+- Node 24 and npm. Use Node 24 for development and release builds; hosted CI
+  and release automation run on Node 24.
 - `npm install` (installs `x_ite` runtime + `electron`/`electron-builder` dev deps).
 - For the **macOS** DMG/ZIP: an Apple Silicon Mac, plus a **Developer ID
   Application** certificate and private key in the login keychain and a
@@ -155,8 +160,7 @@ deterministically unsigned (artifacts confirmed to have an empty PE certificate
 table). The wrapper replaces the old POSIX inline-env form
 (`CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder …`), which cmd.exe could not
 parse — so `npm run build:win` now works **both** cross-built on Linux (with wine)
-**and natively on Windows** (Phase 7C5; Node 20+ — verified on Windows 11 with Node
-24). Output lands in `release/` (git-ignored):
+**and natively on Windows** (Phase 7C5; verified on Windows 11 with Node 24). Output lands in `release/` (git-ignored):
 
 - `WRL Forge-<version>-x64-PrivateBeta-Unsigned-portable.exe` — single-file
   portable app (no install; run directly).

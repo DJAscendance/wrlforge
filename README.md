@@ -7,10 +7,10 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3%2B-blue.svg)](LICENSE) [![DeepScan grade](https://deepscan.io/api/teams/30342/projects/32189/branches/1050698/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=30342&pid=32189&bid=1050698) ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/DJAscendance/wrlforge?utm_source=oss&utm_medium=github&utm_campaign=DJAscendance%2Fwrlforge&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-A Linux-first, Windows-supported desktop tool for editing, previewing, inspecting, and packaging classic VRML97 `.wrl` content for Cybertown items and worlds.
+A desktop tool for editing, previewing, inspecting, and packaging classic VRML97 `.wrl` content for Cybertown items and worlds, with builds for Linux, Windows, and macOS.
 
-**Status:** Public beta · prerelease · unsigned · x64 only
-**Platforms:** Linux x64 · Windows x64
+**Status:** Public beta · prerelease
+**Platforms:** Linux x64 · Windows x64 · macOS Apple Silicon (arm64)
 
 **➡️ [Download WRL Forge](https://wrlforge.com)**
 
@@ -50,10 +50,11 @@ GitHub release, including public beta releases.
 |---|---|---|
 | Linux x64 | AppImage | tar.gz |
 | Windows x64 | Setup EXE | MSI, portable EXE, ZIP |
+| macOS arm64 | DMG | ZIP |
 
-**Not sure which to pick?** On Linux, download the **AppImage**. On Windows, download the **Setup EXE**.
+**Not sure which to pick?** On Linux, download the **AppImage**. On Windows, download the **Setup EXE**. On macOS, download the **DMG**.
 
-Canonical artifact file names (Version 1.4.0 (Beta), the current release-prep version — see [docs/RELEASES.md](docs/RELEASES.md) for what is actually published):
+Canonical artifact file names for the 1.4.0 (Beta) release — see [docs/RELEASES.md](docs/RELEASES.md) for release details:
 
 - Linux x64
   - `WRL-Forge-1.4.0-linux-x64.AppImage` (recommended)
@@ -63,13 +64,16 @@ Canonical artifact file names (Version 1.4.0 (Beta), the current release-prep ve
   - `WRL-Forge-1.4.0-x64.msi` (MSI installer)
   - `WRL-Forge-Portable-1.4.0-x64.exe` (portable, no install)
   - `WRL-Forge-1.4.0-windows-x64.zip` (portable unpacked app)
+- macOS Apple Silicon (arm64)
+  - `WRL-Forge-1.4.0-mac-arm64.dmg` (recommended)
+  - `WRL-Forge-1.4.0-mac-arm64.zip` (zipped app bundle)
 - Checksums: `SHA256SUMS-1.4.0.txt`
 
-These are **unsigned beta** builds. See [Known Limitations](#known-limitations) and [docs/INSTALLATION.md](docs/INSTALLATION.md) for install details.
+The Linux and Windows builds are **unsigned**. The macOS build is **Developer ID Application signed, notarized, and stapled**, and is expected to pass Gatekeeper normally. See [Known Limitations](#known-limitations) and [docs/INSTALLATION.md](docs/INSTALLATION.md) for install details.
 
 ## Quick Start
 
-1. **Install.** Download the recommended artifact for your platform (Linux → AppImage, Windows → Setup EXE) and follow [docs/INSTALLATION.md](docs/INSTALLATION.md).
+1. **Install.** Download the recommended artifact for your platform (Linux → AppImage, Windows → Setup EXE, macOS → DMG) and follow [docs/INSTALLATION.md](docs/INSTALLATION.md).
 2. **Open a `.wrl` file.** Plain or gzip-compressed — WRL Forge handles both transparently.
 3. **Edit** in the native editor: syntax highlighting, outline, diagnostics, themes, and zoom.
 4. **Preview your unsaved changes** in the live split-view X_ITE preview — no need to save first.
@@ -103,7 +107,7 @@ See the full, screenshot-driven guide: **[docs/SCREENSHOTS_AND_USAGE.md](docs/SC
 - The portable EXE has a documented **stdout-handshake QA limitation** (affects automated capture only, not normal use).
 - Historical, nonstandard VRML extensions may not behave identically to the original platform.
 - Parser **advisories are advisory-only**; the **X_ITE runtime is authoritative** for what actually renders.
-- **x64-only** public beta (no ARM64, no macOS).
+- macOS builds are **Apple Silicon (arm64) only** — there is no Intel (x64) macOS build. Linux and Windows are **x64 only** (no ARM64).
 - **No direct upload** — the World Project Bundle is a manual hand-off.
 
 For install and runtime troubleshooting, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
@@ -120,7 +124,7 @@ For questions and general help, use [GitHub Discussions](https://github.com/DJAs
 
 ## Development
 
-WRL Forge requires **Node 20+** (built and tested on Node 20.20.2). The only runtime dependency is **`x_ite`** (MIT); everything else (CodeMirror, `@lezer`, esbuild, Electron, electron-builder, `@resvg/resvg-js`) is a dev dependency.
+Use **Node 24** for development and release builds. Hosted CI and release automation run on Node 24. The only runtime dependency is **`x_ite`** (MIT); everything else (CodeMirror, `@lezer`, esbuild, Electron, electron-builder, `@resvg/resvg-js`) is a dev dependency.
 
 ```bash
 npm ci                  # install dependencies
@@ -135,10 +139,11 @@ npm run dist:windows    # build Windows NSIS + MSI + portable + ZIP (run on Wind
 ```
 
 The macOS command produces a **Developer ID signed, notarized and stapled**
-Apple Silicon build. It requires a Developer ID Application certificate and a
-notarization credential on the build host; it is not yet one of the published
-public-beta downloads. See [docs/BUILD.md](docs/BUILD.md) for the signing
-contract and verification steps.
+Apple Silicon build. Building it locally requires a Developer ID Application
+certificate and a notarization credential on the build host; the published
+macOS downloads are built and signed by the Release workflow on GitHub Actions.
+See [docs/BUILD.md](docs/BUILD.md) for the signing contract and verification
+steps.
 
 See [docs/BUILD.md](docs/BUILD.md) for full build and packaging details, and [CHANGELOG.md](CHANGELOG.md) for release history.
 
