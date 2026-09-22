@@ -63,7 +63,8 @@
     "@resvg/resvg-js": "^2.6.2",
     "electron": "^41.7.1",
     "electron-builder": "^26.15.3",
-    "esbuild": "^0.24.2"
+    "esbuild": "^0.24.2",
+    "js-yaml": "^4.3.0"
   },
   "build": {
     "appId": "com.wrlforge.app",

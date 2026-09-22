@@ -1,14 +1,23 @@
 name: Release
 
 # Builds the WRL Forge public-beta artifacts natively on Ubuntu (AppImage,
-# tar.gz) and Windows (NSIS EXE, MSI, portable EXE, ZIP) from the exact tag,
-# assembles a combined SHA-256 manifest, and creates a DRAFT PRERELEASE with
-# every asset attached. The draft is published (undrafted) only after Linux +
-# Windows verification passes -- this workflow never publishes on its own.
+# tar.gz), Windows (NSIS EXE, MSI, portable EXE, ZIP) and Apple Silicon macOS
+# (Developer ID signed + notarized DMG and ZIP) from the exact tag, assembles a
+# combined SHA-256 manifest, and creates a DRAFT PRERELEASE with every asset
+# attached. The draft is published (undrafted) only after owner verification --
+# this workflow never publishes on its own.
 #
 # Uses only official actions (checkout, setup-node, upload/download-artifact)
-# and the built-in GitHub CLI; no third-party release action. Unsigned by
-# design (build:win / build-dist force CSC_IDENTITY_AUTO_DISCOVERY=false).
+# and the built-in GitHub CLI; no third-party release action.
+#
+# Code-signing posture is deliberately asymmetric:
+#   Linux   -- unsigned by design (build-dist forces CSC_IDENTITY_AUTO_DISCOVERY=false).
+#   Windows -- unsigned by design (build:win forces the same).
+#   macOS   -- Developer ID Application signed, Hardened Runtime, notarized and
+#              stapled (app AND DMG), because an unsigned macOS build is refused
+#              by Gatekeeper outright. Credentials come from repository secrets
+#              into an EPHEMERAL keychain and a temporary API-key file, both
+#              destroyed in an always-run cleanup step.
 
 on:
   push:
@@ -37,7 +46,7 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run build:icons
@@ -63,7 +72,7 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run build:icons
@@ -97,9 +106,218 @@ jobs:
             release/WRL-Forge-Portable-*-x64.exe
             release/WRL-Forge-*-windows-x64.zip
 
+  build-macos:
+    name: Build macOS artifacts (signed + notarized, Apple Silicon)
+    runs-on: macos-latest
+    env:
+      # Paths only -- no credential value is ever written to a workflow file.
+      SIGNING_KEYCHAIN: ${{ runner.temp }}/wrl-forge-signing.keychain-db
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+
+      # A runner LABEL is not an architecture guarantee. The public Apple
+      # Silicon release must be built natively; a silent x64 cross-build would
+      # ship a Rosetta-only binary under an arm64 filename.
+      - name: Require a native Apple Silicon runner
+        run: |
+          set -euo pipefail
+          arch="$(uname -m)"
+          echo "runner architecture: ${arch}"
+          if [ "${arch}" != "arm64" ]; then
+            echo "FAIL: the public macOS release must be built natively on arm64, got '${arch}'." >&2
+            echo "Refusing to cross-build the signed Apple Silicon artifacts." >&2
+            exit 1
+          fi
+
+      # Fail fast and legibly if the owner has not provisioned the secrets.
+      # Presence only -- never a value, never a length.
+      - name: Require macOS signing and notarization secrets
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in MACOS_CERTIFICATE_P12_BASE64 MACOS_CERTIFICATE_PASSWORD \
+                      APPLE_API_KEY_P8 APPLE_API_KEY_ID APPLE_API_ISSUER; do
+            if [ -z "${!name:-}" ]; then
+              echo "MISSING secret: ${name}" >&2
+              missing=1
+            else
+              echo "present: ${name}"
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then
+            echo "FAIL: macOS release signing requires all five secrets above." >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:icons
+      - run: npm run build:editor
+
+      # Ephemeral keychain. The hosted runner holds no Developer ID private key
+      # by default, and the owner's local Mac keychain is never involved.
+      - name: Import Developer ID certificate into an ephemeral keychain
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          cert_path="${RUNNER_TEMP}/developer-id.p12"
+          # Generated in-job: never a secret, never reused, never persisted.
+          keychain_password="$(openssl rand -base64 32)"
+
+          printf '%s' "${MACOS_CERTIFICATE_P12_BASE64}" | base64 --decode > "${cert_path}"
+          if [ ! -s "${cert_path}" ]; then
+            echo "FAIL: MACOS_CERTIFICATE_P12_BASE64 did not decode to a non-empty file." >&2
+            exit 1
+          fi
+
+          security create-keychain -p "${keychain_password}" "${SIGNING_KEYCHAIN}"
+          security set-keychain-settings -lut 21600 "${SIGNING_KEYCHAIN}"
+          security unlock-keychain -p "${keychain_password}" "${SIGNING_KEYCHAIN}"
+
+          security import "${cert_path}" \
+            -k "${SIGNING_KEYCHAIN}" \
+            -P "${MACOS_CERTIFICATE_PASSWORD}" \
+            -f pkcs12 \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+
+          # Let codesign use the imported private key without an interactive
+          # prompt. Scoped to Apple tooling, not "any application".
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "${keychain_password}" "${SIGNING_KEYCHAIN}" > /dev/null
+
+          # Make it discoverable by electron-builder's identity lookup without
+          # evicting the runner's own keychains from the search list.
+          existing="$(security list-keychains -d user | sed -e 's/^ *//' -e 's/"//g')"
+          # shellcheck disable=SC2086
+          security list-keychains -d user -s "${SIGNING_KEYCHAIN}" ${existing}
+
+          rm -f "${cert_path}"
+
+          if ! security find-identity -v -p codesigning "${SIGNING_KEYCHAIN}" \
+               | grep -q 'Developer ID Application'; then
+            echo "FAIL: no Developer ID Application identity in the imported keychain." >&2
+            exit 1
+          fi
+          echo "Developer ID Application identity present in the ephemeral keychain."
+
+          echo "CSC_KEYCHAIN=${SIGNING_KEYCHAIN}" >> "${GITHUB_ENV}"
+
+      # App Store Connect API key -- the documented CI notarization method.
+      - name: Stage the App Store Connect API key
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key_path="${RUNNER_TEMP}/apple-api-key.p8"
+          printf '%s\n' "${APPLE_API_KEY_P8}" > "${key_path}"
+          chmod 600 "${key_path}"
+          if ! grep -q 'BEGIN PRIVATE KEY' "${key_path}"; then
+            echo "FAIL: APPLE_API_KEY_P8 is not a PEM private key." >&2
+            echo "Store the raw contents of the AuthKey_<id>.p8 file in that secret." >&2
+            rm -f "${key_path}"
+            exit 1
+          fi
+          echo "APPLE_API_KEY=${key_path}" >> "${GITHUB_ENV}"
+
+      # Reuses the approved trust pipeline merged by PR #16 verbatim:
+      # electron-builder signs + notarizes + staples the .app, and the
+      # afterAllArtifactBuild hook (scripts/notarize-dmg.js) signs + notarizes +
+      # staples the DMG. Both fail closed.
+      - name: Build signed + notarized DMG and ZIP
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: npm run dist:mac
+
+      - name: List macOS artifacts
+        run: ls -la release/
+
+      # Trust verification GATES the upload: nothing reaches the draft release
+      # unless Gatekeeper reports a notarized Developer ID app and both the app
+      # and the DMG carry stapled tickets.
+      - name: Verify macOS trust before upload
+        run: |
+          set -euo pipefail
+          app="release/mac-arm64/WRL Forge.app"
+          [ -d "${app}" ] || { echo "FAIL: ${app} not found." >&2; exit 1; }
+
+          dmg="$(ls release/WRL-Forge-*-mac-arm64.dmg)"
+          zip="$(ls release/WRL-Forge-*-mac-arm64.zip)"
+          echo "app: ${app}"
+          echo "dmg: ${dmg}"
+          echo "zip: ${zip}"
+
+          echo '== codesign --verify --deep --strict =='
+          codesign --verify --deep --strict --verbose=2 "${app}"
+
+          echo '== Hardened Runtime =='
+          codesign -dv --verbose=4 "${app}" > codesign-app.txt 2>&1
+          grep -E '^CodeDirectory' codesign-app.txt || true
+          grep -q 'flags=.*runtime' codesign-app.txt || {
+            echo "FAIL: the app bundle is not built with Hardened Runtime." >&2; exit 1; }
+
+          echo '== stapler validate (app) =='
+          xcrun stapler validate "${app}"
+
+          echo '== spctl assessment (app) =='
+          spctl --assess --verbose --type exec "${app}" > spctl-app.txt 2>&1 || {
+            cat spctl-app.txt >&2; echo "FAIL: Gatekeeper rejected the app." >&2; exit 1; }
+          cat spctl-app.txt
+          grep -q 'accepted' spctl-app.txt || {
+            echo "FAIL: Gatekeeper did not accept the app." >&2; exit 1; }
+          grep -q 'source=Notarized Developer ID' spctl-app.txt || {
+            echo "FAIL: Gatekeeper source is not 'Notarized Developer ID'." >&2; exit 1; }
+
+          echo '== stapler validate (dmg) =='
+          xcrun stapler validate "${dmg}"
+
+          echo '== codesign --verify (dmg) =='
+          codesign --verify --strict --verbose=2 "${dmg}"
+
+          [ -s "${zip}" ] || { echo "FAIL: the mac-arm64 ZIP is missing or empty." >&2; exit 1; }
+          rm -f codesign-app.txt spctl-app.txt
+          echo 'macOS trust verification PASSED.'
+
+      # Only the two public artifacts. The unpacked .app is never a release asset.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          if-no-files-found: error
+          path: |
+            release/WRL-Forge-*-mac-arm64.dmg
+            release/WRL-Forge-*-mac-arm64.zip
+
+      # Runs even when the build or verification failed.
+      - name: Destroy signing credentials
+        if: always()
+        run: |
+          set -uo pipefail
+          rm -f "${RUNNER_TEMP}/developer-id.p12" "${RUNNER_TEMP}/apple-api-key.p8" || true
+          if [ -n "${SIGNING_KEYCHAIN:-}" ] && [ -f "${SIGNING_KEYCHAIN}" ]; then
+            security delete-keychain "${SIGNING_KEYCHAIN}" || true
+          fi
+          echo 'signing credentials destroyed'
+
   draft-release:
     name: Assemble draft prerelease
-    needs: [build-linux, build-windows]
+    needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -121,13 +339,29 @@ jobs:
           cd dist-assets
           echo "== assets =="
           ls -la
-          sha256sum WRL-Forge-* > "SHA256SUMS-${VERSION}.txt"
+          # Deterministic manifest order, independent of shell glob collation.
+          # The manifest is named SHA256SUMS-* so it can never be its own input.
+          MANIFEST="SHA256SUMS-${VERSION}.txt"
+          : > "$MANIFEST"
+          find . -maxdepth 1 -type f -name 'WRL-Forge-*' -print \
+            | sed 's|^\./||' \
+            | LC_ALL=C sort \
+            | while IFS= read -r asset; do
+                sha256sum "$asset" >> "$MANIFEST"
+              done
           echo "== checksums =="
-          cat "SHA256SUMS-${VERSION}.txt"
-          # Guard: all six required artifacts must be present.
-          for pat in "linux-x64.AppImage" "linux-x64.tar.gz" "Setup-${VERSION}-x64.exe" "${VERSION}-x64.msi" "Portable-${VERSION}-x64.exe" "windows-x64.zip"; do
+          cat "$MANIFEST"
+          # Guard: all EIGHT required platform artifacts must be present.
+          for pat in "linux-x64.AppImage" "linux-x64.tar.gz" \
+                     "Setup-${VERSION}-x64.exe" "${VERSION}-x64.msi" \
+                     "Portable-${VERSION}-x64.exe" "windows-x64.zip" \
+                     "${VERSION}-mac-arm64.dmg" "${VERSION}-mac-arm64.zip"; do
             ls WRL-Forge-*"$pat" >/dev/null || { echo "MISSING artifact: *$pat"; exit 1; }
           done
+          PLATFORM_COUNT="$(find . -maxdepth 1 -type f -name 'WRL-Forge-*' | wc -l | tr -d ' ')"
+          if [ "$PLATFORM_COUNT" -ne 8 ]; then
+            echo "FAIL: expected 8 platform artifacts, found $PLATFORM_COUNT"; exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Create or update draft prerelease
         env:
@@ -138,7 +372,20 @@ jobs:
           VERSION="${{ steps.assemble.outputs.version }}"
           NOTES="docs/RELEASES.md"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG exists -> uploading assets (clobber)"
+            # An existing release is only ever a re-run of an UNPUBLISHED draft.
+            # A release the owner has already published is public: clobbering
+            # its assets would silently swap the bytes users downloaded. The
+            # state is read as JSON booleans -- never scraped from human output.
+            STATE="$(gh release view "$TAG" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')"
+            IS_DRAFT="${STATE%% *}"
+            IS_PRERELEASE="${STATE##* }"
+            echo "existing release $TAG: isDraft=$IS_DRAFT isPrerelease=$IS_PRERELEASE"
+            if [ "$IS_DRAFT" != "true" ] || [ "$IS_PRERELEASE" != "true" ]; then
+              echo "FAIL: Refusing to modify $TAG: the existing GitHub Release is not a draft prerelease (isDraft=$IS_DRAFT, isPrerelease=$IS_PRERELEASE)." >&2
+              echo "Publication is an owner action and a published release is immutable to this workflow." >&2
+              exit 1
+            fi
+            echo "Release $TAG is an unpublished draft prerelease -> uploading assets (clobber)"
             gh release upload "$TAG" dist-assets/* --clobber
           else
             gh release create "$TAG" dist-assets/* \
