@@ -109,9 +109,6 @@ jobs:
   build-macos:
     name: Build macOS artifacts (signed + notarized, Apple Silicon)
     runs-on: macos-latest
-    env:
-      # Paths only -- no credential value is ever written to a workflow file.
-      SIGNING_KEYCHAIN: ${{ runner.temp }}/wrl-forge-signing.keychain-db
     steps:
       - uses: actions/checkout@v4
         with:
@@ -174,6 +171,10 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+          # Derived in-step, not in job-level `env`: the `runner` context is
+          # not available there, and using it aborts the whole workflow at
+          # startup before any job is created.
+          SIGNING_KEYCHAIN="${RUNNER_TEMP}/wrl-forge-signing.keychain-db"
           cert_path="${RUNNER_TEMP}/developer-id.p12"
           # Generated in-job: never a secret, never reused, never persisted.
           keychain_password="$(openssl rand -base64 32)"
@@ -309,8 +310,10 @@ jobs:
         if: always()
         run: |
           set -uo pipefail
+          # Same derivation as the import step -- no job-level `env` carries it.
+          SIGNING_KEYCHAIN="${RUNNER_TEMP}/wrl-forge-signing.keychain-db"
           rm -f "${RUNNER_TEMP}/developer-id.p12" "${RUNNER_TEMP}/apple-api-key.p8" || true
-          if [ -n "${SIGNING_KEYCHAIN:-}" ] && [ -f "${SIGNING_KEYCHAIN}" ]; then
+          if [ -f "${SIGNING_KEYCHAIN}" ]; then
             security delete-keychain "${SIGNING_KEYCHAIN}" || true
           fi
           echo 'signing credentials destroyed'

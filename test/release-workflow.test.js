@@ -414,3 +414,33 @@ test('the workflow source never embeds a credential value', () => {
     'no private key material in the workflow');
   assert.ok(!/MII[A-Za-z0-9+/]{40,}/.test(source), 'no base64 certificate blob in the workflow');
 });
+
+// Regression: GitHub run 35714654191 (PR #17 head 6696c2f) was a STARTUP
+// FAILURE -- zero jobs, no logs, no annotation text. A `${{ runner.temp }}` in
+// `build-macos`'s job-level `env:` is not a valid context there, and an invalid
+// expression aborts the whole workflow at load time. The visible symptom is
+// nastier than the typo: the workflow then registers a failing run against
+// EVERY branch push, not only the `v*` tags it declares, because the trigger
+// list itself never gets evaluated. The keychain path is derived from
+// `${RUNNER_TEMP}` inside each step instead, which is a plain shell variable
+// and always available.
+test('no job-level env entry uses the runner context', () => {
+  const scopes = [['workflow', doc.env], ...Object.entries(doc.jobs).map(([n, j]) => [n, j.env])];
+  for (const [name, env] of scopes) {
+    for (const [key, value] of Object.entries(env || {})) {
+      assert.ok(!/\$\{\{\s*runner\./.test(String(value)),
+        `${name} env.${key} uses the runner context, which aborts the workflow at startup`);
+    }
+  }
+});
+
+test('the ephemeral keychain path is derived from RUNNER_TEMP in-step', () => {
+  const mac = runs('build-macos');
+  const derivations = [...mac.matchAll(/SIGNING_KEYCHAIN="\$\{RUNNER_TEMP\}\/\S+"/g)];
+  assert.strictEqual(derivations.length, 2,
+    'both the import step and the cleanup step must derive SIGNING_KEYCHAIN themselves');
+  assert.strictEqual(new Set(derivations.map((m) => m[0])).size, 1,
+    'the import step and the cleanup step must derive the SAME path');
+  assert.ok(/echo "CSC_KEYCHAIN=\$\{SIGNING_KEYCHAIN\}" >> "\$\{GITHUB_ENV\}"/.test(mac),
+    'CSC_KEYCHAIN must still be exported to later steps through GITHUB_ENV');
+});
