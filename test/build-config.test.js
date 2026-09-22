@@ -165,6 +165,12 @@ test('the shipped macOS config declares the signed public posture', () => {
   assert.strictEqual(mac.entitlementsInherit, 'assets/entitlements.mac.inherit.plist');
 });
 
+// Strip XML comment blocks only. Line-based filtering used to drop any indented
+// line, which could hide a real forbidden entitlement from the assertion below.
+function stripXmlComments(xml) {
+  return xml.replace(/<!--[\s\S]*?-->/g, '');
+}
+
 test('the declared entitlement plists exist and grant only the Electron minimum', () => {
   for (const rel of [realPkg.build.mac.entitlements, realPkg.build.mac.entitlementsInherit]) {
     const file = path.join(ROOT, rel);
@@ -178,7 +184,7 @@ test('the declared entitlement plists exist and grant only the Electron minimum'
 
     // Forbidden without a measured failure proving the need. get-task-allow in
     // particular makes the build un-notarizable.
-    const body = xml.split('\n').filter((l) => !/^\s*(<!--|[^<]*-->|\s)/.test(l)).join('\n');
+    const body = stripXmlComments(xml);
     for (const forbidden of [
       'com.apple.security.cs.disable-library-validation',
       'com.apple.security.get-task-allow',
@@ -187,6 +193,19 @@ test('the declared entitlement plists exist and grant only the Electron minimum'
       assert.ok(!body.includes(forbidden), `${rel} must not grant ${forbidden}`);
     }
   }
+});
+
+test('the entitlement comment strip ignores comments but keeps indented plist content', () => {
+  const forbidden = 'com.apple.security.get-task-allow';
+  const commented = `<dict>\n  <!--\n    <key>${forbidden}</key>\n    <true/>\n  -->\n  <key>com.apple.security.cs.allow-jit</key>\n  <true/>\n</dict>\n`;
+  assert.ok(!stripXmlComments(commented).includes(forbidden),
+    'a forbidden entitlement inside a comment must not be treated as granted');
+  assert.ok(stripXmlComments(commented).includes('com.apple.security.cs.allow-jit'),
+    'normal indented plist content must survive the strip');
+
+  const granted = `<dict>\n  <key>${forbidden}</key>\n  <true/>\n</dict>\n`;
+  assert.ok(stripXmlComments(granted).includes(forbidden),
+    'a forbidden entitlement in normal indented XML must still be detected');
 });
 
 test('only the inherit plist carries com.apple.security.inherit', () => {

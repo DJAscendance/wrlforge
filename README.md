@@ -37,7 +37,7 @@ Rendering is **X_ITE only** — the sole approved renderer.
 - **No custom renderer** — X_ITE is the only renderer.
 - **No official Cybertown affiliation.**
 - **No guarantee** that every historical VRML extension behaves identically to the original platform.
-- **No telemetry, analytics, ads, auto-update, code signing, or crash upload.**
+- **No telemetry, analytics, ads, auto-update, or crash upload.**
 
 ## Download
 
