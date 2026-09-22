@@ -149,9 +149,10 @@
     "mac": {
       "icon": "assets/generated/icons/macos/icon.png",
       "category": "public.app-category.graphics-design",
-      "identity": null,
-      "hardenedRuntime": false,
-      "notarize": false,
+      "hardenedRuntime": true,
+      "notarize": true,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.inherit.plist",
       "target": [
         {
           "target": "dmg",
@@ -213,6 +214,7 @@
       "perMachine": false,
       "artifactName": "WRL-Forge-${version}-x64.msi"
     },
+    "afterAllArtifactBuild": "scripts/notarize-dmg.js",
     "compression": "normal",
     "npmRebuild": false
   }

@@ -37,7 +37,7 @@ Rendering is **X_ITE only** — the sole approved renderer.
 - **No custom renderer** — X_ITE is the only renderer.
 - **No official Cybertown affiliation.**
 - **No guarantee** that every historical VRML extension behaves identically to the original platform.
-- **No telemetry, analytics, ads, auto-update, code signing, or crash upload.**
+- **No telemetry, analytics, ads, auto-update, or crash upload.**
 
 ## Download
 
@@ -130,13 +130,15 @@ npm test                # non-visual test suite
 npm run check           # tests + syntax gate
 npm start               # run in development
 npm run dist:linux      # build Linux AppImage + tar.gz (run on Linux)
-npm run dist:mac        # build unsigned Apple Silicon DMG + ZIP (run on macOS)
+npm run dist:mac        # build signed+notarized Apple Silicon DMG + ZIP (run on macOS)
 npm run dist:windows    # build Windows NSIS + MSI + portable + ZIP (run on Windows)
 ```
 
-The macOS command currently produces an **unsigned Apple Silicon developer
-build** for port testing; it is not yet one of the published public-beta
-downloads. See [docs/BUILD.md](docs/BUILD.md) for the Gatekeeper implications.
+The macOS command produces a **Developer ID signed, notarized and stapled**
+Apple Silicon build. It requires a Developer ID Application certificate and a
+notarization credential on the build host; it is not yet one of the published
+public-beta downloads. See [docs/BUILD.md](docs/BUILD.md) for the signing
+contract and verification steps.
 
 See [docs/BUILD.md](docs/BUILD.md) for full build and packaging details, and [CHANGELOG.md](CHANGELOG.md) for release history.
 
