@@ -8,7 +8,7 @@
 #
 # test/fixtures/gzip-encodings/** is covered by the rule below and depends on it
 # absolutely: those three files prove that the SAME VRML text can be a legal
-# gzip .wrl on either side of the 81,290 B Mall upload limit. Their exact byte
+# gzip .wrl on either side of the 81,920 B (80 KiB) Mall upload limit. Their exact byte
 # counts ARE the assertion (see test/preview/fixture-byte-contract.test.js).
 test/fixtures/** -text
 spikes/xite-mall-fit/fixtures/** -text

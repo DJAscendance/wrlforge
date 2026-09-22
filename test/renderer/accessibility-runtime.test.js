@@ -28,7 +28,7 @@ const SIZE_PAYLOAD = {
   sizeAuthority: 'measured',
   sizeStatus: 'pass',
   sizeReason: 'measured',
-  mallUploadMaxBytes: 81290,
+  mallUploadMaxBytes: 81920,
 };
 
 // ---- minimal DOM stub ------------------------------------------------------
@@ -627,12 +627,12 @@ test('measured state shows the artifact bytes, the verdict, and the prediction s
   assert.notEqual(r.artifactSize, r.predictedSize,
     'the measured artifact and the predicted repack are different numbers');
   assert.match(r.note, /measured/i);
-  assert.match(r.note, /81,290/, 'the limit is shown with a measured verdict');
+  assert.match(r.note, /81,920/, 'the limit is shown with a measured verdict');
   assert.equal(r.stat._classes.has('size-pass'), true);
 });
 
 test('an over-limit measured artifact reads FAIL, in words and in class', async () => {
-  const r = await renderSize({ artifactBytes: 81291, sizeStatus: 'fail' });
+  const r = await renderSize({ artifactBytes: 81921, sizeStatus: 'fail' });
   assert.equal(r.verdict, 'FAIL');
   assert.equal(r.stat._classes.has('size-fail'), true);
   assert.equal(r.stat._classes.has('over'), true);
@@ -672,7 +672,7 @@ test('unknown state says no gzip artifact exists and shows only a prediction', a
 test('the size tile carries its state in an accessible name, not only in colour', async () => {
   const measured = await renderSize({ artifactBytes: 72820, sizeStatus: 'pass' });
   assert.match(measured.stat.getAttribute('aria-label'), /72,820 bytes/);
-  assert.match(measured.stat.getAttribute('aria-label'), /limit 81,290 bytes/);
+  assert.match(measured.stat.getAttribute('aria-label'), /limit 81,920 bytes/);
   assert.match(measured.stat.getAttribute('aria-label'), /PASS/);
 
   const stale = await renderSize({ sizeStatus: 'stale', sizeReason: 'stale-artifact' });
@@ -686,7 +686,7 @@ test('the size tile carries its state in an accessible name, not only in colour'
 
 test('the size check row renders STALE / NOT VERIFIED instead of a PASS or FAIL badge', async () => {
   const rows = (status) => ([{
-    name: 'Upload size within 81,290 B', pass: null, detail: 'not verified', severity: 'info', status,
+    name: 'Upload size within 81,920 B', pass: null, detail: 'not verified', severity: 'info', status,
   }]);
 
   for (const [status, badge] of [['stale', 'STALE'], ['unknown', 'NOT VERIFIED']]) {

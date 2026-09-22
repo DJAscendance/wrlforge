@@ -78,7 +78,7 @@ test('B2: an unchanged gzip Mall artifact is preserved byte-for-byte, with no ba
 // --- 2. over-limit refusal ---------------------------------------------------
 
 // A deterministic, cross-platform way to exercise the ceiling without shipping
-// an 81 KB fixture: inject a zlib whose gzip output is padded past the limit.
+// an 80 KiB fixture: inject a zlib whose gzip output is padded past the limit.
 // The bytes still decode correctly, so the ONLY thing that refuses the save is
 // the size guard -- which is exactly what this test must isolate.
 function oversizeZlib(overBy) {
@@ -107,7 +107,8 @@ test('B2: an over-limit gzip candidate is refused BEFORE any mutation (ESIZE)', 
   assert.equal(res.saved, false, 'the save was refused');
   assert.equal(res.preserved, false);
   assert.equal(res.errorCode, 'ESIZE');
-  assert.equal(res.maxBytes, MALL_UPLOAD_MAX_BYTES, 'the exact 81,290 B limit');
+  assert.equal(res.maxBytes, MALL_UPLOAD_MAX_BYTES, 'the exact 80 KiB limit');
+  assert.equal(res.maxBytes, 81920, 'the Mall ceiling is 80 * 1024 = 81,920 B');
   assert.ok(res.candidateBytes > MALL_UPLOAD_MAX_BYTES, 'candidate is over the limit');
   assert.equal(res.overBytes, res.candidateBytes - MALL_UPLOAD_MAX_BYTES,
     'overBytes === candidateBytes - limit');
@@ -145,6 +146,7 @@ test('B2: a candidate of exactly the limit is ALLOWED (guard is >, not >=)', () 
 
   assert.equal(res.saved, true, 'exactly at the limit must be allowed');
   assert.equal(res.preserved, false);
+  assert.equal(MALL_UPLOAD_MAX_BYTES, 81920, 'boundary is 80 * 1024 = 81,920 B');
   assert.equal(res.writtenBytes, MALL_UPLOAD_MAX_BYTES,
     'the candidate really was exactly the limit');
   assert.equal(fs.statSync(p).size, MALL_UPLOAD_MAX_BYTES);
@@ -155,6 +157,7 @@ test('B2: a candidate of exactly the limit is ALLOWED (guard is >, not >=)', () 
   const res2 = repackMall({ mallPath: p2, text: edited, asGzip: true }, { zlib: oversizeZlib(1) });
   assert.equal(res2.saved, false);
   assert.equal(res2.errorCode, 'ESIZE');
+  assert.equal(res2.candidateBytes, 81921, 'exactly 81,921 B is the first refused size');
   assert.equal(res2.overBytes, 1, 'one byte over is one byte over');
   assert.equal(fs.existsSync(p2), false, 'nothing was created');
 });

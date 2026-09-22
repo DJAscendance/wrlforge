@@ -30,7 +30,16 @@ const PLAIN = path.join(FX, 'twin.plain.wrl');
 const SMALL_GZ = path.join(FX, 'twin-small.wrl.gz');
 const LARGE_GZ = path.join(FX, 'twin-large.wrl.gz');
 
+// The limit-straddling pair. The original twins prove ENCODING VARIANCE (same
+// text, very different legal gzip sizes) but both now sit under the corrected
+// 81,920 B ceiling, so they can no longer prove the LIMIT STRADDLE. That proof
+// moved to this second committed pair.
+const LIMIT_PLAIN = path.join(FX, 'limit-twin.plain.wrl');
+const LIMIT_SMALL_GZ = path.join(FX, 'limit-twin-small.wrl.gz');
+const LIMIT_LARGE_GZ = path.join(FX, 'limit-twin-large.wrl.gz');
+
 const twinText = () => fs.readFileSync(PLAIN, 'utf8');
+const limitTwinText = () => fs.readFileSync(LIMIT_PLAIN, 'utf8');
 const sizeCtx = (over = {}) => ({
   artifactBytes: 1000, artifactIsGzip: true, artifactMatchesText: true, ...over,
 });
@@ -48,19 +57,21 @@ const sizeRow = (r) => r.results.find((c) => c.name.startsWith('Upload size'));
 // The authoritative limit
 // ---------------------------------------------------------------------------
 
-test('the Mall upload limit is exactly 81,290 bytes -- not 80 KiB, not 80,000', () => {
-  assert.equal(MALL_UPLOAD_MAX_BYTES, 81290);
-  assert.notEqual(MALL_UPLOAD_MAX_BYTES, 80 * 1024);
+test('the Mall upload limit is 80 KiB -- 80 * 1024 = 81,920 bytes, not decimal 80,000', () => {
+  assert.equal(MALL_UPLOAD_MAX_BYTES, 80 * 1024);
+  assert.equal(MALL_UPLOAD_MAX_BYTES, 81920);
   assert.notEqual(MALL_UPLOAD_MAX_BYTES, 80000);
+  // 81,290 was a transposed typo that was briefly promoted into the contract.
+  assert.notEqual(MALL_UPLOAD_MAX_BYTES, 81290);
 });
 
-test('the limit is inclusive: exactly 81,290 B passes, 81,291 B fails', () => {
-  const at = validate(VALID, sizeCtx({ artifactBytes: 81290 }));
+test('the limit is inclusive: exactly 81,920 B passes, 81,921 B fails', () => {
+  const at = validate(VALID, sizeCtx({ artifactBytes: 81920 }));
   assert.equal(at.sizeStatus, 'pass');
   assert.equal(at.ok, true);
   assert.equal(at.mallReady, true);
 
-  const over = validate(VALID, sizeCtx({ artifactBytes: 81291 }));
+  const over = validate(VALID, sizeCtx({ artifactBytes: 81921 }));
   assert.equal(over.sizeStatus, 'fail');
   assert.equal(over.ok, false, 'a measured over-limit artifact is a HARD failure');
   assert.equal(over.mallReady, false);
@@ -70,18 +81,19 @@ test('no MAX_GZIP constant survives, and the gate reads the one named limit', ()
   const validatorSrc = fs.readFileSync(path.join(__dirname, '..', 'validator.js'), 'utf8');
   const rendererSrc = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'renderer.js'), 'utf8');
 
-  // `MAX_GZIP_BYTES` (80 KiB) and the renderer's duplicate `MAX_GZIP` were two
-  // separate wrong limits. Both must be gone, not merely corrected in one place.
+  // `MAX_GZIP_BYTES` and the renderer's duplicate `MAX_GZIP` were two separate
+  // competing limits. Both must be gone, not merely corrected in one place --
+  // the point is ONE named constant, whatever its value.
   assert.equal(/\bMAX_GZIP(_BYTES)?\b/.test(validatorSrc), false);
   assert.equal(/\bMAX_GZIP(_BYTES)?\b/.test(rendererSrc), false);
 
   // Executable code (comments stripped) must compare against the named constant.
   const code = validatorSrc.replace(/\/\/[^\n]*/g, '');
   assert.match(code, /bytes <= MALL_UPLOAD_MAX_BYTES/);
-  assert.equal(/\b(81920|80000)\b/.test(code), false, 'no competing Mall limit literal');
+  assert.equal(/\b(81290|80000)\b/.test(code), false, 'no competing Mall limit literal');
 
   // The renderer must not hard-code the limit at all -- it reads it from the payload.
-  assert.equal(/\b81290\b/.test(rendererSrc), false,
+  assert.equal(/\b(81920|81290|80000)\b/.test(rendererSrc), false,
     'the renderer must take the limit from mallUploadMaxBytes, not duplicate it');
 });
 
@@ -132,10 +144,36 @@ test('the committed twins decompress to identical bytes at different artifact si
     'same text must be able to produce different legal gzip sizes');
 });
 
-test('two legal encodings of the SAME text straddle the limit: small PASSes, large FAILs', () => {
+// (A) ENCODING VARIANCE. The original twins are 451 B and 81,781 B of the same
+// text. Under the corrected 80 KiB ceiling BOTH pass -- so this pair proves the
+// variance, and nothing about the limit. It is not an over-limit artifact.
+test('the original twins are both UNDER the corrected limit -- variance, not a straddle', () => {
   const text = twinText();
   const small = validate(text, measureArtifact(SMALL_GZ, text));
   const large = validate(text, measureArtifact(LARGE_GZ, text));
+
+  assert.equal(small.artifactBytes, 451);
+  assert.equal(large.artifactBytes, 81781);
+  assert.ok(small.artifactBytes <= MALL_UPLOAD_MAX_BYTES);
+  assert.ok(large.artifactBytes <= MALL_UPLOAD_MAX_BYTES,
+    '81,781 B is under 81,920 B and must not be treated as over-limit');
+  assert.equal(small.sizeStatus, 'pass');
+  assert.equal(large.sizeStatus, 'pass');
+
+  // A ~181x size difference from identical text is the point of the pair.
+  assert.equal(small.textBytes, large.textBytes);
+  assert.equal(small.predictedRepackBytes, large.predictedRepackBytes);
+  assert.notEqual(small.artifactBytes, large.artifactBytes);
+  assert.equal(small.sizeAuthority, 'measured');
+  assert.equal(large.sizeAuthority, 'measured');
+});
+
+// (B) LIMIT STRADDLE. Same text, two legal gzip encodings, one on each side of
+// the real 81,920 B ceiling.
+test('two legal encodings of the SAME text straddle the limit: small PASSes, large FAILs', () => {
+  const text = limitTwinText();
+  const small = validate(text, measureArtifact(LIMIT_SMALL_GZ, text));
+  const large = validate(text, measureArtifact(LIMIT_LARGE_GZ, text));
 
   assert.equal(small.sizeStatus, 'pass');
   assert.equal(large.sizeStatus, 'fail');
@@ -150,8 +188,8 @@ test('two legal encodings of the SAME text straddle the limit: small PASSes, lar
 });
 
 test('the prediction cannot override the measurement in either direction', () => {
-  const text = twinText();
-  const large = validate(text, measureArtifact(LARGE_GZ, text));
+  const text = limitTwinText();
+  const large = validate(text, measureArtifact(LIMIT_LARGE_GZ, text));
   // The predicted repack is tiny and would "pass"; the real artifact does not.
   assert.ok(large.predictedRepackBytes <= MALL_UPLOAD_MAX_BYTES,
     'precondition: the prediction alone would have passed');

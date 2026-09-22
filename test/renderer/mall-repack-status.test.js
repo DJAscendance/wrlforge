@@ -195,7 +195,7 @@ test('B2 renderer: an ESIZE refusal shows "Not saved" with candidate, limit and 
   assert.match(rows, /Repack refused \(ESIZE\)/);
   assert.match(rows, new RegExp(candidate.toLocaleString().replace(/,/g, ',')),
     'the exact candidate byte count is shown');
-  assert.match(rows, /81,290 B limit/, 'the exact limit is shown');
+  assert.match(rows, /81,920 B limit/, 'the exact limit is shown');
   assert.match(rows, /by 1,234 B/, 'the exact overage is shown');
   assert.match(rows, /existing file was not changed/);
   // Lane A owns the "measured upload artifact" wording; a candidate is not one.

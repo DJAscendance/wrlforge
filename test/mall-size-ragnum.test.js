@@ -3,8 +3,8 @@
 //
 // "Ragnum Red" is the shipping Cybertown item that exposed the bug: a 72,820 B
 // gzip artifact holding 335,924 B of VRML. A Node zlib level-9 re-encode of that
-// text lands well above the 81,290 B limit, so the old predicted-size gate FAILED
-// an item that is comfortably inside it with 8,470 B to spare.
+// text lands well above the 81,920 B (80 KiB) limit, so the old predicted-size
+// gate FAILED an item that is comfortably inside it with 9,100 B to spare.
 //
 // The exact predicted byte count is NOT a portable fact: it depends on the
 // zlib build Node was linked against. The historical Linux baseline produced
@@ -60,12 +60,12 @@ test('Ragnum Red: the measured 72,820 B artifact PASSES where the prediction fai
   assert.equal(r.artifactMatchesText, true);
   assert.equal(r.sizeAuthority, 'measured');
   assert.equal(r.sizeStatus, 'pass');
-  assert.equal(r.mallUploadMaxBytes, 81290);
+  assert.equal(r.mallUploadMaxBytes, 81920);
 
   // The exact inversion the lane exists to fix.
   assert.ok(r.predictedRepackBytes > MALL_UPLOAD_MAX_BYTES, 'the prediction alone would FAIL');
   assert.ok(r.artifactBytes <= MALL_UPLOAD_MAX_BYTES, 'the real artifact PASSES');
-  assert.equal(MALL_UPLOAD_MAX_BYTES - r.artifactBytes, 8470, 'headroom');
+  assert.equal(MALL_UPLOAD_MAX_BYTES - r.artifactBytes, 9100, 'headroom under the 80 KiB ceiling');
 
   // The validator reports exactly what this runtime's predictor computes --
   // a build-independent identity, unlike the byte count itself.

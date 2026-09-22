@@ -4,7 +4,7 @@
 // "Ragnum Red" is the shipping Cybertown item that motivated the whole lane: a
 // 72,820 B gzip artifact holding 335,924 B of VRML, packed by a stronger
 // encoder than Node's zlib. The OLD repack re-encoded it on every save and
-// produced a file well over the 81,290 B upload limit -- WRLForge destroyed a
+// produced a file well over the 81,920 B upload limit -- WRLForge destroyed a
 // legal artifact and then reported the item as too big.
 //
 // The real item is NEVER written. It is copied into a scratch directory and the
