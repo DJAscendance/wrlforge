@@ -9,8 +9,9 @@ channel/status label, not part of the version string** — the machine version i
 plain semver (`1.4.0`) and the human-facing release name carries the status
 (`WRL Forge 1.4.0 (Beta)`). See [docs/RELEASES.md](docs/RELEASES.md).
 
-WRL Forge is in **public beta**: releases are **beta / prerelease** and Windows
-builds are **unsigned by design**. Not a stable/production release.
+WRL Forge is in **public beta**: releases are **beta / prerelease**. Linux and
+Windows builds are **unsigned by design**; macOS builds are Developer ID
+signed, notarized, and stapled. Not a stable/production release.
 
 ## [1.4.0] - UNRELEASED
 
@@ -23,9 +24,9 @@ entries). Summarized from the commit history — see git log for full detail.
 - Crash recovery for the native editor.
 - Accessibility and performance checks/improvements.
 - A preferences and settings surface.
-- Cross-platform (macOS/Apple Silicon) development support — an **unsigned
-  Apple Silicon developer build only**; the public release assets remain
-  **Linux x64 and Windows x64**, unchanged.
+- **macOS Apple Silicon (arm64) support**, published as part of the release:
+  a **Developer ID Application signed, notarized, and stapled** DMG and ZIP,
+  built on hosted CI. Linux x64 and Windows x64 remain unsigned.
 - Substantial `src/vrml/` document-core work underlying the model editor: the
   span-patch edit algebra, the generated VRML97/X3D node schema, two-tier node
   identity, and the DEF/USE/PROTO/`IS`/ROUTE scope-semantics resolver (WD1.1–WD1.5).
@@ -49,6 +50,8 @@ entries). Summarized from the commit history — see git log for full detail.
 - This entry documents release-prep source state. It is **not yet tagged,
   built, or published** — see [docs/RELEASES.md](docs/RELEASES.md) for what is
   actually available for download.
+- Public 1.4.0 assets: 8 platform artifacts (2 Linux x64, 4 Windows x64,
+  2 macOS arm64) plus `SHA256SUMS-1.4.0.txt` — 9 release assets in total.
 
 ## [1.3.0-beta.3] - 2026-07-25
 

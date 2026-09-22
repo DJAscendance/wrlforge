@@ -1,7 +1,7 @@
 # WRL Forge Releases
 
-This is the index of WRL Forge releases. WRL Forge is a Linux-first,
-Windows-supported desktop tool for classic VRML97 `.wrl` content.
+This is the index of WRL Forge releases. WRL Forge is a desktop tool for
+classic VRML97 `.wrl` content, with builds for Linux, Windows, and macOS.
 
 All releases are published on GitHub:
 **https://github.com/DJAscendance/wrlforge/releases**
@@ -11,10 +11,13 @@ All releases are published on GitHub:
 - **Public beta / prerelease.** WRL Forge is in **beta**. Versions are marked
   *Beta / Prerelease* and are **not** stable or production releases. Expect rough
   edges and changes between builds.
-- **Unsigned.** Windows builds are **not code-signed** (unsigned by design for
-  the beta). SmartScreen/Defender may warn on first launch — this is expected.
-- **x64 only.** Linux x64 and Windows x64. No ARM64, no macOS, no
-  Snap/Flatpak/Store package.
+- **Signing differs by platform.** Linux and Windows builds are **not
+  code-signed** (unsigned by design for the beta), so SmartScreen/Defender may
+  warn on first Windows launch — this is expected. macOS builds are **Developer
+  ID Application signed, notarized, and stapled**, and are expected to pass
+  Gatekeeper normally.
+- **Architectures.** Linux x64, Windows x64, and macOS Apple Silicon (arm64).
+  No Intel macOS build, no Linux/Windows ARM64, no Snap/Flatpak/Store package.
 - **Free and open source (GPL-3.0-or-later).** WRL Forge is licensed under the GNU
   General Public License, version 3 or any later version. See [`LICENSE`](../LICENSE),
   [`COPYRIGHT.md`](../COPYRIGHT.md), and
@@ -24,10 +27,18 @@ All releases are published on GitHub:
 
 ---
 
-## 1.4.0 (Beta) — Release Candidate (Not Yet Published)
+## 1.4.0 (Beta)
 
-**Status: Beta · Prerelease · Unsigned — release-prep candidate. Not yet
-tagged, built, or published. Not downloadable yet.**
+**Status: Beta · Prerelease**
+
+Machine version `1.4.0`; tag `v1.4.0`; human-facing release name **WRL Forge
+1.4.0 (Beta)**. This release is marked as a GitHub prerelease. Making it
+visible to the public is an owner-controlled action — the release workflow
+assembles a **draft** prerelease, and the owner decides whether and when to
+publish it.
+
+Linux and Windows artifacts are unsigned. macOS artifacts are Developer ID
+Application signed, notarized, and stapled.
 
 Starting with this release, **the versioning convention changes**: the machine
 version drops the `-beta.N` suffix (`1.4.0`, not `1.4.0-beta.1`) and **Beta
@@ -37,16 +48,40 @@ SemVer string itself. This is **not** a claim that the project has left beta —
 see [CHANGELOG.md](../CHANGELOG.md) for the `[1.4.0] - UNRELEASED` entry
 summarizing the source changes since `1.3.0-beta.3`.
 
-When this release is tagged (`v1.4.0`), built, and published, it will
-supersede `1.3.0-beta.5` below as the current release and this section will be
-updated with real artifact hashes from the release workflow's
-`SHA256SUMS-1.4.0.txt`. Until then, the most recent **actually published**
-release remains `1.3.0-beta.5` — see below.
+Once published, `1.4.0` supersedes `1.3.0-beta.5` below as the current
+release. Earlier releases listed further down this file remain available for
+reference.
 
-**Remaining pre-tag gate:** a Linux-side audit of the Mall upload-limit
-constant (`81,920` = `80 * 1024` bytes) across the `cybertownmall`/`ctr`/`CTNG`
-repositories is required before `v1.4.0` is tagged. Not performed in this
-release-prep pass.
+The authoritative SHA-256 values for every artifact in this release are in the
+`SHA256SUMS-1.4.0.txt` file attached to the release. No hashes are duplicated
+in this document; verify against the attached manifest.
+
+### 1.4.0 release assets
+
+**Linux x64** — unsigned
+
+- `WRL-Forge-1.4.0-linux-x64.AppImage` (recommended)
+- `WRL-Forge-1.4.0-linux-x64.tar.gz` (portable app directory)
+
+**Windows x64** — unsigned
+
+- `WRL-Forge-Setup-1.4.0-x64.exe` (recommended — NSIS installer)
+- `WRL-Forge-1.4.0-x64.msi` (MSI installer)
+- `WRL-Forge-Portable-1.4.0-x64.exe` (portable, no install)
+- `WRL-Forge-1.4.0-windows-x64.zip` (portable unpacked app)
+
+**macOS Apple Silicon (arm64)** — Developer ID Application signed, Hardened
+Runtime, notarized, stapled
+
+- `WRL-Forge-1.4.0-mac-arm64.dmg` (recommended)
+- `WRL-Forge-1.4.0-mac-arm64.zip` (zipped app bundle)
+
+**Checksums**
+
+- `SHA256SUMS-1.4.0.txt`
+
+That is **8 platform artifacts plus 1 checksum manifest — 9 release assets**.
+Verify any download against the attached `SHA256SUMS-1.4.0.txt`.
 
 ---
 
