@@ -9,12 +9,19 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const pkg = require(path.join(ROOT, 'package.json'));
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-test('macOS packaging is an unsigned Apple Silicon DMG + ZIP build', () => {
+test('macOS packaging is a Developer ID signed Apple Silicon DMG + ZIP build', () => {
   const mac = pkg.build.mac;
   assert.ok(mac, 'build.mac configuration missing');
-  assert.equal(mac.identity, null);
-  assert.equal(mac.hardenedRuntime, false);
-  assert.equal(mac.notarize, false);
+  // Public distribution posture. `identity: null` is electron-builder's "do not
+  // sign" switch; leaving it set produced a bundle with no Developer ID seal,
+  // which Gatekeeper rejects after download as "WRL Forge.app is damaged and
+  // can't be opened" -- the 1.4.0 release blocker.
+  assert.ok(!('identity' in mac),
+    'build.mac.identity must be absent so the Developer ID identity is discovered');
+  assert.equal(mac.hardenedRuntime, true);
+  assert.equal(mac.notarize, true);
+  assert.equal(mac.entitlements, 'assets/entitlements.mac.plist');
+  assert.equal(mac.entitlementsInherit, 'assets/entitlements.mac.inherit.plist');
   assert.equal(mac.category, 'public.app-category.graphics-design');
   // Only the configured path is asserted here. The generated file's existence,
   // decode, 1024px dimensions and deterministic regeneration are owned by
@@ -33,7 +40,7 @@ test('macOS packaging is an unsigned Apple Silicon DMG + ZIP build', () => {
   assert.ok(pkg.build.win.extraResources.some((entry) => entry.from === 'assets/generated/icons/windows'));
 });
 
-test('dist:mac uses the unsigned cross-platform wrapper and never publishes', () => {
+test('dist:mac uses the cross-platform wrapper and never publishes', () => {
   const command = pkg.scripts['dist:mac'];
   assert.match(command, /npm run build:icons/);
   assert.match(command, /npm run build:editor/);
@@ -43,6 +50,17 @@ test('dist:mac uses the unsigned cross-platform wrapper and never publishes', ()
   const wrapper = read('scripts/build-dist.js');
   assert.match(wrapper, /CSC_IDENTITY_AUTO_DISCOVERY/);
   assert.match(wrapper, /--publish['"\s,]+never/);
+});
+
+test('build-dist keeps Linux unsigned but lets macOS reach the keychain', () => {
+  // The asymmetry is the fix. Forcing discovery off for every platform is what
+  // left the macOS bundle without a Developer ID seal.
+  const wrapper = read('scripts/build-dist.js');
+  assert.ok(!/const env = \{ \.\.\.process\.env, CSC_IDENTITY_AUTO_DISCOVERY: 'false' \};/.test(wrapper),
+    'discovery must no longer be forced off unconditionally');
+  assert.match(wrapper, /isMacBuild/, 'wrapper must branch on the target platform');
+  assert.match(wrapper, /if \(!isMacBuild\) \{\s*env\.CSC_IDENTITY_AUTO_DISCOVERY = 'false';/,
+    'non-macOS builds must stay deterministically unsigned');
 });
 
 test('macOS lifecycle accepts Finder file-open and keeps the app alive without windows', () => {

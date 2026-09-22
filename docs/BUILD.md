@@ -8,15 +8,17 @@ roadmap and "Excluded" scope). Signing *readiness* (for a future approved
 certificate) is documented separately in `docs/SIGNING_READINESS.md`; beta
 install/testing instructions are in `docs/BETA_RELEASE_NOTES.md`.
 
-The macOS lane currently produces an **unsigned Apple Silicon developer build**
-for port testing. It is not yet part of the published release workflow.
+The macOS lane produces a **Developer ID signed, notarized and stapled Apple
+Silicon build**. It is not yet wired into the published release workflow (that is
+a separate lane); the artifacts are built locally on an Apple Silicon Mac.
 
 ## Prerequisites
 
 - Node 20+ and npm.
 - `npm install` (installs `x_ite` runtime + `electron`/`electron-builder` dev deps).
-- For the **macOS** DMG/ZIP: an Apple Silicon Mac. The first lane intentionally
-  disables signing, notarization, and hardened runtime.
+- For the **macOS** DMG/ZIP: an Apple Silicon Mac, plus a **Developer ID
+  Application** certificate and private key in the login keychain and a
+  notarization credential (see "macOS signing" below).
 - For the **Windows** build **from Linux**: `wine` (electron-builder uses it to
   stamp the exe icon/metadata and build the NSIS installer). Verified with
   `wine-9.0`. Building on Windows itself needs no wine.
@@ -50,13 +52,14 @@ Windows' **Change Icon** dialog. A build may start from a different variant with
 SVGs must never be modified; only owner-approved artwork may replace them. Full
 detail — sizes, determinism, regeneration, verification — is in **`docs/ICONS.md`**.
 
-## macOS developer build (unsigned, Apple Silicon)
+## macOS build (Developer ID signed + notarized, Apple Silicon)
 
 Run this on an Apple Silicon Mac:
 
 ```bash
 npm ci
 npm run check
+export APPLE_KEYCHAIN_PROFILE=<your notarytool profile>
 npm run dist:mac
 ```
 
@@ -67,12 +70,76 @@ electron-builder through `scripts/build-dist.js`. Output lands in `release/`:
 - `WRL-Forge-<version>-mac-arm64.zip` — zipped `.app` bundle.
 - `release/mac-arm64/WRL Forge.app` — unpacked application bundle.
 
-This first porting build is deliberately unsigned and unnotarized:
-`CSC_IDENTITY_AUTO_DISCOVERY=false`, `mac.identity=null`,
-`mac.hardenedRuntime=false`, and `mac.notarize=false`. Do not present it as a
-normal public download. Gatekeeper may quarantine a downloaded copy; signing and
-notarization are a separate release lane. The package registers `.wrl` and `.wrz`
-as editable document types, and `main.js` handles Finder's `open-file` event.
+The package registers `.wrl` and `.wrz` as editable document types, and `main.js`
+handles Finder's `open-file` event.
+
+### macOS signing
+
+The public macOS build is **Developer ID Application signed, Hardened Runtime,
+notarized and stapled**. This is not optional polish. An unsigned or ad-hoc
+("linker-signed") bundle downloads with the `com.apple.quarantine` attribute and
+Gatekeeper refuses it with:
+
+> "WRL Forge.app is damaged and can't be opened."
+
+That was the 1.4.0 release blocker. It is a *configuration* failure, not a code
+failure — the same bundle runs fine once quarantine is stripped, which is exactly
+why it survived functional QA.
+
+The contract, enforced by `.github/scripts/validate-build-config.js` and
+`test/build-config.test.js`:
+
+| setting | value | why |
+|---|---|---|
+| `mac.identity` | **absent** | `null` is electron-builder's "do not sign" switch |
+| `mac.hardenedRuntime` | `true` | notarization is rejected without it |
+| `mac.notarize` | `true` | electron-builder 26 takes a **boolean**, not the v24/25 `{ teamId }` object |
+| `mac.entitlements` | `assets/entitlements.mac.plist` | Hardened Runtime denies the JIT V8 needs |
+| `mac.entitlementsInherit` | `assets/entitlements.mac.inherit.plist` | helper processes inherit the posture |
+
+`scripts/build-dist.js` forces `CSC_IDENTITY_AUTO_DISCOVERY=false` for **Linux
+only**. Forcing it off for macOS too is what prevented identity discovery and
+produced the sealless bundle. Linux artifacts stay deterministically unsigned.
+
+**Entitlements are deliberately minimal** — `allow-jit` and
+`allow-unsigned-executable-memory`, nothing else. Do not add
+`disable-library-validation`, `get-task-allow` (which makes the build
+un-notarizable) or App Sandbox without a measured failure proving the need.
+
+**Credentials** are supplied only through the environment and are never read,
+logged or committed. Any one of:
+
+- `APPLE_KEYCHAIN_PROFILE` — a `xcrun notarytool store-credentials` profile.
+  Preferred locally: no password enters the environment.
+- `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD` + `APPLE_TEAM_ID`.
+- `APPLE_API_KEY` + `APPLE_API_KEY_ID` + `APPLE_API_ISSUER` — App Store Connect
+  API key, the right choice for CI.
+
+electron-builder signs and notarizes the `.app` and staples it, then builds the
+DMG around the stapled bundle. The `afterAllArtifactBuild` hook
+(`scripts/notarize-dmg.js`) then signs, notarizes and staples the **DMG itself**,
+so the container verifies offline too.
+
+That hook **fails closed**. Once the build contract asks for a macOS DMG, every
+trust stage is mandatory: a codesign, notarization or stapling failure, or the
+absence of a usable notarization credential, throws and fails the build. It must
+never be possible for `npm run dist:mac` to exit 0 while producing a DMG that is
+not fully trusted. The only clean no-op is an invocation that was never asked for
+a mac DMG at all, decided from the resolved targets rather than from whatever
+happens to be in the artifact list.
+
+### Verifying a macOS build
+
+```bash
+codesign --verify --deep --strict --verbose=2 "release/mac-arm64/WRL Forge.app"
+codesign -dv --verbose=4 "release/mac-arm64/WRL Forge.app"   # expect flags=0x10000(runtime)
+xcrun stapler validate "release/mac-arm64/WRL Forge.app"
+spctl --assess --verbose --type exec "release/mac-arm64/WRL Forge.app"
+```
+
+`spctl` must report **`accepted`** with **`source=Notarized Developer ID`**.
+Anything reporting `no usable signature`, `unidentified developer` or `rejected`
+must not ship.
 
 ## Windows beta build (unsigned)
 

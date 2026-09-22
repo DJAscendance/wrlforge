@@ -56,16 +56,37 @@ function validate(pkg, lock) {
   req(linuxTargets.includes('tar.gz'), 'linux target tar.gz missing');
   req(b.appImage && /WRL-Forge-\$\{version\}-linux-x64\.AppImage/.test(b.appImage.artifactName || ''), 'appImage.artifactName not canonical');
 
-  // --- macOS targets (first supported lane: Apple Silicon, unsigned) ---
-  const macTargets = (b.mac && b.mac.target || []).map((t) => t.target);
+  // --- macOS targets (public distribution: Apple Silicon, Developer ID) ---
+  // The public macOS build is signed with a Developer ID Application identity,
+  // runs under Hardened Runtime, and is notarized + stapled. An unsigned or
+  // ad-hoc-signed bundle is NOT shippable: a downloaded copy carries the
+  // com.apple.quarantine attribute and Gatekeeper reports "WRL Forge.app is
+  // damaged and can't be opened" (the 1.4.0 release blocker). These assertions
+  // exist so that posture cannot silently regress to the old developer-only one.
+  const mac = b.mac || {};
+  const macTargets = (mac.target || []).map((t) => t.target);
   for (const t of ['dmg', 'zip']) {
     req(macTargets.includes(t), `macOS target ${t} missing`);
   }
-  req(b.mac && b.mac.icon === 'assets/generated/icons/macos/icon.png', 'macOS icon path not canonical');
-  req(b.mac && b.mac.identity === null, 'macOS developer build must disable signing identity discovery');
-  req(b.mac && b.mac.hardenedRuntime === false, 'unsigned macOS build must disable hardened runtime');
-  req(b.mac && b.mac.notarize === false, 'macOS developer build must disable notarization');
-  for (const target of (b.mac && b.mac.target || [])) {
+  req(mac.icon === 'assets/generated/icons/macos/icon.png', 'macOS icon path not canonical');
+  req(mac.hardenedRuntime === true, 'macOS build must enable hardenedRuntime (notarization is rejected without it)');
+  req(mac.notarize === true, 'macOS build must enable notarization');
+  // `identity: null` is electron-builder's explicit "do not sign" switch. It
+  // must be absent entirely so the Developer ID identity is discovered from the
+  // keychain / CSC_* environment.
+  req(!('identity' in mac) || typeof mac.identity === 'string',
+    'macOS build must not disable signing (build.mac.identity must be absent, or a literal identity name)');
+  // Entitlements are part of the contract: Hardened Runtime denies the JIT and
+  // unsigned-executable-memory that V8 requires, so both plists must be wired up.
+  req(mac.entitlements === 'assets/entitlements.mac.plist', 'macOS entitlements path not canonical');
+  req(mac.entitlementsInherit === 'assets/entitlements.mac.inherit.plist', 'macOS inherited entitlements path not canonical');
+  // The DMG container is signed, notarized and stapled by this hook, not by
+  // electron-builder (dmg.sign defaults to false). Without it a public DMG
+  // assesses as "no usable signature"; the hook fails the build closed if any
+  // trust stage fails, so losing the wiring silently loses that guarantee.
+  req(b.afterAllArtifactBuild === 'scripts/notarize-dmg.js',
+    'build.afterAllArtifactBuild must wire scripts/notarize-dmg.js (the DMG trust hook)');
+  for (const target of (mac.target || [])) {
     req(Array.isArray(target.arch) && target.arch.includes('arm64'), `macOS target ${target.target || '<unknown>'} must include arm64`);
   }
   req(!b.extraResources, 'platform-specific resources must not be declared globally');
@@ -98,9 +119,25 @@ function validate(pkg, lock) {
 module.exports = { validate, SEMVER };
 
 if (require.main === module) {
+  const fs = require('fs');
+  const path = require('path');
   const pkg = require('../../package.json');
   const lock = require('../../package-lock.json');
   const problems = validate(pkg, lock);
+  // validate() is pure (manifests in, problems out) so it stays unit-testable
+  // without a filesystem. Existence of the entitlement plists is a real failure
+  // mode the manifests cannot express, so it is checked here at the CLI edge.
+  const repoRoot = path.join(__dirname, '..', '..');
+  const hook = pkg.build && pkg.build.afterAllArtifactBuild;
+  if (typeof hook === 'string' && !fs.existsSync(path.join(repoRoot, hook))) {
+    problems.push(`build.afterAllArtifactBuild points at a missing file: ${hook}`);
+  }
+  for (const key of ['entitlements', 'entitlementsInherit']) {
+    const rel = pkg.build && pkg.build.mac && pkg.build.mac[key];
+    if (typeof rel === 'string' && !fs.existsSync(path.join(repoRoot, rel))) {
+      problems.push(`build.mac.${key} points at a missing file: ${rel}`);
+    }
+  }
   if (problems.length) {
     console.error('Packaging config validation FAILED:');
     for (const p of problems) console.error('  - ' + p);
