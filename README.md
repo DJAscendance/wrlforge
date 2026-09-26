@@ -42,7 +42,7 @@ Rendering is **X_ITE only** — the sole approved renderer.
 ## Download
 
 Start at **[wrlforge.com](https://wrlforge.com)** for the recommended downloads,
-or browse [all GitHub releases](https://github.com/DJAscendance/wrlforge/releases)
+or browse [all GitHub releases](https://github.com/Ascendance3D/wrlforge/releases)
 for every package and checksum file. The website reads the newest published
 GitHub release, including public beta releases.
 
@@ -79,7 +79,7 @@ The Linux and Windows builds are **unsigned**. The macOS build is **Developer ID
 4. **Preview your unsaved changes** in the live split-view X_ITE preview — no need to save first.
 5. **Save.** Saves are backup-first and detect external changes to the file.
 6. **Open a World Project** — switch to the World Project lane and open a project folder or primary `.wrl` to scan a full multi-file world, preview it, and build a World Project Bundle.
-7. **Hit a problem?** [Report it](https://github.com/DJAscendance/wrlforge/issues/new/choose).
+7. **Hit a problem?** [Report it](https://github.com/Ascendance3D/wrlforge/issues/new/choose).
 
 For a screenshot-driven walkthrough, see [docs/SCREENSHOTS_AND_USAGE.md](docs/SCREENSHOTS_AND_USAGE.md).
 
@@ -114,13 +114,13 @@ For install and runtime troubleshooting, see [docs/TROUBLESHOOTING.md](docs/TROU
 
 ## Reporting Bugs
 
-Please file issues through the **[GitHub issue forms](https://github.com/DJAscendance/wrlforge/issues/new/choose)**. Three structured forms are available:
+Please file issues through the **[GitHub issue forms](https://github.com/Ascendance3D/wrlforge/issues/new/choose)**. Three structured forms are available:
 
 - **Bug report** — something is broken or behaving incorrectly.
 - **Installation or launch problem** — a download won't install or start (SmartScreen, errors, etc.).
 - **VRML compatibility report** — a `.wrl` renders or parses differently than expected.
 
-For questions and general help, use [GitHub Discussions](https://github.com/DJAscendance/wrlforge/discussions) or see [SUPPORT.md](SUPPORT.md). Please do not report security vulnerabilities in public issues — see [SECURITY.md](SECURITY.md).
+For questions and general help, use [GitHub Discussions](https://github.com/Ascendance3D/wrlforge/discussions) or see [SUPPORT.md](SUPPORT.md). Please do not report security vulnerabilities in public issues — see [SECURITY.md](SECURITY.md).
 
 ## Development
 
