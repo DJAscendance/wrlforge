@@ -16,7 +16,7 @@ classic VRML97 `.wrl` content. This guide covers every download for the
 
 Recommended downloads are on **https://wrlforge.com**. Every package and its
 checksum are also available from:
-**https://github.com/DJAscendance/wrlforge/releases**
+**https://github.com/Ascendance3D/wrlforge/releases**
 
 Verify your download against `SHA256SUMS-1.4.0.txt` before running it
 (see [Verifying your download](#verifying-your-download)).
@@ -269,7 +269,7 @@ artifacts; each line should report `OK`.
 
 If installation or launch fails, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 To report a problem, open an issue:
-**https://github.com/DJAscendance/wrlforge/issues**
+**https://github.com/Ascendance3D/wrlforge/issues**
 
 ---
 

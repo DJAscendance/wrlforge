@@ -4,7 +4,7 @@ This is the index of WRL Forge releases. WRL Forge is a desktop tool for
 classic VRML97 `.wrl` content, with builds for Linux, Windows, and macOS.
 
 All releases are published on GitHub:
-**https://github.com/DJAscendance/wrlforge/releases**
+**https://github.com/Ascendance3D/wrlforge/releases**
 
 ## About these versions
 
@@ -409,7 +409,7 @@ Compare the printed hash to the matching line in `SHA256SUMS-1.3.0-beta.2.txt`.
 
 - Troubleshooting guide: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - Bug reports (and what screenshots/evidence to attach): open an issue at
-  **https://github.com/DJAscendance/wrlforge/issues** — see
+  **https://github.com/Ascendance3D/wrlforge/issues** — see
   [What to attach to a bug report](TROUBLESHOOTING.md#what-to-attach-to-a-bug-report).
 
 ### Notes

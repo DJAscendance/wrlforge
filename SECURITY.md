@@ -21,7 +21,7 @@ and please do not disclose it publicly before it has been reviewed and addressed
 
 Use **GitHub private vulnerability reporting**:
 
-1. Go to the repository: <https://github.com/DJAscendance/wrlforge>
+1. Go to the repository: <https://github.com/Ascendance3D/wrlforge>
 2. Open the **Security** tab.
 3. Click **"Report a vulnerability"** and fill out the private advisory form.
 

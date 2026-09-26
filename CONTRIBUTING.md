@@ -73,8 +73,8 @@ WRL Forge one. Material with unknown or unverifiable origin cannot be accepted â
   Discussions or an issue, so scope and design can be talked through before you invest
   the time. This is courtesy, not a barrier.
 
-Issue forms: <https://github.com/DJAscendance/wrlforge/issues/new/choose>
-Discussions: <https://github.com/DJAscendance/wrlforge/discussions>
+Issue forms: <https://github.com/Ascendance3D/wrlforge/issues/new/choose>
+Discussions: <https://github.com/Ascendance3D/wrlforge/discussions>
 
 ## Building and testing
 

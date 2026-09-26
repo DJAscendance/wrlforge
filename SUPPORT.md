@@ -17,10 +17,10 @@ Please check the documentation first — many questions are already answered the
 ## Getting help
 
 - **Questions, ideas, and general discussion:** use **GitHub Discussions** on the repository —
-  <https://github.com/DJAscendance/wrlforge/discussions>. This is the best place for "how do
+  <https://github.com/Ascendance3D/wrlforge/discussions>. This is the best place for "how do
   I…", usage questions, and community help.
 - **Bug reports and VRML compatibility reports:** use the issue forms —
-  <https://github.com/DJAscendance/wrlforge/issues/new/choose>. Please pick the form that
+  <https://github.com/Ascendance3D/wrlforge/issues/new/choose>. Please pick the form that
   matches your report and fill in the details it asks for.
 
 ## Security issues

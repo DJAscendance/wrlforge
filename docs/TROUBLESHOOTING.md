@@ -5,7 +5,7 @@ public beta. Each entry is **symptom → likely cause → what to do**.
 
 If your problem isn't here, or a fix doesn't work, please open an issue and
 attach the evidence listed in [What to attach to a bug report](#what-to-attach-to-a-bug-report):
-**https://github.com/DJAscendance/wrlforge/issues**
+**https://github.com/Ascendance3D/wrlforge/issues**
 
 > WRL Forge renders exclusively with the **X_ITE** engine. X_ITE's runtime is the
 > authority for what actually appears on screen; the editor's parser advisories
@@ -194,7 +194,7 @@ limitation** in the QA capture path.
 ## What to attach to a bug report
 
 When you open an issue at
-**https://github.com/DJAscendance/wrlforge/issues**, please include:
+**https://github.com/Ascendance3D/wrlforge/issues**, please include:
 
 - **WRL Forge version** (e.g. `1.3.0-beta.3`) and which **download** you used
   (AppImage / tar.gz / Setup EXE / MSI / Portable EXE / ZIP).

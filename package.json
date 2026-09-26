@@ -6,10 +6,10 @@
   "homepage": "https://wrlforge.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DJAscendance/wrlforge.git"
+    "url": "https://github.com/Ascendance3D/wrlforge.git"
   },
   "bugs": {
-    "url": "https://github.com/DJAscendance/wrlforge/issues"
+    "url": "https://github.com/Ascendance3D/wrlforge/issues"
   },
   "scripts": {
     "start": "electron .",
